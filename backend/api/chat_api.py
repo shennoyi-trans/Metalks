@@ -16,10 +16,15 @@ def create_chat_router(chat_service: ChatService):
     async def chat_stream(body: dict):
 
         user_input = body["message"]
-        session_id = body.get("session_id", "default")
+        session_id = body.get("session_id", "default") # 可选，不填默认 "default"
+        mode = mode = body.get("mode", 1)  # 可选，默认置1，即观念测试
+        
+        # 前端需要这样发送：
+        # { "message": "...", "session_id":"...","mode": 1 }
+
 
         async def event_generator():
-            async for chunk in chat_service.stream_response(session_id, user_input):
+            async for chunk in chat_service.stream_response(session_id, mode,user_input):
                 # SSE 必须以 "data:" 开头
                 yield f"data: {chunk}\n\n"
 
