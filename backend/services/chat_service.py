@@ -1,9 +1,10 @@
 # backend/services/chat_service.py
 
 from typing import AsyncGenerator, Optional, List, Dict
+from backend.data.topics import TOPICS
 from backend.llm_client.base import LLMClient
 from backend.utils.prompt_loader import load_prompt
-from backend.data.topics import TOPICS
+from backend.utils.text_tools import strip_control_markers, parse_control_flags
 from backend.services.history_manager import HistoryManager
 
 
@@ -31,6 +32,7 @@ class ChatService:
         # 1. 决定 system_prompt
         # ======================
         system_prompt = load_prompt("model1/system.txt")
+        assistant_text: str = "" #初始化assistant_text
 
         # ======================
         # 2. mode1：话题测试
@@ -62,10 +64,22 @@ class ChatService:
                     history=history
                 ):
                     # 这里逐块返回模型的开场白
-                    yield chunk
+                    text = str(chunk)
+                    assistant_text += text         # 累积
+                    yield text
+                    
+                 # 4. 去掉内部控制标记（下面第二部分会讲），保留给用户看的文本
+                from backend.utils.text_tools import strip_control_markers
+                visible_text = strip_control_markers(assistant_text)
 
-                # 将模型完整回复加入历史（你可以在外面拼接完整内容再保存）
-                self.history_mgr.add(session_id, "assistant", "<开场白已发送>")
+                # 5. 把“用户可见的那部分”写入历史
+                self.history_mgr.add(session_id, "assistant", visible_text)
+
+                # 6. 解析控制信息（例如是否结束测试）
+                from backend.utils.text_tools import parse_control_flags
+                flags = parse_control_flags(assistant_text)
+                # 在这里可以根据 flags.end_test / flags.has_report 等做进一步动作
+
                 return
 
             else:
@@ -82,10 +96,21 @@ class ChatService:
                     user_prompt=final_prompt,
                     history=history
                 ):
+                    assistant_text += chunk         # 累积
                     yield chunk
 
-                # TODO: 这里可以把完整回复收集下来再写入 history
-                self.history_mgr.add(session_id, "assistant", "<模型回复已发送>")
+                 # 4. 去掉内部控制标记（下面第二部分会讲），保留给用户看的文本
+                from backend.utils.text_tools import strip_control_markers
+                visible_text = strip_control_markers(assistant_text)
+
+                # 5. 把“用户可见的那部分”写入历史
+                self.history_mgr.add(session_id, "assistant", visible_text)
+
+                # 6. 解析控制信息（例如是否结束测试）
+                from backend.utils.text_tools import parse_control_flags
+                flags = parse_control_flags(assistant_text)
+                # 在这里可以根据 flags.end_test / flags.has_report 等做进一步动作
+
                 return
 
         # ======================
@@ -110,9 +135,21 @@ class ChatService:
                 user_prompt=final_prompt,
                 history=history
             ):
+                assistant_text += chunk         # 累积
                 yield chunk
 
-            self.history_mgr.add(session_id, "assistant", "<模型回复已发送>")
+             # 4. 去掉内部控制标记（下面第二部分会讲），保留给用户看的文本
+            from backend.utils.text_tools import strip_control_markers
+            visible_text = strip_control_markers(assistant_text)
+
+            # 5. 把“用户可见的那部分”写入历史
+            self.history_mgr.add(session_id, "assistant", visible_text)
+
+            # 6. 解析控制信息（例如是否结束测试）
+            from backend.utils.text_tools import parse_control_flags
+            flags = parse_control_flags(assistant_text)
+            # 在这里可以根据 flags.end_test / flags.has_report 等做进一步动作
+
             return
 
         # ======================

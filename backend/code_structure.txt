@@ -22,6 +22,7 @@ backend/
 │   └── history_manager.py
 │
 ├── utils/
+│   ├── text_tools.py
 │   └── prompt_loader.py
 │
 └── main.py                      # FastAPI 入口
