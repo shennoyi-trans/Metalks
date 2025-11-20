@@ -1,25 +1,27 @@
 backend/
 │
+├── api/                         # API 层完全独立！前端改你只动这里
+│   ├── chat_api.py              # /chat 流式接口
+│   ├── topic_api.py              
+│   └── router.py                # 主路由
+│
+├── data/
+│   └── topics.py 
+│
 ├── llm_client/                  # 模块 1：LLM 调用层（你要的重点）
 │   ├── base.py
 │   ├── deepseek_client.py
 │   ├── mock_client.py
 │   └── factory.py
 │
+├── prompts/                     # 提示词库（外置便于修改）
+│   └── ...
+│
 ├── services/                    # 业务逻辑层（你可以先写这里！）
 │   ├── chat_service.py
 │   └── history_manager.py
 │
-├── prompts/                     # 提示词库（外置便于修改）
-│   ├── opinion_test/
-│   └── ...
-│
 ├── utils/
-│   ├── prompt_loader.py
-│   └── text_tools.py
-│
-├── api/                         # API 层完全独立！前端改你只动这里
-│   ├── chat_api.py              # /chat 流式接口
-│   └── router.py                # 主路由
+│   └── prompt_loader.py
 │
 └── main.py                      # FastAPI 入口

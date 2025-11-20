@@ -8,6 +8,8 @@ import aiohttp
 from typing import Dict, List, AsyncGenerator
 from .base import LLMClient
 from typing import Optional, List, Dict
+import json
+
 
 
 class DeepSeekClient(LLMClient):
@@ -20,7 +22,6 @@ class DeepSeekClient(LLMClient):
     async def chat_stream(
         self,
         system_prompt: str,
-        mode_prompt: str,
         user_prompt: str,
         history: Optional[List[Dict]] = None
     ) -> AsyncGenerator[str, None]:
@@ -64,7 +65,7 @@ class DeepSeekClient(LLMClient):
                             break
 
                         try:
-                            obj = eval(data)  # 用 json.loads 更安全，这里简化
+                            obj = json.loads(data)
                             chunk = obj["choices"][0]["delta"].get("content", "")
                             if chunk:
                                 yield chunk  # ⬅️ 每次返回一个小片段

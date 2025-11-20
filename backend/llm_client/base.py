@@ -9,7 +9,6 @@ class LLMClient(ABC):
     async def chat_stream(
         self,
         system_prompt: str,
-        mode_prompt: str,
         user_prompt: str,
         history: Optional[List[Dict]] = None
     ) -> AsyncGenerator[str, None]:
