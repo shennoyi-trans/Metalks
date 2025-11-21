@@ -1,0 +1,31 @@
+一、正常对话：
+模型流式输出：（多条）
+data: {"type":"token","content":"好的，我们开始吧…"}  
+data: {"type":"token","content":"你能谈谈你对工作的第一个印象吗？"}  
+
+最终 end-block：
+data: {
+  "type": "end",
+  "summary": "你认为工作更多是责任而非兴趣。",
+  "has_opinion_report": true,
+  "opinion_report": "（完整观念分析全文）",
+  "trait_summary": "你倾向于逻辑化、价值稳定、分析导向。"
+}
+
+二、用户主动退出：
+模型流式输出同上
+
+最终 end-block：
+data: {
+  "type": "end",
+  "summary": "你认为消费要适度理性。",
+  "has_opinion_report": false,
+  "opinion_report": null,
+  "trait_summary": "你具有较强的自我控制能力和长期规划意识。"
+}
+
+三、错误情况：
+data: {
+  "type": "error",
+  "message": "DeepSeek API 调用失败，请稍后重试。"
+}

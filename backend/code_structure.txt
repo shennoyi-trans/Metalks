@@ -19,6 +19,8 @@ backend/
 │
 ├── services/                    # 业务逻辑层（你可以先写这里！）
 │   ├── chat_service.py
+│   ├── model2_service.py
+│   ├── model3_service.py
 │   └── history_manager.py
 │
 ├── utils/
