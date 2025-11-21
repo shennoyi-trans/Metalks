@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对话测评 - 认识你自己</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #111827, #1e1b4b, #111827);
+            color: #fef3c7;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 背景光晕效果 */
+        .bg-glow {
+            position: fixed;
+            inset: 0;
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-1 {
+            position: absolute;
+            top: 25%;
+            left: 25%;
+            width: 384px;
+            height: 384px;
+            background: #6366f1;
+            border-radius: 50%;
+            filter: blur(96px);
+        }
+
+        .glow-2 {
+            position: absolute;
+            bottom: 25%;
+            right: 25%;
+            width: 384px;
+            height: 384px;
+            background: #a855f7;
+            border-radius: 50%;
+            filter: blur(96px);
+        }
+
+        /* 主布局 */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* 左侧边栏 - 历史记录和特质 */
+        .sidebar-left {
+            width: 280px;
+            background: rgba(30, 27, 75, 0.7);
+            border-right: 1px solid rgba(254, 243, 199, 0.1);
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .traits-section {
+            margin-bottom: 2rem;
+        }
+
+        .traits-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #fef3c7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .traits-content {
+            background: rgba(254, 243, 199, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            margin-bottom: 0.75rem;
+        }
+
+        .update-indicator {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+
+        .detail-link {
+            color: rgba(99, 102, 241, 0.8);
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-align: right;
+            display: block;
+            transition: color 0.3s ease;
+        }
+
+        .detail-link:hover {
+            color: rgba(99, 102, 241, 1);
+        }
+
+        .history-section {
+            flex: 1;
+        }
+
+        .history-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #fef3c7;
+        }
+
+        .session-list {
+            list-style: none;
+        }
+
+        .session-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: rgba(254, 243, 199, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .session-item:hover {
+            background: rgba(254, 243, 199, 0.1);
+            transform: translateX(4px);
+        }
+
+        .session-title {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .session-meta {
+            font-size: 0.8rem;
+            color: rgba(254, 243, 199, 0.6);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .tag {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        .tag-in-progress {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        /* 主对话区域 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(30, 27, 75, 0.5);
+            border-radius: 12px;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(254, 243, 199, 0.1);
+            background: rgba(30, 27, 75, 0.8);
+        }
+
+        .chat-title {
+            font-size: 1.25rem;
+            color: #fef3c7;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.25rem;
+            border-radius: 18px;
+            line-height: 1.5;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .message-user {
+            align-self: flex-end;
+            background: rgba(79, 70, 229, 0.3);
+            border: 1px solid rgba(99, 102, 241, 0.5);
+        }
+
+        .message-ai {
+            align-self: flex-start;
+            background: rgba(30, 27, 75, 0.7);
+            border: 1px solid rgba(254, 243, 199, 0.2);
+        }
+
+        .chat-input-area {
+            padding: 1.5rem;
+            border-top: 1px solid rgba(254, 243, 199, 0.1);
+            background: rgba(30, 27, 75, 0.8);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(254, 243, 199, 0.05);
+            border: 1px solid rgba(254, 243, 199, 0.2);
+            border-radius: 24px;
+            padding: 0.75rem 1.25rem;
+            color: #fef3c7;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.8);
+        }
+
+        .send-button {
+            background: rgba(99, 102, 241, 0.8);
+            border: none;
+            border-radius: 24px;
+            padding: 0 1.5rem;
+            color: #fef3c7;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-button:hover {
+            background: rgba(79, 70, 229, 0.9);
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            background: rgba(254, 243, 199, 0.2);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 右侧边栏 */
+        .sidebar-right {
+            width: 280px;
+            background: rgba(30, 27, 75, 0.7);
+            border-left: 1px solid rgba(254, 243, 199, 0.1);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topic-selector-mini {
+            background: rgba(30, 27, 75, 0.9);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .topic-selector-mini:hover {
+            background: rgba(30, 27, 75, 1);
+            transform: translateY(-2px);
+        }
+
+        .mini-title {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #fef3c7;
+        }
+
+        .current-topic {
+            font-size: 0.9rem;
+            color: rgba(254, 243, 199, 0.7);
+        }
+
+        .status-section {
+            flex: 1;
+        }
+
+        .status-title {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #fef3c7;
+        }
+
+        .status-content {
+            background: rgba(254, 243, 199, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            min-height: 120px;
+        }
+
+        /* 覆盖层 - 话题选择 */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .topic-window {
+            background: rgba(30, 27, 75, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            border: 1px solid rgba(254, 243, 199, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .window-title {
+            font-size: 1.75rem;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            color: #fef3c7;
+        }
+
+        .window-desc {
+            text-align: center;
+            color: rgba(254, 243, 199, 0.7);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .topics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .topic-card {
+            background: rgba(254, 243, 199, 0.05);
+            border: 1px solid rgba(254, 243, 199, 0.1);
+            border-radius: 12px;
+            padding: 1.25rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .topic-card:hover {
+            background: rgba(254, 243, 199, 0.1);
+            transform: translateY(-4px);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .topic-name {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            color: #fef3c7;
+        }
+
+        .topic-tag {
+            font-size: 0.8rem;
+            color: rgba(254, 243, 199, 0.6);
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(254, 243, 199, 0.1);
+            margin: 1.5rem 0;
+        }
+
+        .casual-chat {
+            text-align: center;
+        }
+
+        .casual-button {
+            background: transparent;
+            border: 1px solid rgba(254, 243, 199, 0.3);
+            border-radius: 24px;
+            padding: 0.75rem 2rem;
+            color: #fef3c7;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .casual-button:hover {
+            background: rgba(254, 243, 199, 0.1);
+            border-color: rgba(254, 243, 199, 0.5);
+        }
+
+        .casual-desc {
+            font-size: 0.85rem;
+            color: rgba(254, 243, 199, 0.5);
+            line-height: 1.4;
+        }
+
+        /* 报告窗口 */
+        .report-window {
+            background: rgba(30, 27, 75, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 700px;
+            border: 1px solid rgba(254, 243, 199, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .report-title {
+            font-size: 1.75rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #fef3c7;
+        }
+
+        .report-content {
+            background: rgba(254, 243, 199, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+        }
+
+        .close-button {
+            background: rgba(99, 102, 241, 0.8);
+            border: none;
+            border-radius: 24px;
+            padding: 0.75rem 2rem;
+            color: #fef3c7;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+            transition: all 0.3s ease;
+        }
+
+        .close-button:hover {
+            background: rgba(79, 70, 229, 0.9);
+            transform: translateY(-2px);
+        }
+
+        /* 特质详情窗口 */
+        .traits-detail-window {
+            background: rgba(30, 27, 75, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 700px;
+            border: 1px solid rgba(254, 243, 199, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .traits-detail-title {
+            font-size: 1.75rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #fef3c7;
+        }
+
+        .traits-detail-content {
+            background: rgba(254, 243, 199, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(254, 243, 199, 0.1);
+        }
+
+        .trait-category {
+            margin-bottom: 1.5rem;
+        }
+
+        .trait-category-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+            color: #fef3c7;
+            border-bottom: 1px solid rgba(254, 243, 199, 0.2);
+            padding-bottom: 0.5rem;
+        }
+
+        .trait-item {
+            margin-bottom: 0.75rem;
+        }
+
+        .trait-name {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+            color: #fef3c7;
+        }
+
+        .trait-description {
+            font-size: 0.9rem;
+            color: rgba(254, 243, 199, 0.8);
+            line-height: 1.5;
+        }
+
+        /* 确认弹窗 */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .confirm-window {
+            background: rgba(30, 27, 75, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(254, 243, 199, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .confirm-title {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #fef3c7;
+        }
+
+        .confirm-message {
+            text-align: center;
+            color: rgba(254, 243, 199, 0.8);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .confirm-button {
+            padding: 0.75rem 2rem;
+            border-radius: 24px;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .confirm-yes {
+            background: rgba(34, 197, 94, 0.8);
+            color: #fef3c7;
+        }
+
+        .confirm-yes:hover {
+            background: rgba(34, 197, 94, 1);
+            transform: translateY(-2px);
+        }
+
+        .confirm-no {
+            background: rgba(239, 68, 68, 0.8);
+            color: #fef3c7;
+        }
+
+        .confirm-no:hover {
+            background: rgba(239, 68, 68, 1);
+            transform: translateY(-2px);
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            color: rgba(254, 243, 199, 0.7);
+            font-style: italic;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            margin-left: 4px;
+        }
+
+        .typing-dots span {
+            height: 4px;
+            width: 4px;
+            background: rgba(254, 243, 199, 0.7);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 1px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-5px);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .sidebar-left, .sidebar-right {
+                width: 240px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar-left, .sidebar-right {
+                width: 100%;
+                border-right: none;
+                border-left: none;
+                border-bottom: 1px solid rgba(254, 243, 199, 0.1);
+            }
+            
+            .sidebar-left {
+                order: 3;
+            }
+            
+            .main-content {
+                order: 2;
+            }
+            
+            .sidebar-right {
+                order: 1;
+            }
+            
+            .topics-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            
+            .confirm-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景光晕 -->
+    <div class="bg-glow">
+        <div class="glow-1"></div>
+        <div class="glow-2"></div>
+    </div>
+
+    <!-- 主应用容器 -->
+    <div class="app-container">
+        <!-- 左侧边栏 - 历史记录和特质 -->
+        <div class="sidebar-left">
+            <div class="traits-section">
+                <div class="traits-title">
+                    你的特质
+                    <span class="update-indicator"></span>
+                </div>
+                <div class="traits-content" id="traitsContent">
+                    你的表达习惯结构化且逻辑清晰。
+                    你倾向于从价值层面解释行为。
+                </div>
+                <a class="detail-link" id="traitsDetailLink">了解详情</a>
+            </div>
+            
+            <div class="history-section">
+                <div class="history-title">历史对话</div>
+                <ul class="session-list" id="sessionList">
+                    <!-- 会话列表将通过API动态加载 -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- 主对话区域 -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-title" id="chatTitle">与AI对话</div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <!-- 消息将通过JavaScript动态添加 -->
+                </div>
+                
+                <div class="chat-input-area">
+                    <div class="input-container">
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput" 
+                            placeholder="输入你的想法..." 
+                            rows="1"
+                        ></textarea>
+                        <button class="send-button" id="sendButton">发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧边栏 - 状态和话题选择 -->
+        <div class="sidebar-right">
+            <div class="topic-selector-mini" id="topicSelectorMini">
+                <div class="mini-title">选择话题</div>
+                <div class="current-topic" id="currentTopic">未选择</div>
+            </div>
+            
+            <div class="status-section">
+                <div class="status-title">当前状态</div>
+                <div class="status-content" id="statusContent">
+                    请选择一个话题开始对话
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 覆盖层 - 话题选择窗口 -->
+    <div class="overlay" id="topicOverlay">
+        <div class="topic-window">
+            <h2 class="window-title">你想从哪个话题开始？</h2>
+            <p class="window-desc">每一个话题都对应着你对某些事情的真实看法。</p>
+            
+            <div class="topics-grid">
+                <div class="topic-card" data-topic="友谊" data-tag="友谊观">
+                    <div class="topic-name">友谊</div>
+                    <div class="topic-tag">友谊观</div>
+                </div>
+                <div class="topic-card" data-topic="爱情" data-tag="爱情观">
+                    <div class="topic-name">爱情</div>
+                    <div class="topic-tag">爱情观</div>
+                </div>
+                <div class="topic-card" data-topic="投资" data-tag="投资观">
+                    <div class="topic-name">投资</div>
+                    <div class="topic-tag">投资观</div>
+                </div>
+                <div class="topic-card" data-topic="工作" data-tag="工作观">
+                    <div class="topic-name">工作</div>
+                    <div class="topic-tag">工作观</div>
+                </div>
+                <div class="topic-card" data-topic="消费" data-tag="消费观">
+                    <div class="topic-name">消费</div>
+                    <div class="topic-tag">消费观</div>
+                </div>
+                <div class="topic-card" data-topic="教育" data-tag="教育观">
+                    <div class="topic-name">教育</div>
+                    <div class="topic-tag">教育观</div>
+                </div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="casual-chat">
+                <button class="casual-button" id="casualChatButton">随便聊聊</button>
+                <p class="casual-desc">
+                    你也可以随便聊聊。模型有可能捕捉到你的某些观念，也可能不会。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 覆盖层 - 报告窗口 -->
+    <div class="overlay" id="reportOverlay" style="display: none;">
+        <div class="report-window">
+            <h2 class="report-title" id="reportTitle">你的【工作观】测试结果</h2>
+            <div class="report-content" id="reportContent">
+                <!-- 报告内容将通过API动态添加 -->
+            </div>
+            <button class="close-button" id="closeReportButton">关闭报告</button>
+        </div>
+    </div>
+
+    <!-- 覆盖层 - 特质详情窗口 -->
+    <div class="overlay" id="traitsDetailOverlay" style="display: none;">
+        <div class="traits-detail-window">
+            <h2 class="traits-detail-title">你的特质详情</h2>
+            <div class="traits-detail-content" id="traitsDetailContent">
+                <!-- 特质详情内容将通过API动态添加 -->
+            </div>
+            <button class="close-button" id="closeTraitsDetailButton">关闭详情</button>
+        </div>
+    </div>
+
+    <!-- 确认弹窗 -->
+    <div class="confirm-overlay" id="confirmOverlay" style="display: none;">
+        <div class="confirm-window">
+            <h2 class="confirm-title">确认切换话题</h2>
+            <p class="confirm-message" id="confirmMessage">
+                当前聊天尚未结束，是否保存进度？
+                <br>
+                （保存后可在左侧边栏查看）
+            </p>
+            <div class="confirm-buttons">
+                <button class="confirm-button confirm-yes" id="confirmYes">保存进度</button>
+                <button class="confirm-button confirm-no" id="confirmNo">放弃进度</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== API配置 ====================
+        // 请根据你的实际后端API替换以下URL
+        const API_BASE_URL = 'https://your-api-domain.com/api'; // 替换为实际API地址
+        
+        const API_ENDPOINTS = {
+            CHAT_STREAM: '/chat/stream',           // 流式对话
+            SESSION_LIST: '/session/list',         // 获取会话列表
+            SESSION_DETAIL: '/session',            // 获取会话详情 /session/:id
+            SESSION_REPORT: '/session/report',     // 获取会话报告 /session/report/:id
+            TRAITS_GLOBAL: '/traits/global',       // 获取全局特质
+            SESSION_STATUS: '/session/status',     // 获取会话状态 /session/status/:id
+            CREATE_SESSION: '/session/create',     // 创建会话
+            UPDATE_SESSION: '/session/update',     // 更新会话 /session/update/:id
+            SAVE_SESSION: '/session/save'          // 保存会话 /session/save/:id
+        };
+
+        // ==================== DOM元素 ====================
+        const topicOverlay = document.getElementById('topicOverlay');
+        const reportOverlay = document.getElementById('reportOverlay');
+        const traitsDetailOverlay = document.getElementById('traitsDetailOverlay');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const topicSelectorMini = document.getElementById('topicSelectorMini');
+        const currentTopic = document.getElementById('currentTopic');
+        const statusContent = document.getElementById('statusContent');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+        const casualChatButton = document.getElementById('casualChatButton');
+        const closeReportButton = document.getElementById('closeReportButton');
+        const closeTraitsDetailButton = document.getElementById('closeTraitsDetailButton');
+        const reportTitle = document.getElementById('reportTitle');
+        const reportContent = document.getElementById('reportContent');
+        const traitsDetailLink = document.getElementById('traitsDetailLink');
+        const traitsDetailContent = document.getElementById('traitsDetailContent');
+        const traitsContent = document.getElementById('traitsContent');
+        const sessionList = document.getElementById('sessionList');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmYes = document.getElementById('confirmYes');
+        const confirmNo = document.getElementById('confirmNo');
+        const chatTitle = document.getElementById('chatTitle');
+
+        // ==================== 状态变量 ====================
+        let currentMode = null; // 'topic' 或 'casual'
+        let currentTopicName = null;
+        let currentTopicTag = null;
+        let currentSessionId = null;
+        let conversationHistory = [];
+        let hasUnsavedChanges = false;
+        let pendingTopicChange = null;
+        let currentStreamController = null; // 用于中止流式请求
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，初始化事件监听器');
+            
+            // 绑定话题卡片点击事件
+            document.querySelectorAll('.topic-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    console.log('话题卡片被点击:', this.getAttribute('data-topic'));
+                    handleTopicChange(
+                        this.getAttribute('data-topic'),
+                        this.getAttribute('data-tag')
+                    );
+                });
+            });
+            
+            // 绑定随便聊聊按钮点击事件
+            casualChatButton.addEventListener('click', function() {
+                console.log('随便聊聊按钮被点击');
+                handleTopicChange(null, null, true);
+            });
+            
+            // 绑定右侧话题选择器点击事件
+            topicSelectorMini.addEventListener('click', function() {
+                console.log('话题选择器被点击');
+                showTopicOverlay();
+            });
+            
+            // 绑定发送消息按钮点击事件
+            sendButton.addEventListener('click', sendMessage);
+            
+            // 绑定输入框回车键发送消息
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 输入框自动调整高度
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+            
+            // 关闭报告按钮点击事件
+            closeReportButton.addEventListener('click', function() {
+                reportOverlay.style.display = 'none';
+            });
+            
+            // 关闭特质详情按钮点击事件
+            closeTraitsDetailButton.addEventListener('click', function() {
+                traitsDetailOverlay.style.display = 'none';
+            });
+            
+            // 特质详情链接点击事件
+            traitsDetailLink.addEventListener('click', function() {
+                showTraitsDetail();
+            });
+            
+            // 确认弹窗按钮点击事件
+            confirmYes.addEventListener('click', function() {
+                saveCurrentSession();
+                confirmOverlay.style.display = 'none';
+                if (pendingTopicChange) {
+                    executeTopicChange(pendingTopicChange.topic, pendingTopicChange.tag, pendingTopicChange.isCasual);
+                    pendingTopicChange = null;
+                }
+            });
+            
+            confirmNo.addEventListener('click', function() {
+                confirmOverlay.style.display = 'none';
+                if (pendingTopicChange) {
+                    executeTopicChange(pendingTopicChange.topic, pendingTopicChange.tag, pendingTopicChange.isCasual);
+                    pendingTopicChange = null;
+                }
+            });
+            
+            // 加载初始数据
+            loadInitialData();
+        });
+
+        // ==================== API调用函数 ====================
+
+        /**
+         * 加载初始数据
+         */
+        async function loadInitialData() {
+            try {
+                // 加载历史会话列表
+                await loadSessions();
+                
+                // 加载全局特质
+                await loadGlobalTraits();
+                
+                // 显示话题选择窗口
+                showTopicOverlay();
+            } catch (error) {
+                console.error('加载初始数据失败:', error);
+                showError('加载数据失败，请刷新页面重试');
+            }
+        }
+
+        /**
+         * 加载历史会话列表
+         */
+        async function loadSessions() {
+            try {
+                // 调用API获取会话列表
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SESSION_LIST}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const sessions = await response.json();
+                updateSessionList(sessions);
+            } catch (error) {
+                console.error('加载会话列表失败:', error);
+                // 使用模拟数据作为备选
+                updateSessionList(getMockSessions());
+            }
+        }
+
+        /**
+         * 加载特定会话
+         */
+        async function loadSession(sessionId) {
+            try {
+                // 中止当前可能正在进行的流式请求
+                if (currentStreamController) {
+                    currentStreamController.abort();
+                    currentStreamController = null;
+                }
+                
+                // 调用API获取会话详情
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const session = await response.json();
+                
+                // 更新当前会话状态
+                currentSessionId = session.id;
+                currentMode = session.mode || 'casual';
+                currentTopicName = session.topic || null;
+                currentTopicTag = session.topic ? `${session.topic}观` : null;
+                
+                // 更新UI
+                currentTopic.textContent = currentTopicName || '随便聊聊';
+                chatTitle.textContent = session.title || '与AI对话';
+                
+                // 更新状态
+                if (session.status === 'completed') {
+                    statusContent.innerHTML = `已完成${currentTopicTag || '自由对话'}`;
+                } else {
+                    statusContent.innerHTML = currentMode === 'topic' ? 
+                        `正在测试：${currentTopicTag}<br>继续对话中...` : 
+                        '自由对话中<br>继续对话中...';
+                }
+                
+                // 加载会话消息
+                displayMessages(session.messages || []);
+                
+                // 隐藏话题选择窗口（如果有）
+                topicOverlay.style.display = 'none';
+                
+                // 如果是已完成的会话，显示报告按钮
+                if (session.status === 'completed' && session.has_report) {
+                    addReportButton();
+                }
+                
+                // 聚焦输入框
+                chatInput.focus();
+                
+                // 更新特质信息
+                if (session.traits) {
+                    updateTraitsDisplay(session.traits);
+                }
+                
+            } catch (error) {
+                console.error('加载会话失败:', error);
+                showError('加载会话失败，请重试');
+            }
+        }
+
+        /**
+         * 加载会话报告
+         */
+        async function loadSessionReport(sessionId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SESSION_REPORT}/${sessionId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const report = await response.json();
+                
+                // 显示报告
+                showReport(report.content, report.topic ? `${report.topic}观` : '自由对话');
+            } catch (error) {
+                console.error('加载报告失败:', error);
+                showError('加载报告失败，请重试');
+            }
+        }
+
+        /**
+         * 加载全局特质
+         */
+        async function loadGlobalTraits() {
+            try {
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.TRAITS_GLOBAL}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const traits = await response.json();
+                updateTraitsDisplay(traits);
+            } catch (error) {
+                console.error('加载特质失败:', error);
+                // 使用模拟数据作为备选
+                updateTraitsDisplay(getMockTraits());
+            }
+        }
+
+        /**
+         * 创建新会话
+         */
+        async function createSession(topicName = null, mode = 'topic') {
+            try {
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CREATE_SESSION}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        mode: mode,
+                        topic: topicName
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const newSession = await response.json();
+                return newSession;
+            } catch (error) {
+                console.error('创建会话失败:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * 发送消息到API
+         */
+        async function sendMessageToAPI(message) {
+            // 中止之前的流式请求（如果有）
+            if (currentStreamController) {
+                currentStreamController.abort();
+            }
+            
+            // 创建新的AbortController用于当前请求
+            currentStreamController = new AbortController();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: message,
+                        mode: currentMode,
+                        topic: currentTopicName
+                    }),
+                    signal: currentStreamController.signal
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // 处理流式响应
+                await processStreamResponse(response);
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.log('请求被中止');
+                } else {
+                    throw error;
+                }
+            } finally {
+                currentStreamController = null;
+            }
+        }
+
+        /**
+         * 保存当前会话
+         */
+        async function saveCurrentSession() {
+            try {
+                // 调用API保存会话
+                const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SAVE_SESSION}/${currentSessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: conversationHistory,
+                        status: 'paused'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // 重新加载会话列表
+                await loadSessions();
+                
+                // 重置未保存更改标志
+                hasUnsavedChanges = false;
+                
+                console.log('会话已保存');
+            } catch (error) {
+                console.error('保存会话失败:', error);
+                showError('保存会话失败');
+            }
+        }
+
+        // ==================== UI更新函数 ====================
+
+        /**
+         * 更新会话列表
+         */
+        function updateSessionList(sessions) {
+            sessionList.innerHTML = '';
+            
+            if (sessions.length === 0) {
+                sessionList.innerHTML = '<li class="session-item" style="text-align: center; color: rgba(254, 243, 199, 0.5);">暂无历史对话</li>';
+                return;
+            }
+            
+            sessions.forEach(session => {
+                const sessionItem = document.createElement('li');
+                sessionItem.className = 'session-item';
+                sessionItem.dataset.sessionId = session.id;
+                
+                const title = session.title || `[${session.topic || '随便聊聊'}] ${session.last_message || '新对话'}`;
+                const date = formatDate(session.created_at || session.updated_at);
+                const tag = session.has_report ? 
+                    '<span class="tag">包含观念</span>' : 
+                    (session.status === 'in_progress' ? '<span class="tag tag-in-progress">进行中</span>' : '');
+                
+                sessionItem.innerHTML = `
+                    <div class="session-title">${title}</div>
+                    <div class="session-meta">
+                        <span>${date}</span>
+                        ${tag}
+                    </div>
+                `;
+                
+                sessionItem.addEventListener('click', () => loadSession(session.id));
+                sessionList.appendChild(sessionItem);
+            });
+        }
+
+        /**
+         * 显示消息记录
+         */
+        function displayMessages(messages) {
+            chatMessages.innerHTML = '';
+            conversationHistory = [];
+            
+            messages.forEach(msg => {
+                if (msg.role === 'user') {
+                    addUserMessage(msg.content, false); // 不触发历史记录更新
+                } else if (msg.role === 'assistant') {
+                    addAIMessage(msg.content, false); // 不触发历史记录更新
+                }
+            });
+            
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /**
+         * 更新特质显示
+         */
+        function updateTraitsDisplay(traits) {
+            // 更新简要特质显示
+            if (traits.summary) {
+                traitsContent.textContent = traits.summary;
+            } else if (traits.categories && Object.keys(traits.categories).length > 0) {
+                // 从分类中提取简要描述
+                const summary = [];
+                for (const [category, items] of Object.entries(traits.categories)) {
+                    if (items.length > 0) {
+                        summary.push(items[0].name);
+                    }
+                }
+                traitsContent.textContent = summary.join('，') + '。';
+            } else {
+                traitsContent.textContent = '你的特质将会在这里显示。';
+            }
+            
+            // 更新特质详情
+            updateTraitsDetail(traits);
+        }
+
+        /**
+         * 更新特质详情
+         */
+        function updateTraitsDetail(traits) {
+            let traitsHTML = '';
+            
+            if (traits.categories && Object.keys(traits.categories).length > 0) {
+                for (const [category, items] of Object.entries(traits.categories)) {
+                    traitsHTML += `
+                        <div class="trait-category">
+                            <div class="trait-category-title">${category}</div>
+                    `;
+                    
+                    items.forEach(trait => {
+                        traitsHTML += `
+                            <div class="trait-item">
+                                <div class="trait-name">${trait.name}</div>
+                                <div class="trait-description">${trait.description}</div>
+                            </div>
+                        `;
+                    });
+                    
+                    traitsHTML += `</div>`;
+                }
+            } else if (traits.detailed) {
+                traitsHTML = `<p>${traits.detailed}</p>`;
+            } else {
+                traitsHTML = '<p>暂无详细的特质分析。</p>';
+            }
+            
+            traitsDetailContent.innerHTML = traitsHTML;
+        }
+
+        // ==================== 核心交互函数 ====================
+
+        /**
+         * 显示话题选择窗口
+         */
+        function showTopicOverlay() {
+            topicOverlay.style.display = 'flex';
+        }
+
+        /**
+         * 处理话题切换
+         */
+        function handleTopicChange(topicName, topicTag, isCasual = false) {
+            // 检查是否有未保存的更改
+            if (hasUnsavedChanges && conversationHistory.length > 0) {
+                // 显示确认弹窗
+                pendingTopicChange = {
+                    topic: topicName,
+                    tag: topicTag,
+                    isCasual: isCasual
+                };
+                confirmOverlay.style.display = 'flex';
+            } else {
+                // 直接执行话题切换
+                executeTopicChange(topicName, topicTag, isCasual);
+            }
+        }
+
+        /**
+         * 执行话题切换
+         */
+        async function executeTopicChange(topicName, topicTag, isCasual = false) {
+            try {
+                let newSession;
+                
+                if (isCasual) {
+                    newSession = await createSession(null, 'casual');
+                    selectCasualChat(newSession);
+                } else {
+                    newSession = await createSession(topicName, 'topic');
+                    selectTopic(topicName, topicTag, newSession);
+                }
+                
+                // 重新加载会话列表
+                await loadSessions();
+                
+            } catch (error) {
+                console.error('切换话题失败:', error);
+                showError('切换话题失败，请重试');
+            }
+        }
+
+        /**
+         * 选择话题
+         */
+        function selectTopic(topicName, topicTag, session) {
+            currentSessionId = session.id;
+            currentMode = 'topic';
+            currentTopicName = topicName;
+            currentTopicTag = topicTag;
+            
+            // 更新UI
+            currentTopic.textContent = topicName;
+            chatTitle.textContent = `测试：${topicTag}`;
+            statusContent.innerHTML = `正在测试：${topicTag}<br>我开始有些了解你了`;
+            
+            // 隐藏话题选择窗口
+            topicOverlay.style.display = 'none';
+            
+            // 清空聊天记录
+            chatMessages.innerHTML = '';
+            conversationHistory = [];
+            hasUnsavedChanges = false;
+            
+            // 添加AI欢迎消息
+            addAIMessage(`你好，让我们来聊聊关于${topicName}的话题。请分享你的想法和观点。`);
+            
+            // 聚焦输入框
+            chatInput.focus();
+        }
+
+        /**
+         * 选择随便聊聊模式
+         */
+        function selectCasualChat(session) {
+            currentSessionId = session.id;
+            currentMode = 'casual';
+            currentTopicName = null;
+            currentTopicTag = null;
+            
+            // 更新UI
+            currentTopic.textContent = '随便聊聊';
+            chatTitle.textContent = '自由对话';
+            statusContent.innerHTML = '自由对话中<br>模型正在捕捉你的思考方式';
+            
+            // 隐藏话题选择窗口
+            topicOverlay.style.display = 'none';
+            
+            // 清空聊天记录
+            chatMessages.innerHTML = '';
+            conversationHistory = [];
+            hasUnsavedChanges = false;
+            
+            // 添加AI欢迎消息
+            addAIMessage('你好！今天想聊些什么呢？我们可以从任何话题开始。');
+            
+            // 聚焦输入框
+            chatInput.focus();
+        }
+
+        /**
+         * 发送消息
+         */
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            // 添加用户消息到聊天界面
+            addUserMessage(message);
+            
+            // 清空输入框
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // 禁用发送按钮
+            sendButton.disabled = true;
+            
+            // 标记有未保存的更改
+            hasUnsavedChanges = true;
+            
+            try {
+                // 发送消息到后端API
+                await sendMessageToAPI(message);
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                addAIMessage('抱歉，我遇到了一些问题，请稍后再试。');
+                sendButton.disabled = false;
+            }
+        }
+
+        /**
+         * 处理流式响应
+         */
+        async function processStreamResponse(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiMessage = '';
+            
+            // 创建AI消息元素
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message message-ai';
+            chatMessages.appendChild(messageElement);
+            
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        break;
+                    }
+                    
+                    // 解码块数据
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            
+                            if (data === '[DONE]') {
+                                // 流结束
+                                break;
+                            }
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                
+                                if (parsed.content) {
+                                    // 更新AI消息内容
+                                    aiMessage += parsed.content;
+                                    messageElement.textContent = aiMessage;
+                                    
+                                    // 滚动到底部
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
+                                
+                                if (parsed.session_status) {
+                                    // 更新会话状态
+                                    updateSessionStatus(parsed.session_status);
+                                }
+                                
+                                if (parsed.traits_update) {
+                                    // 更新特质信息
+                                    updateTraitsDisplay(parsed.traits_update);
+                                }
+                                
+                                if (parsed.is_complete) {
+                                    // 对话完成，显示报告
+                                    setTimeout(() => {
+                                        showReport(parsed.report, currentTopicTag);
+                                    }, 1000);
+                                }
+                                
+                            } catch (e) {
+                                console.error('解析流数据失败:', e);
+                            }
+                        }
+                    }
+                }
+                
+                // 保存AI消息到历史记录
+                conversationHistory.push({ role: 'assistant', content: aiMessage });
+                
+                // 重新启用发送按钮
+                sendButton.disabled = false;
+                
+            } catch (error) {
+                console.error('处理流响应失败:', error);
+                messageElement.textContent = '抱歉，响应过程中出现了问题。';
+                sendButton.disabled = false;
+            }
+        }
+
+        // ==================== 辅助函数 ====================
+
+        /**
+         * 添加用户消息
+         */
+        function addUserMessage(message, updateHistory = true) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message message-user';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 保存到历史记录
+            if (updateHistory) {
+                conversationHistory.push({ role: 'user', content: message });
+            }
+        }
+
+        /**
+         * 添加AI消息
+         */
+        function addAIMessage(message, withTyping = false, updateHistory = true) {
+            if (withTyping) {
+                // 显示输入指示器
+                const typingElement = document.createElement('div');
+                typingElement.className = 'message message-ai typing-indicator';
+                typingElement.innerHTML = '思考中<span class="typing-dots"><span></span><span></span><span></span></span>';
+                chatMessages.appendChild(typingElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // 模拟打字效果
+                setTimeout(() => {
+                    chatMessages.removeChild(typingElement);
+                    addAIMessage(message, false, updateHistory);
+                }, 1500);
+            } else {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message message-ai';
+                messageElement.textContent = message;
+                chatMessages.appendChild(messageElement);
+                
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // 保存到历史记录
+                if (updateHistory) {
+                    conversationHistory.push({ role: 'assistant', content: message });
+                }
+                
+                // 重新启用发送按钮
+                sendButton.disabled = false;
+            }
+        }
+
+        /**
+         * 更新会话状态
+         */
+        function updateSessionStatus(sessionStatus) {
+            if (sessionStatus.status === 'testing') {
+                statusContent.innerHTML = `正在测试：${currentTopicTag}<br>${sessionStatus.message || '我开始有些了解你了'}`;
+            } else if (sessionStatus.status === 'analyzing') {
+                statusContent.innerHTML = `分析中<br>${sessionStatus.message || '我正在分析你的回答...'}`;
+            } else if (sessionStatus.status === 'completed') {
+                statusContent.innerHTML = `测试完成<br>${sessionStatus.message || '已生成观念报告'}`;
+                hasUnsavedChanges = false;
+            } else if (sessionStatus.status === 'casual') {
+                statusContent.innerHTML = `自由对话中<br>${sessionStatus.message || '模型正在捕捉你的思考方式'}`;
+            }
+        }
+
+        /**
+         * 添加查看报告按钮
+         */
+        function addReportButton() {
+            const reportButton = document.createElement('button');
+            reportButton.className = 'send-button';
+            reportButton.textContent = '查看报告';
+            reportButton.style.marginTop = '1rem';
+            reportButton.addEventListener('click', () => loadSessionReport(currentSessionId));
+            
+            const inputArea = document.querySelector('.chat-input-area');
+            inputArea.appendChild(reportButton);
+        }
+
+        /**
+         * 显示报告
+         */
+        function showReport(report, topic) {
+            // 更新报告内容
+            reportTitle.textContent = `你的【${topic}】测试结果`;
+            reportContent.textContent = report;
+            
+            // 显示报告窗口
+            reportOverlay.style.display = 'flex';
+            
+            // 更新状态
+            statusContent.innerHTML = `已生成${topic}报告`;
+            
+            // 重置未保存更改标志
+            hasUnsavedChanges = false;
+        }
+
+        /**
+         * 显示特质详情
+         */
+        function showTraitsDetail() {
+            // 显示特质详情窗口
+            traitsDetailOverlay.style.display = 'flex';
+        }
+
+        /**
+         * 显示错误消息
+         */
+        function showError(message) {
+            const errorElement = document.createElement('div');
+            errorElement.className = 'message message-ai';
+            errorElement.style.color = '#ef4444';
+            errorElement.textContent = `错误: ${message}`;
+            chatMessages.appendChild(errorElement);
+            
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /**
+         * 格式化日期
+         */
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) {
+                return '昨天';
+            } else if (diffDays === 2) {
+                return '前天';
+            } else if (diffDays <= 7) {
+                return `${diffDays}天前`;
+            } else {
+                return date.toLocaleDateString('zh-CN');
+            }
+        }
+
+        // ==================== 模拟数据（当API不可用时使用） ====================
+
+        function getMockSessions() {
+            return [
+                {
+                    id: 'session1',
+                    title: '[工作观] 关于职业发展的讨论',
+                    mode: 'topic',
+                    topic: '工作',
+                    status: 'completed',
+                    has_report: true,
+                    created_at: '2023-06-15T10:00:00Z',
+                    last_message: '我觉得工作最重要的是成就感'
+                },
+                {
+                    id: 'session2',
+                    title: '[随便聊聊] 日常对话',
+                    mode: 'casual',
+                    status: 'in_progress',
+                    has_report: false,
+                    created_at: '2023-06-18T15:30:00Z',
+                    last_message: '今天天气真好'
+                },
+                {
+                    id: 'session3',
+                    title: '[友谊观] 什么是真正的朋友',
+                    mode: 'topic',
+                    topic: '友谊',
+                    status: 'completed',
+                    has_report: true,
+                    created_at: '2023-06-20T09:15:00Z',
+                    last_message: '信任是友谊的基础'
+                }
+            ];
+        }
+
+        function getMockTraits() {
+            return {
+                summary: "你的表达习惯结构化且逻辑清晰。你倾向于从价值层面解释行为。",
+                categories: {
+                    "思考模式": [
+                        {
+                            name: "逻辑分析",
+                            description: "你倾向于通过逻辑推理和分析来理解问题，喜欢有条理的思考方式。"
+                        },
+                        {
+                            name: "系统性思维",
+                            description: "你习惯从整体角度看待问题，关注各个部分之间的关系和相互作用。"
+                        }
+                    ],
+                    "价值取向": [
+                        {
+                            name: "个人成长",
+                            description: "你重视自我发展和学习新知识，认为持续进步是生活的重要部分。"
+                        },
+                        {
+                            name: "意义追求",
+                            description: "你倾向于从价值层面解释行为，关注行动背后的深层意义和目的。"
+                        }
+                    ]
+                }
+            };
+        }
+    </script>
+</body>
+</html>

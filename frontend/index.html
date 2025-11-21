@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认识你自己</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #111827, #1e1b4b, #111827);
+            color: #fef3c7;
+            overflow-x: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* 背景光晕效果 */
+        .bg-glow {
+            position: fixed;
+            inset: 0;
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-1 {
+            position: absolute;
+            top: 25%;
+            left: 25%;
+            width: 384px;
+            height: 384px;
+            background: #6366f1;
+            border-radius: 50%;
+            filter: blur(96px);
+        }
+
+        .glow-2 {
+            position: absolute;
+            bottom: 25%;
+            right: 25%;
+            width: 384px;
+            height: 384px;
+            background: #a855f7;
+            border-radius: 50%;
+            filter: blur(96px);
+        }
+
+        /* 主容器 */
+        .container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        /* 文字区域 */
+        .content {
+            max-width: 48rem;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-top: 9rem;
+        }
+
+        .text-area {
+            min-height: 400px;
+            transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .line {
+            text-align: center;
+            margin-bottom: 0.75rem;
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 0.025em;
+            line-height: 1.75;
+            transition: opacity 1s ease;
+        }
+
+        .line.faded {
+            opacity: 0.5;
+        }
+
+        /* 淡入动画 */
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+                filter: blur(5px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
+        .line.animate {
+            animation: fadeIn 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 过渡效果 */
+        .content.transitioning {
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        /* 提示区域 */
+        .hint-area {
+            position: fixed;
+            bottom: 3rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        .hint-area.visible {
+            opacity: 1;
+        }
+
+        .hint-text {
+            color: rgba(254, 243, 199, 0.6);
+            font-size: 0.875rem;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .hint-icon {
+            width: 24px;
+            height: 24px;
+            margin: 0 auto;
+            border: 2px solid rgba(254, 243, 199, 0.4);
+            border-radius: 50%;
+            position: relative;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* 按钮区域 */
+        .button-area {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .action-button {
+            padding: 0.75rem 1.5rem;
+            background: rgba(254, 243, 199, 0.1);
+            border: 1px solid rgba(254, 243, 199, 0.3);
+            border-radius: 0.5rem;
+            color: #fef3c7;
+            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.05em;
+        }
+
+        .action-button:hover {
+            background: rgba(254, 243, 199, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .primary-button {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .primary-button:hover {
+            background: rgba(99, 102, 241, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.4;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: scale(1.1);
+            }
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .line {
+                font-size: 1.25rem;
+            }
+            
+            .button-area {
+                flex-direction: column;
+                gap: 1rem;
+                width: 100%;
+                max-width: 200px;
+            }
+            
+            .action-button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景光晕 -->
+    <div class="bg-glow">
+        <div class="glow-1"></div>
+        <div class="glow-2"></div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="container" id="clickArea">
+        <div class="content" id="content">
+            <div class="text-area" id="textArea"></div>
+        </div>
+    </div>
+
+    <!-- 提示区域 -->
+    <div class="hint-area" id="hintArea">
+        <div class="hint-text" id="hintText">点击屏幕继续</div>
+        <div class="hint-icon"></div>
+        <div class="button-area" id="buttonArea" style="display: none;">
+            <button class="action-button" id="restartButton">重新体验</button>
+            <button class="action-button primary-button" id="startTestButton">开始测试</button>
+        </div>
+    </div>
+
+    <script>
+        const sections = [
+            [
+                "你好。",
+                "欢迎来到这个空间。",
+                "这里没有正确答案。",
+                "只有你的声音。"
+            ],
+            [
+                "我们即将开始一场特殊的对话。",
+                "不是测试。",
+                "不是评判。",
+                "而是一次向内的旅程。"
+            ],
+            [
+                "你如何看待人工智能的道德边界？",
+                "当社交媒体占据生活，你感受到了什么？",
+                "这些问题背后，藏着你思考的方式。",
+                "你选择的词语。",
+                "你停顿的瞬间。",
+                "你回避或深入的时刻。"
+            ],
+            [
+                "它们勾勒出一个轮廓。",
+                "那是你认知世界的结构。",
+                "也是你无意识中，塑造自己的方式。"
+            ],
+            [
+                "大多数时候，我们活在表层。",
+                "回应着外界的期待。",
+                "重复着习惯的模式。",
+                "但今天，我们邀请你停下来。"
+            ],
+            [
+                "看见你如何思考。",
+                "看见你如何选择。",
+                "看见那个在思维深处的你。"
+            ],
+            [
+                "准备好了吗？",
+                "让我们开始这场对话。",
+                "从第一个问题开始。",
+                "从第一次真正的聆听开始。"
+            ]
+        ];
+
+        let currentSection = 0;
+        let currentLine = 0;
+        let lineElements = [];
+        let lineTimer = null;
+        let hintTimer = null;
+        let canProceed = false;
+        let currentOffset = 0; // 当前偏移量
+
+        const textArea = document.getElementById('textArea');
+        const content = document.getElementById('content');
+        const clickArea = document.getElementById('clickArea');
+        const hintArea = document.getElementById('hintArea');
+        const hintText = document.getElementById('hintText');
+        const buttonArea = document.getElementById('buttonArea');
+        const restartButton = document.getElementById('restartButton');
+        const startTestButton = document.getElementById('startTestButton');
+
+        // 计算单行高度（包括margin）
+        function getLineHeight() {
+            if (lineElements.length > 0) {
+                const style = window.getComputedStyle(lineElements[0]);
+                const height = lineElements[0].offsetHeight;
+                const marginBottom = parseFloat(style.marginBottom);
+                return height + marginBottom;
+            }
+            return 80; // 默认估算值
+        }
+
+        function showLine() {
+            if (currentLine >= sections[currentSection].length) {
+                // 段落完成，显示提示
+                canProceed = true;
+                hintTimer = setTimeout(() => {
+                    if (currentSection >= sections.length - 1) {
+                        hintText.textContent = '体验结束';
+                        buttonArea.style.display = 'flex';
+                    } else {
+                        hintText.textContent = '点击屏幕继续';
+                    }
+                    hintArea.classList.add('visible');
+                }, 1500);
+                return;
+            }
+
+            // 创建新行
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'line animate';
+            lineDiv.textContent = sections[currentSection][currentLine];
+            textArea.appendChild(lineDiv);
+            lineElements.push(lineDiv);
+
+            // 让之前的行变淡
+            lineElements.forEach((el, index) => {
+                if (index < lineElements.length - 1) {
+                    el.classList.add('faded');
+                    el.classList.remove('animate');
+                }
+            });
+
+            // 检查是否需要上浮
+            if (lineElements.length > 4) {
+                const lineHeight = getLineHeight();
+                currentOffset += lineHeight;
+                textArea.style.transform = `translateY(-${currentOffset}px)`;
+            }
+
+            currentLine++;
+            lineTimer = setTimeout(showLine, 2000);
+        }
+
+        function handleClick() {
+            if (!canProceed) return;
+
+            if (currentSection >= sections.length - 1) {
+                // 最后一段已结束，点击屏幕不再重新开始
+                return;
+            }
+
+            // 清除定时器
+            clearTimeout(lineTimer);
+            clearTimeout(hintTimer);
+
+            // 隐藏提示
+            hintArea.classList.remove('visible');
+            canProceed = false;
+
+            // 过渡效果
+            content.classList.add('transitioning');
+
+            setTimeout(() => {
+                // 清空文字区域
+                textArea.innerHTML = '';
+                lineElements = [];
+                currentLine = 0;
+                currentSection++;
+                currentOffset = 0; // 重置偏移量
+                textArea.style.transform = 'translateY(0)';
+
+                // 恢复显示
+                content.classList.remove('transitioning');
+
+                // 开始新段落
+                showLine();
+            }, 800);
+        }
+
+        function restart() {
+            clearTimeout(lineTimer);
+            clearTimeout(hintTimer);
+            
+            hintArea.classList.remove('visible');
+            buttonArea.style.display = 'none';
+            canProceed = false;
+            content.classList.add('transitioning');
+
+            setTimeout(() => {
+                textArea.innerHTML = '';
+                lineElements = [];
+                currentSection = 0;
+                currentLine = 0;
+                currentOffset = 0;
+                textArea.style.transform = 'translateY(0)';
+                content.classList.remove('transitioning');
+                showLine();
+            }, 800);
+        }
+
+        function startTest() {
+            // 这里可以添加跳转到测试页面的代码
+            alert('即将开始测试...');
+            window.location.href = 'chat.html'; // 实际使用时取消注释并替换为正确的测试页面URL
+        }
+
+        // 绑定点击事件
+        clickArea.addEventListener('click', handleClick);
+        restartButton.addEventListener('click', restart);
+        startTestButton.addEventListener('click', startTest);
+
+        // 开始播放
+        showLine();
+    </script>
+</body>
+</html>
