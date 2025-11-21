@@ -309,17 +309,6 @@ class ChatService:
         trait_summary = trait_data.get("summary", "")
 
         # ========================
-        # SSE payload
-        # ========================
-        final_payload = {
-            "type": "end",
-            "summary": model1_summary,
-            "has_opinion_report": (opinion_report is not None),
-            "opinion_report": opinion_report,
-            "trait_summary": trait_summary
-        }
-
-        # ========================
         # 清空本 session 历史
         # ========================
         self.history_mgr.clear(session_id)

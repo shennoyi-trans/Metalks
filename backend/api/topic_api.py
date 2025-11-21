@@ -20,7 +20,7 @@ def get_topics():
     ]
 
 @router.get("/topics/random")
-def get_random_topics(count: int = 3):
+def get_random_topics(count: int = 6):
     """
     随机返回若干个话题（不包含 prompt_path）
     用于 mode1 的话题刷新。

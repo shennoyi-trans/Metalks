@@ -1,5 +1,5 @@
 # backend/main.py
-
+import json
 import uvicorn
 from fastapi import FastAPI
 
@@ -11,18 +11,20 @@ from backend.api.topic_api import router as topic_router   # ← ★ 修正路�
 
 app = FastAPI()
 
+# 从配置文件加载配置
+with open("backend/config.json", "r", encoding="utf8") as f:
+    config = json.load(f)
+
 # ==========================
 # 初始化 LLM 客户端
 # ==========================
-llm = load_llm_client({
-    "provider": "mock",         # 开发阶段用 mock，之后可切换 deepseek
-    "api_key": "YOUR_KEY"
-})
+llm_client = load_llm_client(config)
 
 # ==========================
 # 初始化业务服务
 # ==========================
-chat_service = ChatService(llm)
+from backend.services.chat_service import ChatService
+chat_service = ChatService(llm_client)
 
 # ==========================
 # 注册路由
