@@ -1,0 +1,29 @@
+backend/prompts/
+│
+├── model1/
+│   ├── system.txt                 # model1 全局人格设定
+│   ├── mode2_intro.txt            # mode2 随便聊聊的开场引导
+│   │
+│   ├── summary/
+│   │   └── one_sentence.txt       # model1 的一句话总结提示词（可选）
+│   │
+│   └── topics/                    # mode1 的所有场景提示词
+│       ├── friendship.txt
+│       ├── love.txt
+│       ├── work.txt
+│       └── consumption.txt
+│
+├── model2/
+│   ├── opinion_analysis_mode1.txt     # mode1：带话题的分析提示词
+│   ├── opinion_analysis_mode2.txt     # mode2：不带话题的分析提示词
+│   │
+│   ├── final_report_mode1.txt         # mode1 完整观念报告生成提示词
+│   └── final_report_mode2.txt         # mode2 同上
+│
+├── model3/
+│   ├── trait_full_report.txt          # 跨会话特质分析提示词
+│   └── trait_summary.txt              # 一句话特质总结提示词
+│
+└── shared/
+    ├── formatting_rules.txt           # 通用格式规范（可选）
+    └── safety_requirements.txt        # 通用安全规则（可选）
