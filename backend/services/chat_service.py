@@ -349,5 +349,6 @@ class ChatService:
             "has_opinion_report": (opinion_report is not None),
             "opinion_report": opinion_report,
             "trait_summary": trait_summary,
+            "full_dialogue": full_history
         }
 
