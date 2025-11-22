@@ -1492,8 +1492,7 @@ function selectTopic(topicId, topicName, topicTag, session) {
     conversationHistory = [];
     hasUnsavedChanges = false;
     
-    // 添加AI欢迎消息
-    addAIMessage(`你好，让我们来聊聊关于${topicName}的话题。请分享你的想法和观点。`);
+    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
     
     // 聚焦输入框
     chatInput.focus();
@@ -1523,8 +1522,7 @@ function selectCasualChat(session) {
     conversationHistory = [];
     hasUnsavedChanges = false;
     
-    // 添加AI欢迎消息
-    addAIMessage('你好！今天想聊些什么呢？我们可以从任何话题开始。');
+    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
     
     // 聚焦输入框
     chatInput.focus();
