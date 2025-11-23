@@ -64,15 +64,6 @@ class ChatService:
           - 不生成观念报告（model2.final_report 不被调用）
         """
 
-        # ----------------------------
-        # 规范化 topic_id（前端 dataset 传的永远是字符串）
-        # ----------------------------
-        if topic_id is not None and isinstance(topic_id, str):
-            try:
-                topic_id = int(topic_id)
-            except:
-                raise ValueError(f"Invalid topic_id: {topic_id}")
-
         # ===========================
         # 0. 用户主动结束对话
         # ===========================
@@ -113,18 +104,14 @@ class ChatService:
             if topic is None:
                 raise ValueError(f"invalid topic_id: {topic_id}")
 
+            # 载入话题 prompt，例如“工作观”的引导（仅第一轮使用）
+            topic_prompt = load_prompt(topic["prompt_path"])
+
             # ---------- 第一轮：模型先说 ----------
             if is_first:
                 history: List[Dict] = self.history_mgr.get(session_id)
-                mode1_intro = load_prompt("model1/mode1_intro.txt")
-            
-                system_prompt=(
-                    system_prompt
-                    + f"\n\n# 本次对话的主题是：{topic['topic']}（观念标签：{topic['concept_tag']}）。"
-                    + mode1_intro
-                )
-                final_prompt = ""
-                
+                final_prompt = topic_prompt  # 仅首轮给话题 prompt
+
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
@@ -225,11 +212,11 @@ class ChatService:
             advice = analysis.get("advice", "")
 
             # 3) 载入 mode2 的对话风格 prompt
-            mode2_intro = load_prompt("model1/mode2_intro.txt")
-            system_prompt = system_prompt + "\n\n" + mode2_intro
+            mode2_prompt = load_prompt("model1/mode2_intro.txt")
 
             final_prompt = (
-                "\n\n# 来自内部模型的建议（用户不可见）：\n"
+                mode2_prompt
+                + "\n\n# 来自内部模型的建议（用户不可见）：\n"
                 + advice
                 + "\n\n# 用户的最新回答：\n"
                 + user_input
