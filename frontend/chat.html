@@ -4,25 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>对话测评 - 认识你自己</title>
-    <!--
-    原google fonts格式：
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
-
-
-        body {
-            font-family: "ZCOOL KuaiLe", sans-serif;    
-            font-weight: 400;
-            font-style: normal;
-            min-height: 100vh;
-            background: linear-gradient(to bottom, #111827, #1e1b4b, #111827);
-            color: #fef3c7;
-            overflow-x: hidden;
-            position: relative;
-        }              
-    -->
-
     <style>
         * {
             margin: 0;
@@ -30,17 +14,8 @@
             box-sizing: border-box;
         }
 
-        @font-face {
-            font-family: 'MetalksFont';
-            src:url('./fonts/Alibaba_puhui/otf/AlibabaPuHuiTi-3-55-Regular.otf') format('opentype'),
-                url('./fonts/Alibaba_puhui/ttf/AlibabaPuHuiTi-3-55-Regular.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-        }
-        
         body {
-            font-family: "Alibaba_puhui", sans-serif;    
+            font-family: "ZCOOL KuaiLe", sans-serif;
             font-weight: 400;
             font-style: normal;
             min-height: 100vh;
@@ -48,7 +23,7 @@
             color: #fef3c7;
             overflow-x: hidden;
             position: relative;
-        }                               
+        }
 
         /* 背景光晕效果 */
         .bg-glow {
@@ -1517,7 +1492,8 @@ function selectTopic(topicId, topicName, topicTag, session) {
     conversationHistory = [];
     hasUnsavedChanges = false;
     
-    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
+    // 添加AI欢迎消息
+    addAIMessage(`你好，让我们来聊聊关于${topicName}的话题。请分享你的想法和观点。`);
     
     // 聚焦输入框
     chatInput.focus();
@@ -1547,7 +1523,8 @@ function selectCasualChat(session) {
     conversationHistory = [];
     hasUnsavedChanges = false;
     
-    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
+    // 添加AI欢迎消息
+    addAIMessage('你好！今天想聊些什么呢？我们可以从任何话题开始。');
     
     // 聚焦输入框
     chatInput.focus();
