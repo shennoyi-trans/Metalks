@@ -1,8 +1,9 @@
 # backend/api/chat_api.py
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from backend.services.chat_service import ChatService
+from backend.core.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -10,7 +11,7 @@ router = APIRouter()
 def create_chat_router(chat_service: ChatService):
 
     @router.post("/chat/stream")
-    async def chat_stream(body: dict):
+    async def chat_stream(body: dict, user_id: int = Depends(get_current_user)):
         """
         请求体 body 约定：
         - mode: 1 或 2（必填）
