@@ -1,0 +1,52 @@
+frontend/
+│
+├── chat.html          #聊天界面
+└── index.html        #欢迎界面
+
+backend/
+│
+├── api/                         # API 层完全独立
+│   ├── chat_api.py              # /chat 流式接口
+│   └── topic_api.py
+│
+├── data/
+│   └── topics.py
+│
+├── llm_client/                  # 模块 1：LLM 调用层（你要的重点）
+│   ├── base.py
+│   ├── deepseek_client.py
+│   ├── mock_client.py          #测试阶段假回复
+│   └── factory.py
+│
+├── prompts/                     # 提示词库
+│
+│   ├── model1/
+│   │   ├── summary.txt
+│   │   ├── model1_intro.txt
+│   │   └── model2_intro.txt
+│   │
+│   ├── model2/
+│   │   ├── final_report_mode1.txt
+│   │   ├── final_report_mode2.txt
+│   │   ├── opinion_analysis_mode1.txt
+│   │   └── opinion_analysis_mode2.txt
+│   │
+│   ├── model3/
+│   │   ├── trait_full_report.txt
+│   │   └── trait_summary.txt
+│
+│   ├── sys.txt
+│
+├── services/                    # 业务逻辑层
+│   ├── chat_service.py
+│   ├── model2_service.py
+│   ├── model3_service.py
+│   └── history_manager.py
+│
+├── utils/
+│   ├── text_tools.py
+│   └── prompt_loader.py
+│
+└── config.json
+
+main.py                      # FastAPI 入口
