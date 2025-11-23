@@ -1,6 +1,8 @@
 frontend/
 │
 ├── chat.html          #聊天界面
+├── chat.js
+├── style.css
 └── index.html        #欢迎界面
 
 backend/
@@ -9,8 +11,17 @@ backend/
 │   ├── chat_api.py              # /chat 流式接口
 │   └── topic_api.py
 │
+├── core/
+│   ├── dependencies.py
+│   └── security.py
+│
 ├── data/
 │   └── topics.py
+│
+├── db/
+│   ├── crud.py
+│   ├── database.py
+│   └── models.py
 │
 ├── llm_client/                  # 模块 1：LLM 调用层（你要的重点）
 │   ├── base.py
@@ -21,7 +32,7 @@ backend/
 ├── prompts/                     # 提示词库
 │
 │   ├── model1/
-│   │   ├── summary.txt
+│   │   ├── system.txt
 │   │   ├── model1_intro.txt
 │   │   └── model2_intro.txt
 │   │
@@ -39,9 +50,9 @@ backend/
 │
 ├── services/                    # 业务逻辑层
 │   ├── chat_service.py
+│   ├── db_history_manager.py
 │   ├── model2_service.py
-│   ├── model3_service.py
-│   └── history_manager.py
+│   └── model3_service.py
 │
 ├── utils/
 │   ├── text_tools.py
@@ -50,3 +61,4 @@ backend/
 └── config.json
 
 main.py                      # FastAPI 入口
+create_tables.py

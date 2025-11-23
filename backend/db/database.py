@@ -3,7 +3,7 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 
-DATABASE_URL = "mysql+aiomysql://metalks_user:你的密码@localhost/metalks"
+DATABASE_URL = "mysql+aiomysql://metalks_user:WeiChenTeam666%5E_%5E@localhost/metalks"
 
 engine = create_async_engine(
     DATABASE_URL,
