@@ -4,18 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>对话测评 - 认识你自己</title>
+    <!--
+    原google fonts格式：
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+
 
         body {
-            font-family: "ZCOOL KuaiLe", sans-serif;
+            font-family: "ZCOOL KuaiLe", sans-serif;    
             font-weight: 400;
             font-style: normal;
             min-height: 100vh;
@@ -23,7 +20,35 @@
             color: #fef3c7;
             overflow-x: hidden;
             position: relative;
+        }              
+    -->
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        @font-face {
+            font-family: 'MetalksFont';
+            src:url('./fonts/Alibaba_puhui/otf/AlibabaPuHuiTi-3-55-Regular.otf') format('opentype'),
+                url('./fonts/Alibaba_puhui/ttf/AlibabaPuHuiTi-3-55-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        body {
+            font-family: "Alibaba_puhui", sans-serif;    
+            font-weight: 400;
+            font-style: normal;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #111827, #1e1b4b, #111827);
+            color: #fef3c7;
+            overflow-x: hidden;
+            position: relative;
+        }                               
 
         /* 背景光晕效果 */
         .bg-glow {
