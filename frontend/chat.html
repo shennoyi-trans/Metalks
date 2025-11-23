@@ -1583,6 +1583,35 @@ async function sendMessage() {
     }
 }
 
+function handleEndEvent(event) {    //处理结束事件
+
+    // 1. 使用后端完整历史同步前端
+    if (event.full_dialogue) {
+        conversationHistory = event.full_dialogue.slice(); // 直接覆盖
+        displayMessages(conversationHistory);              // 刷新 UI
+    }
+
+    // 2. 显示一句话总结（一定有）
+    if (event.summary) {
+        addAIMessage(event.summary, false, true);
+    }
+
+    // 3. 显示观念报告
+    if (event.has_opinion_report && event.opinion_report) {
+        showReport(event.opinion_report, currentTopicTag);
+    }
+
+    // 4. 更新特质显示
+    if (event.trait_summary) {
+        traitsContent.textContent = event.trait_summary;
+    }
+
+    // 5. 重置
+    hasUnsavedChanges = false;
+}
+
+
+
 /**
  * 处理流式响应
  */
@@ -1620,6 +1649,11 @@ async function processStreamResponse(response) {
                     if (data.trim()) {
                         try {
                             const event = JSON.parse(data);
+
+                            if (event.type === "end") {     //加入 end 事件处理
+                                handleEndEvent(event);   // 
+                                continue; // end 事件里不包含 token，不再往下执行展示逻辑
+                            }
                             
                             // 处理内容更新
                             if (event.content) {
@@ -1681,10 +1715,6 @@ function addUserMessage(message, updateHistory = true) {
     // 滚动到底部
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // 保存到历史记录
-    if (updateHistory) {
-        conversationHistory.push({ role: 'user', content: message });
-    }
 }
 
 /**
@@ -1712,11 +1742,6 @@ function addAIMessage(message, withTyping = false, updateHistory = true) {
         
         // 滚动到底部
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // 保存到历史记录
-        if (updateHistory) {
-            conversationHistory.push({ role: 'assistant', content: message });
-        }
         
         // 重新启用发送按钮
         sendButton.disabled = false;
