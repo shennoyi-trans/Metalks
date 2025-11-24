@@ -517,21 +517,32 @@ async function handleAuthSubmit() {
 
 /** 通用 Fetch 封装 (处理 Auth) */
 async function fetchWithAuth(url, options = {}) {
-    // 默认带上 credentials 以发送 Cookie
-    options.credentials = 'include';
-    options.headers = { ...options.headers, 'Content-Type': 'application/json' };
-    
-    const response = await fetch(url, options);
-    
+    const finalOptions = {
+        method: options.method || 'GET',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        },
+        body: options.body,
+        signal: options.signal
+    };
+
+    const response = await fetch(url, finalOptions);
+
     if (response.status === 401) {
         const error = new Error("Unauthorized");
         error.status = 401;
         throw error;
     }
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-    
+
+    if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}`);
+    }
+
     return response.json();
 }
+
 
 /** 日期格式化: ISO -> YYYY/MM/DD */
 function formatDate(isoString) {
