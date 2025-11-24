@@ -54,7 +54,7 @@ chat_service = ChatService(llm_client)
 app.include_router(create_chat_router(chat_service))
 app.include_router(topic_router)
 app.include_router(auth_router)
-app.include_router(session_router)
 app.include_router(traits_router)
+app.include_router(session_router)
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

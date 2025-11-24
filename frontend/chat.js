@@ -466,56 +466,52 @@ function switchAuthMode(isLogin) {
 }
 
 async function handleAuthSubmit() {
-    const email = els.emailInput.value;
-    const password = els.passwordInput.value;
+    const email = els.emailInput.value.trim();
+    const password = els.passwordInput.value.trim();
     if (!email || !password) return;
-    
-    const endpoint = state.isAuthLoginMode ? API_ENDPOINTS.AUTH_LOGIN : API_ENDPOINTS.AUTH_REGISTER;
-    
+
+    const endpoint = state.isAuthLoginMode
+        ? API_ENDPOINTS.AUTH_LOGIN
+        : API_ENDPOINTS.AUTH_REGISTER;
+
     try {
-        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, // FastAPI OAuth2 expected
-            // 注意：auth_api.py 定义的参数是 query param (email, password)，这有点非标准
-            // 通常是 form-data 或 json。这里按照提供的 api logic:
-            // router.post("/login")(email: str, password: str) -> Expects query params!
-            // 修正：fetch url 加上 query params
+            credentials: 'include',   // 必须，才能拿到 HttpOnly Cookie
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password
+            })
         });
-        
-        // 针对提供的 api 代码的特殊处理：
-        // 它是 post 请求，但参数定义在函数签名里而不是 Body 模型里，这意味着 FastAPI 会去 Query string 找。
-        // 让我们构建 URLSearchParams
-        const url = new URL(`${API_BASE_URL}${endpoint}`);
-        url.searchParams.append('email', email);
-        url.searchParams.append('password', password);
-        
-        const response = await fetch(url, { method: 'POST' });
-        
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.detail || '操作失败');
         }
-        
+
         const data = await response.json();
-        
+
         if (state.isAuthLoginMode) {
             // 登录成功
             state.isLoggedIn = true;
             hideModal(els.authOverlay);
-            checkLoginStatus(); // 重新加载数据
+            await checkLoginStatus();
         } else {
-            // 注册成功，自动切到登录或直接登录？
-            // 这里的注册接口只返回 id, email，没发 token
+            // 注册成功
             switchAuthMode(true);
             els.authErrorMsg.style.color = 'var(--success-color)';
             els.authErrorMsg.textContent = '注册成功，请登录';
         }
-        
-    } catch (e) {
+
+    } catch (error) {
         els.authErrorMsg.style.color = 'var(--error-color)';
-        els.authErrorMsg.textContent = e.message;
+        els.authErrorMsg.textContent = error.message;
     }
 }
+
 
 // ==================== 工具函数 ====================
 
