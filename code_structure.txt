@@ -7,7 +7,10 @@ frontend/
 backend/
 │
 ├── api/                         # API 层完全独立
+│   ├── auth_api.py
 │   ├── chat_api.py              # /chat 流式接口
+│   ├── traits_api.py
+│   ├── session_api.py
 │   └── topic_api.py
 │
 ├── core/

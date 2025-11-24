@@ -1,6 +1,6 @@
 # backend/api/chat_api.py
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from fastapi.responses import StreamingResponse
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ def create_chat_router(chat_service: ChatService):
 
     @router.post("/chat/stream")
     async def chat_stream(
-        body: dict,
+        body: dict = Body(...),
         db: AsyncSession = Depends(get_db),
         user_id: int = Depends(get_current_user),
     ):

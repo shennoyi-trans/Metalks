@@ -1,5 +1,5 @@
 // ==================== API配置 ====================
-const API_BASE_URL = '/api';
+const API_BASE_URL = '';
 
 const API_ENDPOINTS = {
     CHAT_STREAM: '/chat/stream',
