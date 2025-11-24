@@ -9,6 +9,7 @@ from backend.services.chat_service import ChatService
 from backend.api.auth_api import router as auth_router
 from backend.api.chat_api import create_chat_router
 from backend.api.topic_api import router as topic_router
+from backend.api.traits_api import router as traits_router
 from backend.api.session_api import router as session_router
 
 
@@ -54,6 +55,6 @@ app.include_router(create_chat_router(chat_service))
 app.include_router(topic_router)
 app.include_router(auth_router)
 app.include_router(session_router)
-
+app.include_router(traits_router)
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
