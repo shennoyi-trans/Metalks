@@ -1,3 +1,4 @@
+/* chat.css */
 * {
     margin: 0;
     padding: 0;
@@ -14,7 +15,7 @@
 }
 
 body {
-    font-family: "Alibaba_puhui", sans-serif;    
+    font-family: "MetalksFont", sans-serif;    
     font-weight: 400;
     font-style: normal;
     min-height: 100vh;
@@ -61,23 +62,17 @@ body {
     min-height: 100vh;
     position: relative;
     z-index: 10;
-    padding: 0 300px; /* 为左右边栏留出空间 */
 }
 
 /* 左侧边栏 - 历史记录和特质 */
 .sidebar-left {
-    position: fixed;
-    left: 0;
-    top: 0;
     width: 280px;
-    height: 100vh;
-    background: rgba(30, 27, 75, 0.9);
+    background: rgba(30, 27, 75, 0.7);
     border-right: 1px solid rgba(254, 243, 199, 0.1);
     padding: 1.5rem;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    z-index: 20;
 }
 
 .traits-section {
@@ -179,6 +174,11 @@ body {
     color: #3b82f6;
 }
 
+.tag-trait {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
 /* 主对话区域 */
 .main-content {
     flex: 1;
@@ -240,53 +240,55 @@ body {
     border: 1px solid rgba(254, 243, 199, 0.2);
 }
 
-/* AI思考动画样式 */
+/* AI思考动画 */
 .thinking-animation {
-    align-self: flex-start;
-    max-width: 80%;
-    padding: 1rem 1.25rem;
-    border-radius: 18px;
-    background: rgba(30, 27, 75, 0.7);
-    border: 1px solid rgba(254, 243, 199, 0.2);
     display: flex;
     align-items: center;
-    gap: 8px;
+    padding: 1rem 1.25rem;
+    background: rgba(30, 27, 75, 0.7);
+    border: 1px solid rgba(254, 243, 199, 0.2);
+    border-radius: 18px;
+    max-width: 80%;
+    align-self: flex-start;
 }
 
 .thinking-text {
+    margin-right: 10px;
     color: rgba(254, 243, 199, 0.7);
-    font-style: italic;
 }
 
 .thinking-dots {
     display: flex;
-    gap: 4px;
 }
 
-.thinking-dot {
-    width: 6px;
-    height: 6px;
+.thinking-dots span {
+    height: 8px;
+    width: 8px;
+    background: rgba(254, 243, 199, 0.7);
     border-radius: 50%;
-    background: rgba(254, 243, 199, 0.6);
+    display: inline-block;
+    margin: 0 2px;
     animation: thinking 1.4s infinite ease-in-out;
 }
 
-.thinking-dot:nth-child(1) {
-    animation-delay: -0.32s;
+.thinking-dots span:nth-child(1) {
+    animation-delay: 0s;
 }
 
-.thinking-dot:nth-child(2) {
-    animation-delay: -0.16s;
+.thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
 }
 
 @keyframes thinking {
-    0%, 80%, 100% {
-        transform: scale(0.8);
-        opacity: 0.5;
+    0%, 60%, 100% {
+        transform: translateY(0);
     }
-    40% {
-        transform: scale(1);
-        opacity: 1;
+    30% {
+        transform: translateY(-5px);
     }
 }
 
@@ -308,7 +310,7 @@ body {
     border-radius: 24px;
     padding: 0.75rem 1.25rem;
     color: #fef3c7;
-    font-family: "Alibaba_puhui", sans-serif;
+    font-family: "MetalksFont", sans-serif;
     font-size: 1rem;
     resize: none;
     min-height: 50px;
@@ -326,7 +328,7 @@ body {
     border-radius: 24px;
     padding: 0 1.5rem;
     color: #fef3c7;
-    font-family: "Alibaba_puhui", sans-serif;
+    font-family: "MetalksFont", sans-serif;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -343,19 +345,38 @@ body {
     transform: none;
 }
 
+/* 报告按钮容器 */
+#reportButtonContainer {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.report-button {
+    background: rgba(34, 197, 94, 0.8);
+    border: none;
+    border-radius: 24px;
+    padding: 0.75rem 1.5rem;
+    color: #fef3c7;
+    font-family: "MetalksFont", sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.report-button:hover {
+    background: rgba(34, 197, 94, 1);
+    transform: translateY(-2px);
+}
+
 /* 右侧边栏 */
 .sidebar-right {
-    position: fixed;
-    right: 0;
-    top: 0;
     width: 280px;
-    height: 100vh;
-    background: rgba(30, 27, 75, 0.9);
+    background: rgba(30, 27, 75, 0.7);
     border-left: 1px solid rgba(254, 243, 199, 0.1);
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    z-index: 20;
 }
 
 .topic-selector-mini {
@@ -385,7 +406,7 @@ body {
 }
 
 .status-section {
-    flex: 1;
+    margin-bottom: 1.5rem;
 }
 
 .status-title {
@@ -404,7 +425,43 @@ body {
     min-height: 120px;
 }
 
-/* 覆盖层 - 话题选择 */
+/* 用户登录注册区域 */
+.user-section {
+    margin-top: auto;
+}
+
+.user-title {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: #fef3c7;
+}
+
+.user-content {
+    background: rgba(254, 243, 199, 0.05);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid rgba(254, 243, 199, 0.1);
+}
+
+.user-button {
+    background: rgba(99, 102, 241, 0.8);
+    border: none;
+    border-radius: 24px;
+    padding: 0.75rem 1.5rem;
+    color: #fef3c7;
+    font-family: "MetalksFont", sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.user-button:hover {
+    background: rgba(79, 70, 229, 0.9);
+    transform: translateY(-2px);
+}
+
+/* 覆盖层 - 话题选择窗口 */
 .overlay {
     position: fixed;
     inset: 0;
@@ -490,7 +547,7 @@ body {
     border-radius: 24px;
     padding: 0.75rem 2rem;
     color: #fef3c7;
-    font-family: "Alibaba_puhui", sans-serif;
+    font-family: "MetalksFont", sans-serif;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -543,7 +600,7 @@ body {
     border-radius: 24px;
     padding: 0.75rem 2rem;
     color: #fef3c7;
-    font-family: "Alibaba_puhui", sans-serif;
+    font-family: "MetalksFont", sans-serif;
     font-size: 1rem;
     cursor: pointer;
     display: block;
@@ -554,6 +611,125 @@ body {
 .close-button:hover {
     background: rgba(79, 70, 229, 0.9);
     transform: translateY(-2px);
+}
+
+/* 登录注册窗口 */
+.auth-window {
+    background: rgba(30, 27, 75, 0.95);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    border: 1px solid rgba(254, 243, 199, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    position: relative; /* 为关闭按钮定位 */
+}
+
+/* 登录注册窗口关闭按钮 */
+.close-auth-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: rgba(254, 243, 199, 0.7);
+    font-size: 1.8rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.close-auth-button:hover {
+    background: rgba(254, 243, 199, 0.1);
+    color: #fef3c7;
+    transform: rotate(90deg);
+}
+
+.auth-tabs {
+    display: flex;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(254, 243, 199, 0.1);
+}
+
+.auth-tab {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem;
+    background: transparent;
+    border: none;
+    color: rgba(254, 243, 199, 0.7);
+    font-family: "MetalksFont", sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.auth-tab.active {
+    color: #fef3c7;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.8);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-size: 0.9rem;
+    color: rgba(254, 243, 199, 0.8);
+}
+
+.form-input {
+    background: rgba(254, 243, 199, 0.05);
+    border: 1px solid rgba(254, 243, 199, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: #fef3c7;
+    font-family: "MetalksFont", sans-serif;
+    font-size: 1rem;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.8);
+}
+
+.auth-button {
+    background: rgba(99, 102, 241, 0.8);
+    border: none;
+    border-radius: 24px;
+    padding: 0.75rem 1.5rem;
+    color: #fef3c7;
+    font-family: "MetalksFont", sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.auth-button:hover {
+    background: rgba(79, 70, 229, 0.9);
+    transform: translateY(-2px);
+}
+
+.auth-message {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: rgba(254, 243, 199, 0.7);
 }
 
 /* 特质详情窗口 */
@@ -658,7 +834,7 @@ body {
 .confirm-button {
     padding: 0.75rem 2rem;
     border-radius: 24px;
-    font-family: "Alibaba_puhui", sans-serif;
+    font-family: "MetalksFont", sans-serif;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -697,30 +873,8 @@ body {
     }
 }
 
-/* 刷新话题按钮样式 */
-.refresh-button {
-    background: rgba(99, 102, 241, 0.8);
-    border: none;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    color: #fef3c7;
-    font-family: 'Alibaba_puhui', sans-serif;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.refresh-button:hover {
-    background: rgba(79, 70, 229, 0.9);
-    transform: translateY(-2px);
-}
-
 /* 响应式设计 */
 @media (max-width: 1024px) {
-    .app-container {
-        padding: 0 240px;
-    }
-    
     .sidebar-left, .sidebar-right {
         width: 240px;
     }
@@ -729,13 +883,10 @@ body {
 @media (max-width: 768px) {
     .app-container {
         flex-direction: column;
-        padding: 0;
     }
     
     .sidebar-left, .sidebar-right {
-        position: relative;
         width: 100%;
-        height: auto;
         border-right: none;
         border-left: none;
         border-bottom: 1px solid rgba(254, 243, 199, 0.1);
