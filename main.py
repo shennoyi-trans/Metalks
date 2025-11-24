@@ -18,9 +18,15 @@ app = FastAPI()
 # ==========================
 # 添加 CORS 中间件
 # ==========================
+origins = [
+    "http://metalks.me",
+    "http://www.metalks.me",
+    "https://metalks.me",
+    "https://www.metalks.me"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有源，生产环境应该指定具体域名
+    allow_origins=origins,  
     allow_credentials=True,
     allow_methods=["*"],  # 允许所有方法
     allow_headers=["*"],  # 允许所有头

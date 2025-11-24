@@ -2,8 +2,7 @@ frontend/
 │
 ├── chat.html          #聊天界面
 ├── chat.js
-├── style.css
-└── index.html        #欢迎界面
+└── style.css
 
 backend/
 │
@@ -33,8 +32,8 @@ backend/
 │
 │   ├── model1/
 │   │   ├── system.txt
-│   │   ├── model1_intro.txt
-│   │   └── model2_intro.txt
+│   │   ├── mode1_intro.txt
+│   │   └── mode2_intro.txt
 │   │
 │   ├── model2/
 │   │   ├── final_report_mode1.txt
