@@ -8,7 +8,7 @@ from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
 from backend.db.models import TraitProfile
 
-router = APIRouter(prefix="/traits", tags=["traits"])
+router = APIRouter(tags=["traits"])
 
 @router.get("/traits/global")
 async def get_global_traits(

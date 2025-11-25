@@ -1,5 +1,5 @@
 // ==================== API配置 ====================
-const API_BASE_URL = '';
+const API_BASE_URL = ''; // 如果前后端同源，留空即可；否则填 http://localhost:8000
 
 const API_ENDPOINTS = {
     CHAT_STREAM: '/chat/stream',
@@ -7,7 +7,7 @@ const API_ENDPOINTS = {
     SESSION_LIST: '/sessions',
     SESSION_DETAIL: '/sessions', // + /{id}
     MARK_COMPLETED: '/sessions/mark_completed',
-    TRAITS_GLOBAL: '/sessions/traits/global',
+    TRAITS_GLOBAL: '/traits/global',
     AUTH_LOGIN: '/auth/login',
     AUTH_REGISTER: '/auth/register'
 };
@@ -69,7 +69,7 @@ const els = {
 
 // ==================== 状态变量 ====================
 let state = {
-    isLoggedIn: false, // 简单标记，实际由HttpOnly Cookie控制
+    isLoggedIn: false, 
     currentMode: null, // 'topic' | 'casual'
     currentTopicId: null,
     currentTopicName: null,
@@ -80,15 +80,18 @@ let state = {
     pendingTopicChange: null,
     isFirstMessage: false,
     streamController: null,
-    isAuthLoginMode: true // true=login, false=register
+    isAuthLoginMode: true,
+    fullTraitReport: "" 
 };
+
+// 模拟缓存
+let availableTopics = [];
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Nebula UI initialized');
-    
     initEventListeners();
-    checkLoginStatus(); // 尝试加载数据，若401则弹出登录
+    checkLoginStatus(); 
 });
 
 function initEventListeners() {
@@ -99,7 +102,7 @@ function initEventListeners() {
     // 2. 话题刷新与选择
     [els.refreshTopicsBtn, els.refreshTopicsBtnHeader].forEach(btn => {
         btn?.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止触发背景点击
+            e.stopPropagation(); 
             if(btn === els.refreshTopicsBtnHeader) showModal(els.topicOverlay);
             loadRandomTopics();
         });
@@ -111,7 +114,7 @@ function initEventListeners() {
     els.casualChatBtn.addEventListener('click', () => handleTopicChange(null, null, null, true));
 
     // 3. 聊天交互
-    els.sendButton.addEventListener('click', sendMessage);
+    els.sendButton.addEventListener('click', () => sendMessage());
     els.chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -123,18 +126,15 @@ function initEventListeners() {
         this.style.height = (this.scrollHeight) + 'px';
     });
 
-    // 4. 模态框关闭逻辑 (通用背景点击关闭)
+    // 4. 模态框关闭逻辑
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                // 特殊处理：Auth弹窗如果不强制登录，可以关闭；
-                // 如果未登录且试图操作，可能不允许关闭。这里允许关闭。
                 hideModal(overlay);
             }
         });
     });
     
-    // 关闭按钮
     document.getElementById('closeReportButton').addEventListener('click', () => hideModal(els.reportOverlay));
     document.getElementById('closeTraitsDetailButton').addEventListener('click', () => hideModal(els.traitsDetailOverlay));
     els.closeAuthBtn.addEventListener('click', () => hideModal(els.authOverlay));
@@ -148,7 +148,7 @@ function initEventListeners() {
 
     // 6. 确认弹窗
     els.confirmYes.addEventListener('click', () => {
-        saveCurrentSession(); // 实际上后端会自动保存，这里主要是前端状态清理
+        // saveCurrentSession(); // 后端流式结束时已自动保存，这里只需清理状态
         hideModal(els.confirmOverlay);
         if (state.pendingTopicChange) {
             const { id, name, tag, casual } = state.pendingTopicChange;
@@ -161,31 +161,27 @@ function initEventListeners() {
         state.pendingTopicChange = null;
     });
     
-    // 特质详情链接
     els.traitsDetailLink.addEventListener('click', showTraitsDetail);
 }
 
 // ==================== 核心逻辑 ====================
 
-/** 检查登录状态 (通过尝试获取数据) */
 async function checkLoginStatus() {
     try {
-        // 尝试加载全局特质，如果成功说明已登录
         await loadGlobalTraits(); 
         state.isLoggedIn = true;
         updateAuthUI();
         loadSessions();
         loadRandomTopics();
-        showModal(els.topicOverlay); // 初始显示话题选择
+        showModal(els.topicOverlay); 
     } catch (error) {
         if (error.status === 401) {
             state.isLoggedIn = false;
-            showModal(els.authOverlay); // 未登录显示弹窗
+            showModal(els.authOverlay); 
         }
     }
 }
 
-/** 切换话题 (带确认) */
 function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
     if (state.hasUnsavedChanges && state.conversationHistory.length > 0) {
         state.pendingTopicChange = { id: topicId, name: topicName, tag: topicTag, casual: isCasual };
@@ -196,15 +192,10 @@ function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
 }
 
 async function executeTopicChange(topicId, topicName, topicTag, isCasual = false) {
-    // 清理当前状态
-    state.currentSessionId = "session_" + Date.now(); // 临时ID，第一条消息后后端会建立真实Session或这里可以先调创建接口
-    // 注意：后端API设计是 /chat/stream 自动创建Session (如果传default)，或者需要显式创建
-    // 根据 chat_api.py，如果不传 session_id 或传 "default"，它可能没有持久化 session_id 给前端
-    // 更好的做法是：前端生成一个随机 SessionID 或者第一条消息后获取。
-    // 这里我们使用 "default" 让后端新建，但为了历史记录，最好能在第一次返回时拿到真实 ID。
-    // 由于后端是流式，我们在 'is_first=true' 时发送，后端应该会处理。
+    // 1. 重置状态
+    // 🔴 修复点：立即生成新的唯一 ID，不再让后端使用 "default"
+    state.currentSessionId = generateUUID(); 
     
-    state.currentSessionId = null; // 让后端生成
     state.currentMode = isCasual ? 'casual' : 'topic';
     state.currentTopicId = topicId;
     state.currentTopicName = topicName;
@@ -213,41 +204,56 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     state.conversationHistory = [];
     state.hasUnsavedChanges = false;
 
-    // UI 更新
+    // 2. UI 更新
     els.currentTopic.textContent = isCasual ? '随便聊聊' : topicName;
     els.headerTag.textContent = isCasual ? '自由漫游' : topicTag;
     els.chatTitle.textContent = isCasual ? '自由对话' : `正在探索：${topicTag}`;
     els.statusContent.innerHTML = isCasual ? '模型已就绪<br>正在捕捉思维碎片...' : `正在连接深层意识...<br>测试对象：${topicTag}`;
     
     els.chatMessages.innerHTML = '';
-    els.welcomePlaceholder.style.display = 'none'; // 隐藏欢迎
+    els.welcomePlaceholder.style.display = 'none';
     hideModal(els.topicOverlay);
-    removeTraitReportButton();
     
-    // 自动聚焦
-    els.chatInput.focus();
+    els.chatInput.value = ''; 
     
-    // 发送第一条空消息以初始化 (可选，根据后端逻辑)
-    // 如果后端需要 is_first 触发开场白：
-    // sendMessageToAPI("", true); 
+    // 3. 自动开场 (Mode 1)
+    if (!isCasual) {
+        showThinking();
+        try {
+            // 发送空消息，带上 isFirst=true
+            await sendMessageToAPI("", true);
+            state.isFirstMessage = false;
+        } catch (error) {
+            console.error("Auto-start failed:", error);
+            hideThinking();
+            addMessage('ai', '系统连接超时，请尝试刷新或重新选择话题。');
+        }
+    } else {
+        els.welcomePlaceholder.style.display = 'block';
+        els.welcomePlaceholder.innerHTML = `<h2>准备好了</h2><p>告诉我你现在在想什么...</p>`;
+        els.chatInput.focus();
+    }
 }
 
 /** 发送消息 */
 async function sendMessage() {
     const text = els.chatInput.value.trim();
-    if (!text && !state.isFirstMessage) return;
+    
+    // 如果没有文字且不是系统自动触发(即用户点击发送)，则不处理
+    if (!text) return;
 
-    if (text) {
-        addMessage('user', text);
-        els.chatInput.value = '';
-        els.chatInput.style.height = 'auto';
-        els.welcomePlaceholder.style.display = 'none';
-    }
+    // 1. 上屏用户消息
+    addMessage('user', text);
+    els.chatInput.value = '';
+    els.chatInput.style.height = 'auto';
+    els.welcomePlaceholder.style.display = 'none';
 
+    // 2. 锁定并显示思考
     els.sendButton.disabled = true;
     showThinking();
     state.hasUnsavedChanges = true;
 
+    // 3. 发送请求
     try {
         await sendMessageToAPI(text, state.isFirstMessage);
         state.isFirstMessage = false;
@@ -259,83 +265,112 @@ async function sendMessage() {
     }
 }
 
-/** 调用流式 API */
+// ... (保留之前的代码)
+
 async function sendMessageToAPI(message, isFirst = false) {
     if (state.streamController) state.streamController.abort();
     state.streamController = new AbortController();
 
+    // 🔴 修复点：确保 session_id 存在，不再回退到 "default"
+    if (!state.currentSessionId) {
+        state.currentSessionId = generateUUID();
+    }
+
     const payload = {
         mode: state.currentMode === 'topic' ? 1 : 2,
-        session_id: state.currentSessionId || "default",
+        session_id: state.currentSessionId, // 这里改了
         message: message,
         topic_id: state.currentMode === 'topic' ? parseInt(state.currentTopicId) : undefined,
         is_first: isFirst
     };
 
-    const response = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        signal: state.streamController.signal
-    });
+    // ... (后续代码保持不变，直接复制之前的 try-catch-fetch 部分即可)
+    
+    let response;
+    try {
+        response = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            signal: state.streamController.signal
+        });
+    } catch (e) {
+        throw new Error(`请求失败: ${e.message}`); 
+    }
 
+    // ... (后续流处理代码保持不变) ...
+    // 为了节省篇幅，这里不重复粘贴流处理代码，请保持原样
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    
     let aiMsgDiv = null;
     let aiContent = "";
+    let buffer = ""; 
 
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop(); 
 
             for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const jsonStr = line.slice(6);
-                    if (jsonStr === '[DONE]') break;
+                const trimmedLine = line.trim();
+                if (!trimmedLine.startsWith('data: ')) continue;
+                
+                const jsonStr = trimmedLine.slice(6); 
+                if (jsonStr === '[DONE]') break; 
+                
+                try {
+                    const event = JSON.parse(jsonStr);
                     
-                    try {
-                        const event = JSON.parse(jsonStr);
-                        
-                        // 处理 Session ID 回传 (如果后端在流里返回了 session_id)
-                        if (event.session_id && !state.currentSessionId) {
-                            state.currentSessionId = event.session_id;
-                        }
+                    // 理论上这里不会再变，但保留以防后端强制覆写
+                    if (event.session_id && state.currentSessionId !== event.session_id) {
+                         // 通常不需要操作，除非后端有特殊逻辑
+                    }
 
-                        if (event.type === 'end') {
-                            handleEndEvent(event);
-                            continue;
-                        }
+                    if (event.type === 'end') {
+                        handleEndEvent(event);
+                        continue;
+                    }
 
-                        if (event.content) {
-                            if (!aiMsgDiv) {
-                                hideThinking();
-                                aiMsgDiv = addMessage('ai', '');
-                            }
-                            aiContent += event.content;
-                            aiMsgDiv.textContent = aiContent;
-                            scrollToBottom();
+                    if (event.content) {
+                        if (!aiMsgDiv) {
+                            hideThinking();
+                            aiMsgDiv = addMessage('ai', '');
                         }
-                    } catch (e) { console.error('JSON Parse error', e); }
+                        aiContent += event.content;
+                        aiMsgDiv.textContent = aiContent;
+                        scrollToBottom();
+                    }
+                } catch (e) {
+                    console.warn('JSON Parse error:', e); 
                 }
             }
         }
+    } catch (error) {
+        if (error.name === 'AbortError') return; 
+        console.error("Stream Error:", error);
+        throw error;
     } finally {
-        state.conversationHistory.push({ role: 'assistant', content: aiContent });
+        if (aiContent) {
+            state.conversationHistory.push({ role: 'assistant', content: aiContent });
+        }
         els.sendButton.disabled = false;
         hideThinking();
-        loadSessions(); // 刷新左侧列表
+        loadSessions(); // 刷新左侧列表，现在应该能看到多条记录了
     }
 }
 
 function handleEndEvent(event) {
     if (event.summary) {
-        addMessage('ai', event.summary).style.fontStyle = "italic";
+        // 可以选择显示总结，或者只是记录
+        // addMessage('ai', `[小结] ${event.summary}`).style.fontStyle = "italic";
     }
     if (event.has_opinion_report && event.opinion_report) {
-        showReport(event.opinion_report, state.currentTopicTag);
+        // 延迟一点显示报告，体验更好
+        setTimeout(() => showReport(event.opinion_report, state.currentTopicTag), 1000);
     }
     if (event.trait_summary) {
         updateTraitsDisplay(event.trait_summary);
@@ -345,10 +380,9 @@ function handleEndEvent(event) {
 
 // ==================== 数据加载 ====================
 
-/** 加载历史记录 (对接真实API) */
 async function loadSessions() {
     try {
-        const sessions = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_LIST}`);
+        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions/`); // 注意这里的斜杠，根据你的后端API
         renderSessionList(sessions);
     } catch (e) {
         console.error("Load sessions failed", e);
@@ -365,16 +399,14 @@ function renderSessionList(sessions) {
     sessions.forEach(s => {
         const li = document.createElement('li');
         li.className = 'session-item';
-        
-        // 格式化日期
         const dateStr = formatDate(s.created_at);
-        
-        // 标题处理
         let title = s.last_message || "无对话内容";
         if (title.length > 15) title = title.substring(0, 15) + "...";
-        const topicLabel = s.mode === 1 ? (getTopicName(s.topic_id) || "话题对话") : "随便聊聊";
+        
+        // 尝试从缓存的话题列表里找名字，如果找不到就用 ID
+        const topicObj = availableTopics.find(t => t.id === s.topic_id);
+        const topicLabel = s.mode === 1 ? (topicObj ? topicObj.topic : `话题${s.topic_id}`) : "随便聊聊";
 
-        // 标签
         let tagsHtml = '';
         if (s.status === 'completed') tagsHtml += `<span class="tag">已完成</span>`;
         else tagsHtml += `<span class="tag tag-progress">进行中</span>`;
@@ -396,16 +428,14 @@ async function loadSessionDetail(sessionId) {
     try {
         const session = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
         
-        // 恢复状态
         state.currentSessionId = session.id;
         state.currentMode = session.mode === 1 ? 'topic' : 'casual';
         state.currentTopicId = session.topic_id;
-        // 简单根据ID反查Name，实际建议后端详情返回 topic_name
+        
         const topicObj = availableTopics.find(t => t.id === session.topic_id);
         state.currentTopicName = topicObj ? topicObj.topic : "历史话题";
         state.currentTopicTag = topicObj ? topicObj.concept_tag : "";
         
-        // UI 恢复
         els.currentTopic.textContent = state.currentTopicName;
         els.headerTag.textContent = state.currentMode === 'topic' ? state.currentTopicTag : '自由漫游';
         els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag}` : '回顾：自由对话';
@@ -427,7 +457,10 @@ async function loadSessionDetail(sessionId) {
 async function loadRandomTopics() {
     try {
         const topics = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
-        availableTopics = topics; // 缓存以备反查
+        // 简单去重合并到 availableTopics
+        topics.forEach(t => {
+            if(!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
+        });
         renderTopicsGrid(topics);
     } catch (e) { console.error(e); }
 }
@@ -449,7 +482,6 @@ function renderTopicsGrid(topics) {
 async function loadGlobalTraits() {
     const data = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TRAITS_GLOBAL}`);
     updateTraitsDisplay(data.summary);
-    // 保存全量报告以备详情展示
     state.fullTraitReport = data.full_report;
 }
 
@@ -477,14 +509,9 @@ async function handleAuthSubmit() {
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
-            credentials: 'include',   // 必须，才能拿到 HttpOnly Cookie
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: email,
-                password: password
-            })
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password })
         });
 
         if (!response.ok) {
@@ -492,15 +519,11 @@ async function handleAuthSubmit() {
             throw new Error(err.detail || '操作失败');
         }
 
-        const data = await response.json();
-
         if (state.isAuthLoginMode) {
-            // 登录成功
             state.isLoggedIn = true;
             hideModal(els.authOverlay);
             await checkLoginStatus();
         } else {
-            // 注册成功
             switchAuthMode(true);
             els.authErrorMsg.style.color = 'var(--success-color)';
             els.authErrorMsg.textContent = '注册成功，请登录';
@@ -512,14 +535,16 @@ async function handleAuthSubmit() {
     }
 }
 
-
 // ==================== 工具函数 ====================
 
-/** 通用 Fetch 封装 (处理 Auth) */
+// ... (保留之前的代码)
+
+// ==================== 工具函数 (替换原有的 fetchWithAuth) ====================
+
 async function fetchWithAuth(url, options = {}) {
     const finalOptions = {
         method: options.method || 'GET',
-        credentials: 'include',
+        credentials: 'include', // 必须允许跨域 Cookie
         headers: {
             'Content-Type': 'application/json',
             ...(options.headers || {})
@@ -528,30 +553,45 @@ async function fetchWithAuth(url, options = {}) {
         signal: options.signal
     };
 
-    const response = await fetch(url, finalOptions);
+    try {
+        const response = await fetch(url, finalOptions);
 
-    if (response.status === 401) {
-        const error = new Error("Unauthorized");
-        error.status = 401;
-        throw error;
+        if (response.status === 401) {
+            const error = new Error("未登录或会话过期");
+            error.status = 401;
+            throw error;
+        }
+
+        if (!response.ok) {
+            // 尝试读取后端返回的错误信息
+            let errorText = response.statusText;
+            try {
+                const errJson = await response.json();
+                errorText = errJson.detail || JSON.stringify(errJson);
+            } catch (e) { /* ignore json parse error */ }
+            
+            throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        // 对于流式接口，直接返回 response，不解析 json
+        if (url.includes('/chat/stream')) {
+            return response;
+        }
+
+        return response.json();
+    } catch (err) {
+        // 捕获网络层面的错误（如 CORS 失败，服务器没开）
+        console.error("Fetch Error Details:", err);
+        throw err; // 继续抛出给上层处理
     }
-
-    if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-    }
-
-    return response.json();
 }
 
-
-/** 日期格式化: ISO -> YYYY/MM/DD */
 function formatDate(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
-    return `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}`;
+    return `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
 
-/** UI 辅助 */
 function showModal(modal) { 
     modal.classList.add('active'); 
     modal.style.visibility = 'visible'; 
@@ -575,6 +615,7 @@ function scrollToBottom() {
 }
 
 function showThinking() {
+    if(document.getElementById('thinkingAnim')) return;
     const div = document.createElement('div');
     div.className = 'thinking-animation';
     div.id = 'thinkingAnim';
@@ -589,31 +630,31 @@ function hideThinking() {
 function updateTraitsDisplay(summary) {
     els.traitsContent.textContent = summary || "暂无特质数据";
     if(summary) {
-        document.querySelector('.update-dot').style.display = 'inline-block';
-        setTimeout(() => document.querySelector('.update-dot').style.display = 'none', 5000);
+        const dot = document.querySelector('.update-dot');
+        if(dot) {
+            dot.style.display = 'inline-block';
+            setTimeout(() => dot.style.display = 'none', 5000);
+        }
     }
 }
 
 function showReport(content, topic) {
     els.reportTitle.textContent = `分析报告：${topic}`;
-    els.reportContent.innerHTML = `<p>${content}</p>`;
+    els.reportContent.innerHTML = `<div style="white-space: pre-wrap;">${content}</div>`;
     showModal(els.reportOverlay);
 }
 
 function showTraitsDetail() {
-    // 如果有全量报告，这里展示。目前简单展示summary
-    els.traitsDetailContent.innerHTML = `<p>${els.traitsContent.textContent}</p>`;
+    els.traitsDetailContent.innerHTML = `<div style="white-space: pre-wrap;">${state.fullTraitReport || els.traitsContent.textContent}</div>`;
     showModal(els.traitsDetailOverlay);
 }
 
-function removeTraitReportButton() {
-    // 以前的逻辑移除
-}
-
 function updateAuthUI() {
-    // 可以在侧边栏显示头像等
     els.authBtn.innerHTML = '<span class="user-avatar-btn">M</span>';
 }
 
-// 模拟缓存
-let availableTopics = [];
+/** 生成唯一会话ID */
+function generateUUID() {
+    // 简单实现，生成类似 "1719238491234-r8s9" 的字符串
+    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+}

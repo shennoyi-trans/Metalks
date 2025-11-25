@@ -58,15 +58,18 @@ async def login_user(payload: AuthPayload, response: Response, db: AsyncSession 
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # 创建 JWT
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
 
     # HttpOnly Cookie（推荐）
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="lax"
+        secure=False,        # 🔥 改为 False（Nginx 已处理 HTTPS）
+        samesite="lax",      # 允许跨子域
+        path="/",            # 🔥 确保全站可用
+        max_age=7*24*3600,   # 7天过期
+        domain=None          # 🔥 不限制域名
     )
 
     return {"message": "Login successful", "user_id": user.id}
