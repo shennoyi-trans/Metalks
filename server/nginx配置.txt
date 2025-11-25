@@ -1,0 +1,75 @@
+server {
+    listen 443 ssl;
+    server_name metalks.me www.metalks.me;
+
+    # --------------------
+    # 1. 静态文件（前端）
+    # --------------------
+    root /opt/metalks/frontend;
+    index chat.html;
+
+    location / {
+        try_files $uri /chat.html;
+    }
+
+    # --------------------
+    # 2. 后端 API (FastAPI)
+    # --------------------
+    
+    # Chat 流式接口
+    location /chat/ {
+        proxy_pass http://127.0.0.1:8000/chat/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_buffering off;  # SSE 必须关闭缓冲
+    }
+
+    # Auth
+    location /auth/ {
+        proxy_pass http://127.0.0.1:8000/auth/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Sessions
+    location /sessions/ {
+        proxy_pass http://127.0.0.1:8000/sessions/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Topics
+    location /topics/ {
+        proxy_pass http://127.0.0.1:8000/topics/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # --------------------
+    # 3. SSL（保持不动）
+    # --------------------
+    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    if ($host = www.metalks.me) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = metalks.me) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name metalks.me www.metalks.me;
+    return 404; # managed by Certbot
+
+
+
+
+}
