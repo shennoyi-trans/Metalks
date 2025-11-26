@@ -1,5 +1,5 @@
 // ==================== API配置 ====================
-const API_BASE_URL = ''; // 如果前后端同源，留空即可；否则填 http://localhost:8000
+const API_BASE_URL = '/api'; // 如果前后端同源，留空即可；否则填 http://localhost:8000
 
 const API_ENDPOINTS = {
     CHAT_STREAM: '/chat/stream',
@@ -382,7 +382,7 @@ function handleEndEvent(event) {
 
 async function loadSessions() {
     try {
-        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions/`); // 注意这里的斜杠，根据你的后端API
+        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions`); // 注意这里的斜杠，根据你的后端API
         renderSessionList(sessions);
     } catch (e) {
         console.error("Load sessions failed", e);
@@ -649,6 +649,15 @@ function showTraitsDetail() {
     showModal(els.traitsDetailOverlay);
 }
 
+function updateAuthUI() {
+    els.authBtn.innerHTML = '<span class="user-avatar-btn">M</span>';
+}
+
+/** 生成唯一会话ID */
+function generateUUID() {
+    // 简单实现，生成类似 "1719238491234-r8s9" 的字符串
+    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+}
 function updateAuthUI() {
     els.authBtn.innerHTML = '<span class="user-avatar-btn">M</span>';
 }
