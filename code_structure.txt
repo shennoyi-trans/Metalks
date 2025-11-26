@@ -2,13 +2,15 @@ frontend/
 │
 ├── chat.html          #聊天界面
 ├── chat.js
-├── style.css
-└── index.html        #欢迎界面
+└── style.css
 
 backend/
 │
 ├── api/                         # API 层完全独立
+│   ├── auth_api.py
 │   ├── chat_api.py              # /chat 流式接口
+│   ├── traits_api.py
+│   ├── session_api.py
 │   └── topic_api.py
 │
 ├── core/
@@ -33,8 +35,8 @@ backend/
 │
 │   ├── model1/
 │   │   ├── system.txt
-│   │   ├── model1_intro.txt
-│   │   └── model2_intro.txt
+│   │   ├── mode1_intro.txt
+│   │   └── mode2_intro.txt
 │   │
 │   ├── model2/
 │   │   ├── final_report_mode1.txt

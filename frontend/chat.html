@@ -3,200 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>对话测评 - 认识你自己</title>
+    <title>Metalks - 认识你自己</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 </head>
 <body>
-    <!-- 背景光晕 -->
-    <div class="bg-glow">
-        <div class="glow-1"></div>
-        <div class="glow-2"></div>
+    <div class="bg-cosmos">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
     </div>
 
-    <!-- 主应用容器 -->
-    <div class="app-container">
-        <!-- 左侧边栏 - 历史记录和特质 -->
-        <div class="sidebar-left">
-            <div class="traits-section">
-                <div class="traits-title">
-                    你的特质
-                    <span class="update-indicator" id="traitUpdateIndicator" style="display: none;"></span>
-                </div>
-                <div class="traits-content" id="traitsContent">
-                    你的表达习惯结构化且逻辑清晰。
-                    你倾向于从价值层面解释行为。
-                </div>
-                <a class="detail-link" id="traitsDetailLink">了解详情</a>
+    <div class="app-layout">
+        <nav class="sidebar-nav">
+            <div class="nav-header">
+                <div class="logo">M</div>
             </div>
             
-            <div class="history-section">
-                <div class="history-title">历史对话</div>
-                <ul class="session-list" id="sessionList">
-                    <li class="session-item" style="text-align: center; color: rgba(254, 243, 199, 0.5);">暂无历史对话</li>
-                </ul>
+            <div class="nav-actions">
+                <button class="nav-btn active" id="newChatBtn" title="新对话">
+                    <i class="ri-add-line"></i>
+                </button>
+                <button class="nav-btn" id="historyToggleBtn" title="历史记录">
+                    <i class="ri-history-line"></i>
+                </button>
             </div>
+
+            <div class="nav-footer">
+                <button class="nav-btn" id="authBtn" title="用户">
+                    <i class="ri-user-3-line"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="history-drawer" id="historyDrawer">
+            <div class="drawer-header">
+                <h3>时光回溯</h3>
+                <button class="icon-btn" id="closeHistoryBtn"><i class="ri-close-line"></i></button>
+            </div>
+            <ul class="session-list" id="sessionList">
+                <div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.3);">
+                    加载中...
+                </div>
+            </ul>
         </div>
 
-        <!-- 主对话区域 -->
-        <div class="main-content">
-            <div class="chat-container">
-                <div class="chat-header">
-                    <div class="chat-title" id="chatTitle">与AI对话</div>
+        <main class="chat-stage">
+            <div class="chat-wrapper">
+                <header class="stage-header">
+                    <div class="header-info">
+                        <span class="topic-badge" id="currentTopicTag">自由对话</span>
+                        <h1 id="chatTitle">与自我对话</h1>
+                    </div>
+                    <div class="header-actions">
+                        <button class="refresh-btn" id="refreshTopicsButton_Header">
+                            <i class="ri-refresh-line"></i> 换个话题
+                        </button>
+                    </div>
+                </header>
+
+                <div class="messages-container" id="chatMessages">
+                    <div class="welcome-placeholder" id="welcomePlaceholder">
+                        <h2>准备好探索内心了吗？</h2>
+                        <p>选择一个话题，或直接开始。</p>
+                    </div>
                 </div>
-                
-                <div class="chat-messages" id="chatMessages">
-                    <!-- 消息将通过JavaScript动态添加 -->
-                </div>
-                
-                <div class="chat-input-area">
-                    <div class="input-container">
+
+                <div class="input-dock">
+                    <div class="input-glass">
                         <textarea 
-                            class="chat-input" 
                             id="chatInput" 
-                            placeholder="输入你的想法..." 
+                            placeholder="写下你的想法..." 
                             rows="1"
                         ></textarea>
-                        <button class="send-button" id="sendButton">发送</button>
+                        <button id="sendButton" class="send-btn">
+                            <i class="ri-send-plane-fill"></i>
+                        </button>
                     </div>
-                    <!-- 报告按钮将动态添加到这里 -->
-                    <div id="reportButtonContainer"></div>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <!-- 右侧边栏 - 状态和话题选择 -->
-        <div class="sidebar-right">
-            <div class="topic-selector-mini" id="topicSelectorMini">
-                <div class="mini-title">选择话题</div>
-                <div class="current-topic" id="currentTopic">未选择</div>
-            </div>
-            
-            <div class="status-section">
-                <div class="status-title">当前状态</div>
+        <aside class="insight-hud">
+            <div class="hud-card status-card">
+                <div class="card-label">
+                    <i class="ri-pulse-line"></i> 当前状态
+                </div>
                 <div class="status-content" id="statusContent">
-                    请选择一个话题开始对话
+                    等待连接...
                 </div>
             </div>
-            
-            <!-- 用户登录注册区域 -->
-            <div class="user-section">
-                <div class="user-title">用户中心</div>
-                <div class="user-content">
-                    <button class="user-button" id="userAuthButton">登录 / 注册</button>
+
+            <div class="hud-card traits-card">
+                <div class="card-header">
+                    <div class="card-label">
+                        <i class="ri-user-search-line"></i> 你的特质
+                    </div>
+                    <span class="update-dot" style="display: none;"></span>
                 </div>
+                <div class="traits-body" id="traitsContent">
+                    随着对话深入，你的轮廓将逐渐清晰...
+                </div>
+                <a class="hud-link" id="traitsDetailLink">
+                    查看深度解析 <i class="ri-arrow-right-line"></i>
+                </a>
             </div>
-        </div>
+
+            <div class="hud-card topic-mini" id="topicSelectorMini">
+                <div class="card-label">当前话题</div>
+                <div class="topic-display" id="currentTopic">未选择</div>
+                <i class="ri-arrow-down-s-line icon-indicator"></i>
+            </div>
+        </aside>
     </div>
 
-    <!-- 覆盖层 - 话题选择窗口 -->
-    <div class="overlay" id="topicOverlay">
-        <div class="topic-window">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h2 class="window-title">你想从哪个话题开始？</h2>
-                <button class="refresh-button" id="refreshTopicsButton">刷新话题</button>
+    <div class="modal-overlay" id="topicOverlay">
+        <div class="modal-glass">
+            <div class="modal-header">
+                <h2>你想聊点什么？</h2>
+                <p class="subtitle">每一个话题都是通往潜意识的入口</p>
+                <button class="refresh-icon-btn" id="refreshTopicsButton" title="刷新话题">
+                    <i class="ri-refresh-line"></i>
+                </button>
             </div>
-            <p class="window-desc">每一个话题都对应着你对某些事情的真实看法。</p>
             
             <div class="topics-grid" id="topicsGrid">
-                <!-- 话题将通过JavaScript动态加载 -->
-            </div>
+                </div>
             
-            <div class="divider"></div>
-            
-            <div class="casual-chat">
-                <button class="casual-button" id="casualChatButton">随便聊聊</button>
-                <p class="casual-desc">
-                    你也可以随便聊聊。模型有可能捕捉到你的某些观念，也可能不会。
-                </p>
+            <div class="modal-footer">
+                <button class="casual-btn" id="casualChatButton">
+                    <i class="ri-cup-line"></i> 随便聊聊
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 覆盖层 - 报告窗口 -->
-    <div class="overlay" id="reportOverlay" style="display: none;">
-        <div class="report-window">
-            <h2 class="report-title" id="reportTitle">你的【工作观】测试结果</h2>
-            <div class="report-content" id="reportContent">
-                <!-- 报告内容将通过API动态添加 -->
+    <div class="modal-overlay" id="authOverlay">
+        <div class="modal-glass auth-modal">
+            <div class="modal-header">
+                <h2 id="authTitle">欢迎回来</h2>
+                <button class="close-icon" id="closeAuthBtn"><i class="ri-close-line"></i></button>
             </div>
-            <button class="close-button" id="closeReportButton">关闭报告</button>
-        </div>
-    </div>
-
-    <!-- 覆盖层 - 登录注册窗口 -->
-    <div class="overlay" id="authOverlay" style="display: none;">
-        <div class="auth-window">
-            <!-- 关闭按钮 -->
-            <button class="close-auth-button" id="closeAuthButton">×</button>
             
             <div class="auth-tabs">
-                <button class="auth-tab active" id="loginTab">登录</button>
-                <button class="auth-tab" id="registerTab">注册</button>
+                <div class="auth-tab active" data-mode="login">登录</div>
+                <div class="auth-tab" data-mode="register">注册</div>
             </div>
-            
-            <form class="auth-form" id="loginForm">
-                <div class="form-group">
-                    <label class="form-label" for="loginUsername">用户名</label>
-                    <input type="text" class="form-input" id="loginUsername" placeholder="请输入用户名" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="loginPassword">密码</label>
-                    <input type="password" class="form-input" id="loginPassword" placeholder="请输入密码" required>
-                </div>
-                <button type="submit" class="auth-button">登录</button>
-                <div class="auth-message" id="loginMessage"></div>
-            </form>
-            
-            <form class="auth-form" id="registerForm" style="display: none;">
-                <div class="form-group">
-                    <label class="form-label" for="registerUsername">用户名</label>
-                    <input type="text" class="form-input" id="registerUsername" placeholder="请输入用户名" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="registerEmail">邮箱</label>
-                    <input type="email" class="form-input" id="registerEmail" placeholder="请输入邮箱" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="registerPassword">密码</label>
-                    <input type="password" class="form-input" id="registerPassword" placeholder="请输入密码" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="registerConfirmPassword">确认密码</label>
-                    <input type="password" class="form-input" id="registerConfirmPassword" placeholder="请再次输入密码" required>
-                </div>
-                <button type="submit" class="auth-button">注册</button>
-                <div class="auth-message" id="registerMessage"></div>
-            </form>
-        </div>
-    </div>
 
-    <!-- 覆盖层 - 特质详情窗口 -->
-    <div class="overlay" id="traitsDetailOverlay" style="display: none;">
-        <div class="traits-detail-window">
-            <h2 class="traits-detail-title">你的特质详情</h2>
-            <div class="traits-detail-content" id="traitsDetailContent">
-                <!-- 特质详情内容将通过API动态添加 -->
-            </div>
-            <button class="close-button" id="closeTraitsDetailButton">关闭详情</button>
-        </div>
-    </div>
-
-    <!-- 确认弹窗 -->
-    <div class="confirm-overlay" id="confirmOverlay" style="display: none;">
-        <div class="confirm-window">
-            <h2 class="confirm-title">确认切换话题</h2>
-            <p class="confirm-message" id="confirmMessage">
-                当前聊天尚未结束，是否保存进度？
-                <br>
-                （保存后可在左侧边栏查看）
-            </p>
-            <div class="confirm-buttons">
-                <button class="confirm-button confirm-yes" id="confirmYes">保存进度</button>
-                <button class="confirm-button confirm-no" id="confirmNo">放弃进度</button>
+            <div class="auth-form">
+                <div class="form-group">
+                    <input type="email" id="emailInput" placeholder="邮箱地址" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="passwordInput" placeholder="密码" required>
+                </div>
+                <div class="error-msg" id="authErrorMsg"></div>
+                <button class="btn-primary auth-btn" id="submitAuthBtn">登录</button>
             </div>
         </div>
     </div>
 
-    <script src="chat.js"></script>
+    <div class="modal-overlay" id="reportOverlay">
+        <div class="modal-glass report-modal">
+            <div class="modal-header">
+                <h2 id="reportTitle">分析报告</h2>
+                <button class="close-icon" id="closeReportButton"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="report-scroll-area" id="reportContent" style="max-height: 60vh; overflow-y: auto; line-height: 1.8;">
+                </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="traitsDetailOverlay">
+        <div class="modal-glass report-modal">
+            <div class="modal-header">
+                <h2>思维特质图谱</h2>
+                <button class="close-icon" id="closeTraitsDetailButton"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="report-scroll-area" id="traitsDetailContent" style="max-height: 60vh; overflow-y: auto;">
+                </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <h3>切换话题？</h3>
+            <p id="confirmMessage" style="margin-bottom: 1.5rem; color: rgba(255,255,255,0.7);">当前对话将被保存至历史记录。</p>
+            <div class="confirm-actions">
+                <button class="btn-ghost" id="confirmNo">放弃</button>
+                <button class="btn-primary" id="confirmYes">保存并切换</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/chat.js"></script>
 </body>
 </html>

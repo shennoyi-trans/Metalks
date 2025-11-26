@@ -1,1196 +1,660 @@
 // ==================== API配置 ====================
-const API_BASE_URL = 'http://localhost:8000'; // 本地开发环境
+const API_BASE_URL = ''; // 如果前后端同源，留空即可；否则填 http://localhost:8000
 
 const API_ENDPOINTS = {
-    CHAT_STREAM: '/chat/stream',           // 流式对话
-    TOPICS: '/topics',                     // 获取所有话题
-    TOPICS_RANDOM: '/topics/random',       // 随机获取话题
-    // 以下接口暂未实现，使用模拟数据
-    SESSION_LIST: '/session/list',         
-    SESSION_DETAIL: '/session',            
-    SESSION_REPORT: '/session/report',     
-    TRAITS_GLOBAL: '/traits/global',       
-    SESSION_STATUS: '/session/status',     
-    CREATE_SESSION: '/session/create',     
-    UPDATE_SESSION: '/session/update',     
-    SAVE_SESSION: '/session/save'          
+    CHAT_STREAM: '/chat/stream',
+    TOPICS_RANDOM: '/topics/random',
+    SESSION_LIST: '/sessions',
+    SESSION_DETAIL: '/sessions', // + /{id}
+    MARK_COMPLETED: '/sessions/mark_completed',
+    TRAITS_GLOBAL: '/traits/global',
+    AUTH_LOGIN: '/auth/login',
+    AUTH_REGISTER: '/auth/register'
 };
 
 // ==================== DOM元素 ====================
-const topicOverlay = document.getElementById('topicOverlay');
-const reportOverlay = document.getElementById('reportOverlay');
-const traitsDetailOverlay = document.getElementById('traitsDetailOverlay');
-const confirmOverlay = document.getElementById('confirmOverlay');
-const authOverlay = document.getElementById('authOverlay');
-const topicSelectorMini = document.getElementById('topicSelectorMini');
-const currentTopic = document.getElementById('currentTopic');
-const statusContent = document.getElementById('statusContent');
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
-const sendButton = document.getElementById('sendButton');
-const casualChatButton = document.getElementById('casualChatButton');
-const closeReportButton = document.getElementById('closeReportButton');
-const closeTraitsDetailButton = document.getElementById('closeTraitsDetailButton');
-const closeAuthButton = document.getElementById('closeAuthButton');
-const userAuthButton = document.getElementById('userAuthButton');
-const reportTitle = document.getElementById('reportTitle');
-const reportContent = document.getElementById('reportContent');
-const traitsDetailLink = document.getElementById('traitsDetailLink');
-const traitsDetailContent = document.getElementById('traitsDetailContent');
-const traitsContent = document.getElementById('traitsContent');
-const sessionList = document.getElementById('sessionList');
-const confirmMessage = document.getElementById('confirmMessage');
-const confirmYes = document.getElementById('confirmYes');
-const confirmNo = document.getElementById('confirmNo');
-const chatTitle = document.getElementById('chatTitle');
-const topicsGrid = document.getElementById('topicsGrid');
-const refreshTopicsButton = document.getElementById('refreshTopicsButton');
-const traitUpdateIndicator = document.getElementById('traitUpdateIndicator');
-const reportButtonContainer = document.getElementById('reportButtonContainer');
-
-// 登录注册相关DOM元素
-const loginTab = document.getElementById('loginTab');
-const registerTab = document.getElementById('registerTab');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const loginUsername = document.getElementById('loginUsername');
-const loginPassword = document.getElementById('loginPassword');
-const registerUsername = document.getElementById('registerUsername');
-const registerEmail = document.getElementById('registerEmail');
-const registerPassword = document.getElementById('registerPassword');
-const registerConfirmPassword = document.getElementById('registerConfirmPassword');
-const loginMessage = document.getElementById('loginMessage');
-const registerMessage = document.getElementById('registerMessage');
+const els = {
+    // 模态框
+    topicOverlay: document.getElementById('topicOverlay'),
+    reportOverlay: document.getElementById('reportOverlay'),
+    traitsDetailOverlay: document.getElementById('traitsDetailOverlay'),
+    confirmOverlay: document.getElementById('confirmOverlay'),
+    authOverlay: document.getElementById('authOverlay'),
+    
+    // 侧边栏
+    historyDrawer: document.getElementById('historyDrawer'),
+    historyToggleBtn: document.getElementById('historyToggleBtn'),
+    closeHistoryBtn: document.getElementById('closeHistoryBtn'),
+    sessionList: document.getElementById('sessionList'),
+    newChatBtn: document.getElementById('newChatBtn'),
+    authBtn: document.getElementById('authBtn'),
+    
+    // 聊天主区域
+    chatMessages: document.getElementById('chatMessages'),
+    chatInput: document.getElementById('chatInput'),
+    sendButton: document.getElementById('sendButton'),
+    chatTitle: document.getElementById('chatTitle'),
+    headerTag: document.getElementById('currentTopicTag'),
+    welcomePlaceholder: document.getElementById('welcomePlaceholder'),
+    
+    // HUD右侧栏
+    statusContent: document.getElementById('statusContent'),
+    traitsContent: document.getElementById('traitsContent'),
+    traitsDetailLink: document.getElementById('traitsDetailLink'),
+    topicSelectorMini: document.getElementById('topicSelectorMini'),
+    currentTopic: document.getElementById('currentTopic'),
+    
+    // 模态框内容
+    topicsGrid: document.getElementById('topicsGrid'),
+    refreshTopicsBtn: document.getElementById('refreshTopicsButton'),
+    refreshTopicsBtnHeader: document.getElementById('refreshTopicsButton_Header'),
+    casualChatBtn: document.getElementById('casualChatButton'),
+    reportTitle: document.getElementById('reportTitle'),
+    reportContent: document.getElementById('reportContent'),
+    traitsDetailContent: document.getElementById('traitsDetailContent'),
+    
+    // Auth
+    authTabs: document.querySelectorAll('.auth-tab'),
+    emailInput: document.getElementById('emailInput'),
+    passwordInput: document.getElementById('passwordInput'),
+    submitAuthBtn: document.getElementById('submitAuthBtn'),
+    authErrorMsg: document.getElementById('authErrorMsg'),
+    closeAuthBtn: document.getElementById('closeAuthBtn'),
+    
+    // Confirm
+    confirmYes: document.getElementById('confirmYes'),
+    confirmNo: document.getElementById('confirmNo'),
+    confirmMessage: document.getElementById('confirmMessage')
+};
 
 // ==================== 状态变量 ====================
-let currentMode = null; // 'topic' 或 'casual'
-let currentTopicId = null;
-let currentTopicName = null;
-let currentTopicTag = null;
-let currentSessionId = null;
-let conversationHistory = [];
-let hasUnsavedChanges = false;
-let pendingTopicChange = null;
-let currentStreamController = null;
-let isFirstMessage = false;
+let state = {
+    isLoggedIn: false, 
+    currentMode: null, // 'topic' | 'casual'
+    currentTopicId: null,
+    currentTopicName: null,
+    currentTopicTag: null,
+    currentSessionId: null,
+    conversationHistory: [],
+    hasUnsavedChanges: false,
+    pendingTopicChange: null,
+    isFirstMessage: false,
+    streamController: null,
+    isAuthLoginMode: true,
+    fullTraitReport: "" 
+};
+
+// 模拟缓存
 let availableTopics = [];
-let mockSessions = []; // 存储会话数据
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('页面加载完成，初始化事件监听器');
+    console.log('Nebula UI initialized');
+    initEventListeners();
+    checkLoginStatus(); 
+});
+
+function initEventListeners() {
+    // 1. 侧边栏交互
+    els.historyToggleBtn.addEventListener('click', () => els.historyDrawer.classList.add('open'));
+    els.closeHistoryBtn.addEventListener('click', () => els.historyDrawer.classList.remove('open'));
     
-    // 绑定刷新话题按钮点击事件
-    refreshTopicsButton.addEventListener('click', function() {
-        console.log('刷新话题按钮被点击');
-        loadRandomTopics();
+    // 2. 话题刷新与选择
+    [els.refreshTopicsBtn, els.refreshTopicsBtnHeader].forEach(btn => {
+        btn?.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            if(btn === els.refreshTopicsBtnHeader) showModal(els.topicOverlay);
+            loadRandomTopics();
+        });
     });
+
+    els.topicSelectorMini.addEventListener('click', () => showModal(els.topicOverlay));
+    els.newChatBtn.addEventListener('click', () => showModal(els.topicOverlay));
     
-    // 绑定随便聊聊按钮点击事件
-    casualChatButton.addEventListener('click', function() {
-        console.log('随便聊聊按钮被点击');
-        handleTopicChange(null, null, null, true);
-    });
-    
-    // 绑定右侧话题选择器点击事件
-    topicSelectorMini.addEventListener('click', function() {
-        console.log('话题选择器被点击');
-        showTopicOverlay();
-    });
-    
-    // 绑定发送消息按钮点击事件
-    sendButton.addEventListener('click', sendMessage);
-    
-    // 绑定输入框回车键发送消息
-    chatInput.addEventListener('keydown', function(e) {
+    els.casualChatBtn.addEventListener('click', () => handleTopicChange(null, null, null, true));
+
+    // 3. 聊天交互
+    els.sendButton.addEventListener('click', () => sendMessage());
+    els.chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
-    
-    // 输入框自动调整高度
-    chatInput.addEventListener('input', function() {
+    els.chatInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
     });
-    
-    // 关闭报告按钮点击事件
-    closeReportButton.addEventListener('click', function() {
-        reportOverlay.style.display = 'none';
-    });
-    
-    // 关闭特质详情按钮点击事件
-    closeTraitsDetailButton.addEventListener('click', function() {
-        traitsDetailOverlay.style.display = 'none';
-    });
-    
-    // 关闭登录注册窗口按钮点击事件
-    closeAuthButton.addEventListener('click', function() {
-        console.log('关闭登录注册窗口按钮被点击');
-        authOverlay.style.display = 'none';
-    });
-    
-    // 用户认证按钮点击事件
-    userAuthButton.addEventListener('click', function() {
-        console.log('用户认证按钮被点击');
-        authOverlay.style.display = 'flex';
-        // 默认显示登录表单
-        showLoginForm();
-    });
-    
-    // 登录选项卡点击事件
-    loginTab.addEventListener('click', function() {
-        console.log('登录选项卡被点击');
-        showLoginForm();
-    });
-    
-    // 注册选项卡点击事件
-    registerTab.addEventListener('click', function() {
-        console.log('注册选项卡被点击');
-        showRegisterForm();
-    });
-    
-    // 登录表单提交事件
-    loginForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleLogin();
-    });
-    
-    // 注册表单提交事件
-    registerForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleRegister();
-    });
-    
-    // 特质详情链接点击事件
-    traitsDetailLink.addEventListener('click', function() {
-        showTraitsDetail();
-        // 用户查看特质详情后，隐藏红点
-        traitUpdateIndicator.style.display = 'none';
-    });
-    
-    // 确认弹窗按钮点击事件
-    confirmYes.addEventListener('click', function() {
-        saveCurrentSession();
-        confirmOverlay.style.display = 'none';
-        if (pendingTopicChange) {
-            executeTopicChange(
-                pendingTopicChange.topicId, 
-                pendingTopicChange.topicName, 
-                pendingTopicChange.topicTag, 
-                pendingTopicChange.isCasual
-            );
-            pendingTopicChange = null;
-        }
-    });
-    
-    confirmNo.addEventListener('click', function() {
-        confirmOverlay.style.display = 'none';
-        if (pendingTopicChange) {
-            executeTopicChange(
-                pendingTopicChange.topicId, 
-                pendingTopicChange.topicName, 
-                pendingTopicChange.topicTag, 
-                pendingTopicChange.isCasual
-            );
-            pendingTopicChange = null;
-        }
-    });
-    
-    // 加载初始数据
-    loadInitialData();
-});
 
-// ==================== 登录注册功能 ====================
-
-/**
- * 显示登录表单
- */
-function showLoginForm() {
-    loginTab.classList.add('active');
-    registerTab.classList.remove('active');
-    loginForm.style.display = 'block';
-    registerForm.style.display = 'none';
-    // 清空消息
-    loginMessage.textContent = '';
-    registerMessage.textContent = '';
-}
-
-/**
- * 显示注册表单
- */
-function showRegisterForm() {
-    registerTab.classList.add('active');
-    loginTab.classList.remove('active');
-    registerForm.style.display = 'block';
-    loginForm.style.display = 'none';
-    // 清空消息
-    loginMessage.textContent = '';
-    registerMessage.textContent = '';
-}
-
-/**
- * 处理登录
- */
-function handleLogin() {
-    const username = loginUsername.value;
-    const password = loginPassword.value;
-    
-    if (!username || !password) {
-        loginMessage.textContent = '请填写所有字段';
-        loginMessage.style.color = '#ef4444';
-        return;
-    }
-    
-    // 模拟登录成功
-    loginMessage.textContent = '登录成功！';
-    loginMessage.style.color = '#10b981';
-    
-    // 2秒后关闭窗口
-    setTimeout(() => {
-        authOverlay.style.display = 'none';
-        // 更新用户按钮文本
-        userAuthButton.textContent = '已登录';
-        loginMessage.textContent = '';
-        // 清空表单
-        loginForm.reset();
-    }, 2000);
-}
-
-/**
- * 处理注册
- */
-function handleRegister() {
-    const username = registerUsername.value;
-    const email = registerEmail.value;
-    const password = registerPassword.value;
-    const confirmPassword = registerConfirmPassword.value;
-    
-    if (!username || !email || !password || !confirmPassword) {
-        registerMessage.textContent = '请填写所有字段';
-        registerMessage.style.color = '#ef4444';
-        return;
-    }
-    
-    if (password !== confirmPassword) {
-        registerMessage.textContent = '密码不匹配';
-        registerMessage.style.color = '#ef4444';
-        return;
-    }
-    
-    if (password.length < 6) {
-        registerMessage.textContent = '密码长度至少6位';
-        registerMessage.style.color = '#ef4444';
-        return;
-    }
-    
-    // 模拟注册成功
-    registerMessage.textContent = '注册成功！正在自动登录...';
-    registerMessage.style.color = '#10b981';
-    
-    // 2秒后自动登录并关闭窗口
-    setTimeout(() => {
-        authOverlay.style.display = 'none';
-        // 更新用户按钮文本
-        userAuthButton.textContent = '已登录';
-        registerMessage.textContent = '';
-        // 清空表单
-        registerForm.reset();
-        // 切换到登录表单
-        showLoginForm();
-    }, 2000);
-}
-
-// ==================== API调用函数 ====================
-
-/**
- * 加载初始数据
- */
-async function loadInitialData() {
-    try {
-        // 加载随机话题列表
-        await loadRandomTopics();
-        
-        // 加载历史会话列表
-        await loadSessions();
-        
-        // 加载全局特质
-        await loadGlobalTraits();
-        
-        // 显示话题选择窗口
-        showTopicOverlay();
-    } catch (error) {
-        console.error('加载初始数据失败:', error);
-        showError('加载数据失败，请刷新页面重试');
-    }
-}
-
-/**
- * 加载随机话题列表
- */
-async function loadRandomTopics() {
-    try {
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const topics = await response.json();
-        availableTopics = topics;
-        updateTopicsGrid(topics);
-    } catch (error) {
-        console.error('加载随机话题失败:', error);
-        // 使用模拟数据作为备选
-        availableTopics = getMockTopics();
-        updateTopicsGrid(availableTopics);
-    }
-}
-
-/**
- * 加载所有话题列表
- */
-async function loadAllTopics() {
-    try {
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.TOPICS}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const topics = await response.json();
-        availableTopics = topics;
-        updateTopicsGrid(topics);
-    } catch (error) {
-        console.error('加载话题列表失败:', error);
-        // 使用模拟数据作为备选
-        availableTopics = getMockTopics();
-        updateTopicsGrid(availableTopics);
-    }
-}
-
-/**
- * 更新话题网格
- */
-function updateTopicsGrid(topics) {
-    topicsGrid.innerHTML = '';
-
-    topics.forEach(topic => {
-        const topicCard = document.createElement('div');
-        topicCard.className = 'topic-card';
-        topicCard.dataset.topicId = topic.id;
-        topicCard.dataset.topic = topic.topic;
-        topicCard.dataset.tag = topic.concept_tag;
-
-        topicCard.innerHTML = `
-            <div class="topic-name">${topic.topic}</div>
-            <div class="topic-tag">${topic.concept_tag}</div>
-        `;
-
-        topicCard.addEventListener('click', function() {
-            handleTopicChange(
-                this.dataset.topicId,
-                this.dataset.topic,
-                this.dataset.tag
-            );
-        });
-
-        topicsGrid.appendChild(topicCard);
-    });
-}
-
-/**
- * 加载历史会话列表
- */
-async function loadSessions() {
-    try {
-        // 调用API获取会话列表（临时使用模拟数据）
-        updateSessionList(mockSessions);
-    } catch (error) {
-        console.error('加载会话列表失败:', error);
-        updateSessionList(mockSessions);
-    }
-}
-
-/**
- * 加载特定会话
- */
-async function loadSession(sessionId) {
-    try {
-        // 中止当前可能正在进行的流式请求
-        if (currentStreamController) {
-            currentStreamController.abort();
-            currentStreamController = null;
-        }
-        
-        // 查找会话
-        const session = mockSessions.find(s => s.id === sessionId);
-        if (!session) {
-            console.error('会话不存在:', sessionId);
-            return;
-        }
-        
-        // 更新当前会话状态
-        currentSessionId = session.id;
-        currentMode = session.mode || 'casual';
-        currentTopicId = session.topic_id || null;
-        currentTopicName = session.topic || null;
-        currentTopicTag = session.topic ? `${session.topic}观` : null;
-        
-        // 更新UI
-        currentTopic.textContent = currentTopicName || '随便聊聊';
-        chatTitle.textContent = session.title || '与AI对话';
-        
-        // 更新状态
-        if (session.status === 'completed') {
-            statusContent.innerHTML = `已完成${currentTopicTag || '自由对话'}`;
-        } else {
-            statusContent.innerHTML = currentMode === 'topic' ? 
-                `正在测试：${currentTopicTag}<br>继续对话中...` : 
-                '自由对话中<br>继续对话中...';
-        }
-        
-        // 加载会话消息
-        displayMessages(session.messages || []);
-        
-        // 隐藏话题选择窗口（如果有）
-        topicOverlay.style.display = 'none';
-        
-        // 清除现有报告按钮
-        clearReportButton();
-        
-        // 如果是已完成的会话，显示报告按钮
-        if (session.status === 'completed' && session.has_report) {
-            addReportButton();
-        }
-        
-        // 聚焦输入框
-        chatInput.focus();
-        
-        // 更新特质信息
-        if (session.traits) {
-            updateTraitsDisplay(session.traits);
-        }
-        
-    } catch (error) {
-        console.error('加载会话失败:', error);
-        showError('加载会话失败，请重试');
-    }
-}
-
-/**
- * 加载会话报告
- */
-async function loadSessionReport(sessionId) {
-    try {
-        // 临时使用模拟数据
-        const report = getMockReport();
-        showReport(report.content, report.topic ? `${report.topic}观` : '自由对话');
-    } catch (error) {
-        console.error('加载报告失败:', error);
-        showError('加载报告失败，请重试');
-    }
-}
-
-/**
- * 加载全局特质
- */
-async function loadGlobalTraits() {
-    try {
-        // 临时使用模拟数据
-        updateTraitsDisplay(getMockTraits());
-    } catch (error) {
-        console.error('加载特质失败:', error);
-        updateTraitsDisplay(getMockTraits());
-    }
-}
-
-/**
- * 创建新会话
- */
-async function createSession(topicId = null, mode = 'topic') {
-    // 临时实现：生成一个随机会话ID
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    return {
-        id: sessionId,
-        mode: mode,
-        topic_id: topicId,
-        topic: topicId ? availableTopics.find(t => t.id == topicId)?.topic : null,
-        created_at: new Date().toISOString()
-    };
-}
-
-/**
- * 发送消息到API
- */
-async function sendMessageToAPI(message, isFirst = false) {
-    // 中止之前的流式请求（如果有）
-    if (currentStreamController) {
-        currentStreamController.abort();
-    }
-    
-    // 创建新的AbortController用于当前请求
-    currentStreamController = new AbortController();
-    
-    try {
-        // 构建请求体，与后端API参数匹配
-        const requestBody = {
-            mode: currentMode === 'topic' ? 1 : 2,
-            session_id: currentSessionId || "default",
-            message: message,
-            topic_id: currentMode === 'topic' ? parseInt(currentTopicId) : undefined,
-            is_first: isFirst,
-            force_end: false
-        };
-
-        // 移除undefined字段
-        Object.keys(requestBody).forEach(key => {
-            if (requestBody[key] === undefined) {
-                delete requestBody[key];
+    // 4. 模态框关闭逻辑
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                hideModal(overlay);
             }
         });
+    });
+    
+    document.getElementById('closeReportButton').addEventListener('click', () => hideModal(els.reportOverlay));
+    document.getElementById('closeTraitsDetailButton').addEventListener('click', () => hideModal(els.traitsDetailOverlay));
+    els.closeAuthBtn.addEventListener('click', () => hideModal(els.authOverlay));
 
-        console.log('发送请求体:', requestBody);
+    // 5. Auth 交互
+    els.authBtn.addEventListener('click', () => showModal(els.authOverlay));
+    els.authTabs.forEach(tab => {
+        tab.addEventListener('click', () => switchAuthMode(tab.dataset.mode === 'login'));
+    });
+    els.submitAuthBtn.addEventListener('click', handleAuthSubmit);
 
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-            signal: currentStreamController.signal
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    // 6. 确认弹窗
+    els.confirmYes.addEventListener('click', () => {
+        // saveCurrentSession(); // 后端流式结束时已自动保存，这里只需清理状态
+        hideModal(els.confirmOverlay);
+        if (state.pendingTopicChange) {
+            const { id, name, tag, casual } = state.pendingTopicChange;
+            executeTopicChange(id, name, tag, casual);
+            state.pendingTopicChange = null;
         }
-        
-        // 处理流式响应
-        await processStreamResponse(response);
-        
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.log('请求被中止');
-        } else {
-            console.error('API请求失败:', error);
-            throw error;
-        }
-    } finally {
-        currentStreamController = null;
-        isFirstMessage = false;
-    }
+    });
+    els.confirmNo.addEventListener('click', () => {
+        hideModal(els.confirmOverlay);
+        state.pendingTopicChange = null;
+    });
+    
+    els.traitsDetailLink.addEventListener('click', showTraitsDetail);
 }
 
-/**
- * 保存当前会话
- */
-async function saveCurrentSession() {
+// ==================== 核心逻辑 ====================
+
+async function checkLoginStatus() {
     try {
-        // 创建或更新会话对象
-        const session = {
-            id: currentSessionId,
-            mode: currentMode,
-            topic_id: currentTopicId,
-            topic: currentTopicName,
-            title: currentMode === 'topic' ? `测试：${currentTopicTag}` : '自由对话',
-            last_message: conversationHistory.length > 0 ? 
-                conversationHistory[conversationHistory.length - 1].content : '',
-            created_at: new Date().toISOString(),
-            status: 'completed',
-            has_report: true,
-            has_trait_report: true,
-            messages: [...conversationHistory],
-            traits: getMockTraits()
-        };
-        
-        // 检查是否已存在
-        const existingIndex = mockSessions.findIndex(s => s.id === currentSessionId);
-        if (existingIndex >= 0) {
-            mockSessions[existingIndex] = session;
-        } else {
-            mockSessions.push(session);
-        }
-        
-        console.log('会话已保存:', session);
-        
-        // 重新加载会话列表
-        await loadSessions();
-        
-        // 重置未保存更改标志
-        hasUnsavedChanges = false;
-        
-        // 添加报告按钮
-        addReportButton();
-        
+        await loadGlobalTraits(); 
+        state.isLoggedIn = true;
+        updateAuthUI();
+        loadSessions();
+        loadRandomTopics();
+        showModal(els.topicOverlay); 
     } catch (error) {
-        console.error('保存会话失败:', error);
-        showError('保存会话失败');
-    }
-}
-
-// ==================== UI更新函数 ====================
-
-/**
- * 更新会话列表
- */
-function updateSessionList(sessions) {
-    sessionList.innerHTML = '';
-    
-    if (sessions.length === 0) {
-        sessionList.innerHTML = '<li class="session-item" style="text-align: center; color: rgba(254, 243, 199, 0.5);">暂无历史对话</li>';
-        return;
-    }
-    
-    sessions.forEach(session => {
-        const sessionItem = document.createElement('li');
-        sessionItem.className = 'session-item';
-        sessionItem.dataset.sessionId = session.id;
-        
-        const title = session.title || `[${session.topic || '随便聊聊'}] ${session.last_message || '新对话'}`;
-        const date = formatDate(session.created_at || session.updated_at);
-        
-        // 根据会话状态生成标签
-        let tag = '';
-        if (session.has_report) {
-            tag = '<span class="tag">包含观念</span>';
-        } else if (session.has_trait_report) {
-            tag = '<span class="tag tag-trait">特质报告</span>';
-        } else if (session.status === 'in_progress') {
-            tag = '<span class="tag tag-in-progress">进行中</span>';
+        if (error.status === 401) {
+            state.isLoggedIn = false;
+            showModal(els.authOverlay); 
         }
-        
-        sessionItem.innerHTML = `
-            <div class="session-title">${title}</div>
-            <div class="session-meta">
-                <span>${date}</span>
-                ${tag}
-            </div>
-        `;
-        
-        sessionItem.addEventListener('click', () => loadSession(session.id));
-        sessionList.appendChild(sessionItem);
-    });
-}
-
-/**
- * 显示消息记录
- */
-function displayMessages(messages) {
-    chatMessages.innerHTML = '';
-    conversationHistory = [];
-    
-    messages.forEach(msg => {
-        if (msg.role === 'user') {
-            addUserMessage(msg.content, false);
-        } else if (msg.role === 'assistant') {
-            addAIMessage(msg.content, false);
-        }
-    });
-    
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-/**
- * 更新特质显示
- */
-function updateTraitsDisplay(traits) {
-    // 更新简要特质显示
-    if (traits.summary) {
-        traitsContent.textContent = traits.summary;
-    } else if (traits.categories && Object.keys(traits.categories).length > 0) {
-        // 从分类中提取简要描述
-        const summary = [];
-        for (const [category, items] of Object.entries(traits.categories)) {
-            if (items.length > 0) {
-                summary.push(items[0].name);
-            }
-        }
-        traitsContent.textContent = summary.join('，') + '。';
-    } else {
-        traitsContent.textContent = '你的特质将会在这里显示。';
-    }
-    
-    // 更新特质详情
-    updateTraitsDetail(traits);
-    
-    // 如果有特质数据，显示红点提醒
-    if (traits && (traits.summary || traits.categories || traits.detailed)) {
-        traitUpdateIndicator.style.display = 'inline-block';
-    } else {
-        traitUpdateIndicator.style.display = 'none';
     }
 }
 
-/**
- * 更新特质详情
- */
-function updateTraitsDetail(traits) {
-    let traitsHTML = '';
-    
-    if (traits.categories && Object.keys(traits.categories).length > 0) {
-        for (const [category, items] of Object.entries(traits.categories)) {
-            traitsHTML += `
-                <div class="trait-category">
-                    <div class="trait-category-title">${category}</div>
-            `;
-            
-            items.forEach(trait => {
-                traitsHTML += `
-                    <div class="trait-item">
-                        <div class="trait-name">${trait.name}</div>
-                        <div class="trait-description">${trait.description}</div>
-                    </div>
-                `;
-            });
-            
-            traitsHTML += `</div>`;
-        }
-    } else if (traits.detailed) {
-        traitsHTML = `<p>${traits.detailed}</p>`;
-    } else {
-        traitsHTML = '<p>暂无详细的特质分析。</p>';
-    }
-    
-    traitsDetailContent.innerHTML = traitsHTML;
-}
-
-// ==================== 报告按钮相关函数 ====================
-
-/**
- * 添加查看报告按钮
- */
-function addReportButton() {
-    // 先清除现有按钮
-    clearReportButton();
-    
-    const reportButton = document.createElement('button');
-    reportButton.className = 'report-button';
-    reportButton.textContent = '查看报告';
-    reportButton.addEventListener('click', () => loadSessionReport(currentSessionId));
-    
-    reportButtonContainer.appendChild(reportButton);
-}
-
-/**
- * 清除报告按钮
- */
-function clearReportButton() {
-    reportButtonContainer.innerHTML = '';
-}
-
-// ==================== 核心交互函数 ====================
-
-/**
- * 显示话题选择窗口
- */
-function showTopicOverlay() {
-    topicOverlay.style.display = 'flex';
-}
-
-/**
- * 处理话题切换
- */
 function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
-    // 检查是否有未保存的更改
-    if (hasUnsavedChanges && conversationHistory.length > 0) {
-        // 显示确认弹窗
-        pendingTopicChange = {
-            topicId: topicId,
-            topicName: topicName,
-            topicTag: topicTag,
-            isCasual: isCasual
-        };
-        confirmOverlay.style.display = 'flex';
+    if (state.hasUnsavedChanges && state.conversationHistory.length > 0) {
+        state.pendingTopicChange = { id: topicId, name: topicName, tag: topicTag, casual: isCasual };
+        showModal(els.confirmOverlay);
     } else {
-        // 直接执行话题切换
         executeTopicChange(topicId, topicName, topicTag, isCasual);
     }
 }
 
-/**
- * 执行话题切换
- */
 async function executeTopicChange(topicId, topicName, topicTag, isCasual = false) {
-    try {
-        let newSession;
-        
-        if (isCasual) {
-            newSession = await createSession(null, 'casual');
-            selectCasualChat(newSession);
-        } else {
-            newSession = await createSession(topicId, 'topic');
-            selectTopic(topicId, topicName, topicTag, newSession);
+    // 1. 重置状态
+    // 🔴 修复点：立即生成新的唯一 ID，不再让后端使用 "default"
+    state.currentSessionId = generateUUID(); 
+    
+    state.currentMode = isCasual ? 'casual' : 'topic';
+    state.currentTopicId = topicId;
+    state.currentTopicName = topicName;
+    state.currentTopicTag = topicTag;
+    state.isFirstMessage = true;
+    state.conversationHistory = [];
+    state.hasUnsavedChanges = false;
+
+    // 2. UI 更新
+    els.currentTopic.textContent = isCasual ? '随便聊聊' : topicName;
+    els.headerTag.textContent = isCasual ? '自由漫游' : topicTag;
+    els.chatTitle.textContent = isCasual ? '自由对话' : `正在探索：${topicTag}`;
+    els.statusContent.innerHTML = isCasual ? '模型已就绪<br>正在捕捉思维碎片...' : `正在连接深层意识...<br>测试对象：${topicTag}`;
+    
+    els.chatMessages.innerHTML = '';
+    els.welcomePlaceholder.style.display = 'none';
+    hideModal(els.topicOverlay);
+    
+    els.chatInput.value = ''; 
+    
+    // 3. 自动开场 (Mode 1)
+    if (!isCasual) {
+        showThinking();
+        try {
+            // 发送空消息，带上 isFirst=true
+            await sendMessageToAPI("", true);
+            state.isFirstMessage = false;
+        } catch (error) {
+            console.error("Auto-start failed:", error);
+            hideThinking();
+            addMessage('ai', '系统连接超时，请尝试刷新或重新选择话题。');
         }
-        
-        // 重新加载会话列表
-        await loadSessions();
-        
-    } catch (error) {
-        console.error('切换话题失败:', error);
-        showError('切换话题失败，请重试');
+    } else {
+        els.welcomePlaceholder.style.display = 'block';
+        els.welcomePlaceholder.innerHTML = `<h2>准备好了</h2><p>告诉我你现在在想什么...</p>`;
+        els.chatInput.focus();
     }
 }
 
-/**
- * 选择话题
- */
-function selectTopic(topicId, topicName, topicTag, session) {
-    currentSessionId = session.id;
-    currentMode = 'topic';
-    currentTopicId = topicId;
-    currentTopicName = topicName;
-    currentTopicTag = topicTag;
-    isFirstMessage = true;
-    
-    // 更新UI
-    currentTopic.textContent = topicName;
-    chatTitle.textContent = `测试：${topicTag}`;
-    statusContent.innerHTML = `正在测试：${topicTag}<br>我开始有些了解你了`;
-    
-    // 隐藏话题选择窗口
-    topicOverlay.style.display = 'none';
-    
-    // 清空聊天记录
-    chatMessages.innerHTML = '';
-    conversationHistory = [];
-    hasUnsavedChanges = false;
-    
-    // 清除报告按钮
-    clearReportButton();
-    
-    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
-    
-    // 聚焦输入框
-    chatInput.focus();
-}
-
-/**
- * 选择随便聊聊模式
- */
-function selectCasualChat(session) {
-    currentSessionId = session.id;
-    currentMode = 'casual';
-    currentTopicId = null;
-    currentTopicName = null;
-    currentTopicTag = null;
-    isFirstMessage = true;
-    
-    // 更新UI
-    currentTopic.textContent = '随便聊聊';
-    chatTitle.textContent = '自由对话';
-    statusContent.innerHTML = '自由对话中<br>模型正在捕捉你的思考方式';
-    
-    // 隐藏话题选择窗口
-    topicOverlay.style.display = 'none';
-    
-    // 清空聊天记录
-    chatMessages.innerHTML = '';
-    conversationHistory = [];
-    hasUnsavedChanges = false;
-    
-    // 清除报告按钮
-    clearReportButton();
-    
-    sendMessageToAPI("", true);  // 第二个参数 true 表示 is_first
-    
-    // 聚焦输入框
-    chatInput.focus();
-}
-
-/**
- * 发送消息
- */
+/** 发送消息 */
 async function sendMessage() {
-    const message = chatInput.value.trim();
-    if (!message) return;
+    const text = els.chatInput.value.trim();
     
-    // 添加用户消息到聊天界面
-    addUserMessage(message);
-    
-    // 清空输入框
-    chatInput.value = '';
-    chatInput.style.height = 'auto';
-    
-    // 禁用发送按钮
-    sendButton.disabled = true;
-    
-    // 标记有未保存的更改
-    hasUnsavedChanges = true;
-    
+    // 如果没有文字且不是系统自动触发(即用户点击发送)，则不处理
+    if (!text) return;
+
+    // 1. 上屏用户消息
+    addMessage('user', text);
+    els.chatInput.value = '';
+    els.chatInput.style.height = 'auto';
+    els.welcomePlaceholder.style.display = 'none';
+
+    // 2. 锁定并显示思考
+    els.sendButton.disabled = true;
+    showThinking();
+    state.hasUnsavedChanges = true;
+
+    // 3. 发送请求
     try {
-        // 发送消息到后端API
-        await sendMessageToAPI(message);
+        await sendMessageToAPI(text, state.isFirstMessage);
+        state.isFirstMessage = false;
     } catch (error) {
-        console.error('发送消息失败:', error);
-        addAIMessage('抱歉，我遇到了一些问题，请稍后再试。');
-        sendButton.disabled = false;
+        console.error(error);
+        addMessage('ai', '连接中断，请稍后重试。');
+        hideThinking();
+        els.sendButton.disabled = false;
     }
 }
 
-/**
- * 处理流式响应
- */
-async function processStreamResponse(response) {
+// ... (保留之前的代码)
+
+async function sendMessageToAPI(message, isFirst = false) {
+    if (state.streamController) state.streamController.abort();
+    state.streamController = new AbortController();
+
+    // 🔴 修复点：确保 session_id 存在，不再回退到 "default"
+    if (!state.currentSessionId) {
+        state.currentSessionId = generateUUID();
+    }
+
+    const payload = {
+        mode: state.currentMode === 'topic' ? 1 : 2,
+        session_id: state.currentSessionId, // 这里改了
+        message: message,
+        topic_id: state.currentMode === 'topic' ? parseInt(state.currentTopicId) : undefined,
+        is_first: isFirst
+    };
+
+    // ... (后续代码保持不变，直接复制之前的 try-catch-fetch 部分即可)
+    
+    let response;
+    try {
+        response = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            signal: state.streamController.signal
+        });
+    } catch (e) {
+        throw new Error(`请求失败: ${e.message}`); 
+    }
+
+    // ... (后续流处理代码保持不变) ...
+    // 为了节省篇幅，这里不重复粘贴流处理代码，请保持原样
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let aiMessage = '';
     
-    // 创建AI消息元素
-    const messageElement = document.createElement('div');
-    messageElement.className = 'message message-ai';
-    chatMessages.appendChild(messageElement);
-    
+    let aiMsgDiv = null;
+    let aiContent = "";
+    let buffer = ""; 
+
     try {
         while (true) {
             const { done, value } = await reader.read();
+            if (done) break;
             
-            if (done) {
-                break;
-            }
-            
-            // 解码块数据
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop(); 
+
             for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
+                const trimmedLine = line.trim();
+                if (!trimmedLine.startsWith('data: ')) continue;
+                
+                const jsonStr = trimmedLine.slice(6); 
+                if (jsonStr === '[DONE]') break; 
+                
+                try {
+                    const event = JSON.parse(jsonStr);
                     
-                    if (data === '[DONE]') {
-                        // 流结束
-                        break;
+                    // 理论上这里不会再变，但保留以防后端强制覆写
+                    if (event.session_id && state.currentSessionId !== event.session_id) {
+                         // 通常不需要操作，除非后端有特殊逻辑
                     }
-                    
-                    if (data.trim()) {
-                        try {
-                            const event = JSON.parse(data);
-                            
-                            // 处理内容更新
-                            if (event.content) {
-                                aiMessage += event.content;
-                                messageElement.textContent = aiMessage;
-                                chatMessages.scrollTop = chatMessages.scrollHeight;
-                            }
-                            
-                            // 处理会话状态更新
-                            if (event.session_status) {
-                                updateSessionStatus(event.session_status);
-                            }
-                            
-                            // 处理特质更新
-                            if (event.traits_update) {
-                                updateTraitsDisplay(event.traits_update);
-                            }
-                            
-                            // 处理对话完成
-                            if (event.is_complete) {
-                                // 对话完成，显示报告
-                                setTimeout(() => {
-                                    showReport(event.report, currentTopicTag);
-                                }, 1000);
-                            }
-                            
-                        } catch (e) {
-                            console.error('解析流数据失败:', e);
+
+                    if (event.type === 'end') {
+                        handleEndEvent(event);
+                        continue;
+                    }
+
+                    if (event.content) {
+                        if (!aiMsgDiv) {
+                            hideThinking();
+                            aiMsgDiv = addMessage('ai', '');
                         }
+                        aiContent += event.content;
+                        aiMsgDiv.textContent = aiContent;
+                        scrollToBottom();
                     }
+                } catch (e) {
+                    console.warn('JSON Parse error:', e); 
                 }
             }
         }
-        
-        // 保存AI消息到历史记录
-        conversationHistory.push({ role: 'assistant', content: aiMessage });
-        
-        // 重新启用发送按钮
-        sendButton.disabled = false;
-        
     } catch (error) {
-        console.error('处理流响应失败:', error);
-        messageElement.textContent = '抱歉，响应过程中出现了问题。';
-        sendButton.disabled = false;
-    }
-}
-
-// ==================== 辅助函数 ====================
-
-/**
- * 添加用户消息
- */
-function addUserMessage(message, updateHistory = true) {
-    const messageElement = document.createElement('div');
-    messageElement.className = 'message message-user';
-    messageElement.textContent = message;
-    chatMessages.appendChild(messageElement);
-    
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
-    // 保存到历史记录
-    if (updateHistory) {
-        conversationHistory.push({ role: 'user', content: message });
-    }
-}
-
-/**
- * 添加AI消息
- */
-function addAIMessage(message, withTyping = false, updateHistory = true) {
-    if (withTyping) {
-        // 显示输入指示器
-        const typingElement = document.createElement('div');
-        typingElement.className = 'message message-ai typing-indicator';
-        typingElement.innerHTML = '思考中<span class="typing-dots"><span></span><span></span><span></span></span>';
-        chatMessages.appendChild(typingElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // 模拟打字效果
-        setTimeout(() => {
-            chatMessages.removeChild(typingElement);
-            addAIMessage(message, false, updateHistory);
-        }, 1500);
-    } else {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message message-ai';
-        messageElement.textContent = message;
-        chatMessages.appendChild(messageElement);
-        
-        // 滚动到底部
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // 保存到历史记录
-        if (updateHistory) {
-            conversationHistory.push({ role: 'assistant', content: message });
+        if (error.name === 'AbortError') return; 
+        console.error("Stream Error:", error);
+        throw error;
+    } finally {
+        if (aiContent) {
+            state.conversationHistory.push({ role: 'assistant', content: aiContent });
         }
+        els.sendButton.disabled = false;
+        hideThinking();
+        loadSessions(); // 刷新左侧列表，现在应该能看到多条记录了
+    }
+}
+
+function handleEndEvent(event) {
+    if (event.summary) {
+        // 可以选择显示总结，或者只是记录
+        // addMessage('ai', `[小结] ${event.summary}`).style.fontStyle = "italic";
+    }
+    if (event.has_opinion_report && event.opinion_report) {
+        // 延迟一点显示报告，体验更好
+        setTimeout(() => showReport(event.opinion_report, state.currentTopicTag), 1000);
+    }
+    if (event.trait_summary) {
+        updateTraitsDisplay(event.trait_summary);
+    }
+    state.hasUnsavedChanges = false;
+}
+
+// ==================== 数据加载 ====================
+
+async function loadSessions() {
+    try {
+        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions/`); // 注意这里的斜杠，根据你的后端API
+        renderSessionList(sessions);
+    } catch (e) {
+        console.error("Load sessions failed", e);
+    }
+}
+
+function renderSessionList(sessions) {
+    els.sessionList.innerHTML = '';
+    if (!sessions || sessions.length === 0) {
+        els.sessionList.innerHTML = '<div style="text-align:center; opacity:0.5; padding:1rem;">暂无记录</div>';
+        return;
+    }
+
+    sessions.forEach(s => {
+        const li = document.createElement('li');
+        li.className = 'session-item';
+        const dateStr = formatDate(s.created_at);
+        let title = s.last_message || "无对话内容";
+        if (title.length > 15) title = title.substring(0, 15) + "...";
         
-        // 重新启用发送按钮
-        sendButton.disabled = false;
+        // 尝试从缓存的话题列表里找名字，如果找不到就用 ID
+        const topicObj = availableTopics.find(t => t.id === s.topic_id);
+        const topicLabel = s.mode === 1 ? (topicObj ? topicObj.topic : `话题${s.topic_id}`) : "随便聊聊";
+
+        let tagsHtml = '';
+        if (s.status === 'completed') tagsHtml += `<span class="tag">已完成</span>`;
+        else tagsHtml += `<span class="tag tag-progress">进行中</span>`;
+
+        li.innerHTML = `
+            <div class="session-title">[${topicLabel}] ${title}</div>
+            <div class="session-meta">
+                <span>${dateStr}</span>
+                <div class="session-tags">${tagsHtml}</div>
+            </div>
+        `;
+        
+        li.addEventListener('click', () => loadSessionDetail(s.id));
+        els.sessionList.appendChild(li);
+    });
+}
+
+async function loadSessionDetail(sessionId) {
+    try {
+        const session = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
+        
+        state.currentSessionId = session.id;
+        state.currentMode = session.mode === 1 ? 'topic' : 'casual';
+        state.currentTopicId = session.topic_id;
+        
+        const topicObj = availableTopics.find(t => t.id === session.topic_id);
+        state.currentTopicName = topicObj ? topicObj.topic : "历史话题";
+        state.currentTopicTag = topicObj ? topicObj.concept_tag : "";
+        
+        els.currentTopic.textContent = state.currentTopicName;
+        els.headerTag.textContent = state.currentMode === 'topic' ? state.currentTopicTag : '自由漫游';
+        els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag}` : '回顾：自由对话';
+        
+        els.chatMessages.innerHTML = '';
+        els.welcomePlaceholder.style.display = 'none';
+        
+        session.messages.forEach(msg => {
+            addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content);
+        });
+        
+        els.historyDrawer.classList.remove('open');
+        
+    } catch (e) {
+        console.error("Load detail failed", e);
     }
 }
 
-/**
- * 更新会话状态
- */
-function updateSessionStatus(sessionStatus) {
-    if (sessionStatus.status === 'testing') {
-        statusContent.innerHTML = `正在测试：${currentTopicTag}<br>${sessionStatus.message || '我开始有些了解你了'}`;
-    } else if (sessionStatus.status === 'analyzing') {
-        statusContent.innerHTML = `分析中<br>${sessionStatus.message || '我正在分析你的回答...'}`;
-    } else if (sessionStatus.status === 'completed') {
-        statusContent.innerHTML = `测试完成<br>${sessionStatus.message || '已生成观念报告'}`;
-        hasUnsavedChanges = false;
-    } else if (sessionStatus.status === 'casual') {
-        statusContent.innerHTML = `自由对话中<br>${sessionStatus.message || '模型正在捕捉你的思考方式'}`;
+async function loadRandomTopics() {
+    try {
+        const topics = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
+        // 简单去重合并到 availableTopics
+        topics.forEach(t => {
+            if(!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
+        });
+        renderTopicsGrid(topics);
+    } catch (e) { console.error(e); }
+}
+
+function renderTopicsGrid(topics) {
+    els.topicsGrid.innerHTML = '';
+    topics.forEach(topic => {
+        const div = document.createElement('div');
+        div.className = 'topic-card';
+        div.innerHTML = `
+            <div class="topic-name">${topic.topic}</div>
+            <div class="topic-tag">${topic.concept_tag}</div>
+        `;
+        div.addEventListener('click', () => handleTopicChange(topic.id, topic.topic, topic.concept_tag));
+        els.topicsGrid.appendChild(div);
+    });
+}
+
+async function loadGlobalTraits() {
+    const data = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TRAITS_GLOBAL}`);
+    updateTraitsDisplay(data.summary);
+    state.fullTraitReport = data.full_report;
+}
+
+// ==================== Auth 逻辑 ====================
+
+function switchAuthMode(isLogin) {
+    state.isAuthLoginMode = isLogin;
+    els.authTabs.forEach(t => t.classList.toggle('active', 
+        (t.dataset.mode === 'login') === isLogin
+    ));
+    document.getElementById('authTitle').textContent = isLogin ? '欢迎回来' : '创建账号';
+    els.submitAuthBtn.textContent = isLogin ? '登录' : '注册';
+    els.authErrorMsg.textContent = '';
+}
+
+async function handleAuthSubmit() {
+    const email = els.emailInput.value.trim();
+    const password = els.passwordInput.value.trim();
+    if (!email || !password) return;
+
+    const endpoint = state.isAuthLoginMode
+        ? API_ENDPOINTS.AUTH_LOGIN
+        : API_ENDPOINTS.AUTH_REGISTER;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || '操作失败');
+        }
+
+        if (state.isAuthLoginMode) {
+            state.isLoggedIn = true;
+            hideModal(els.authOverlay);
+            await checkLoginStatus();
+        } else {
+            switchAuthMode(true);
+            els.authErrorMsg.style.color = 'var(--success-color)';
+            els.authErrorMsg.textContent = '注册成功，请登录';
+        }
+
+    } catch (error) {
+        els.authErrorMsg.style.color = 'var(--error-color)';
+        els.authErrorMsg.textContent = error.message;
     }
 }
 
-/**
- * 显示报告
- */
-function showReport(report, topic) {
-    // 更新报告内容
-    reportTitle.textContent = `你的【${topic}】测试结果`;
-    reportContent.textContent = report;
-    
-    // 显示报告窗口
-    reportOverlay.style.display = 'flex';
-    
-    // 更新状态
-    statusContent.innerHTML = `已生成${topic}报告`;
-    
-    // 重置未保存更改标志
-    hasUnsavedChanges = false;
+// ==================== 工具函数 ====================
+
+// ... (保留之前的代码)
+
+// ==================== 工具函数 (替换原有的 fetchWithAuth) ====================
+
+async function fetchWithAuth(url, options = {}) {
+    const finalOptions = {
+        method: options.method || 'GET',
+        credentials: 'include', // 必须允许跨域 Cookie
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        },
+        body: options.body,
+        signal: options.signal
+    };
+
+    try {
+        const response = await fetch(url, finalOptions);
+
+        if (response.status === 401) {
+            const error = new Error("未登录或会话过期");
+            error.status = 401;
+            throw error;
+        }
+
+        if (!response.ok) {
+            // 尝试读取后端返回的错误信息
+            let errorText = response.statusText;
+            try {
+                const errJson = await response.json();
+                errorText = errJson.detail || JSON.stringify(errJson);
+            } catch (e) { /* ignore json parse error */ }
+            
+            throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        // 对于流式接口，直接返回 response，不解析 json
+        if (url.includes('/chat/stream')) {
+            return response;
+        }
+
+        return response.json();
+    } catch (err) {
+        // 捕获网络层面的错误（如 CORS 失败，服务器没开）
+        console.error("Fetch Error Details:", err);
+        throw err; // 继续抛出给上层处理
+    }
 }
 
-/**
- * 显示特质详情
- */
+function formatDate(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function showModal(modal) { 
+    modal.classList.add('active'); 
+    modal.style.visibility = 'visible'; 
+}
+function hideModal(modal) { 
+    modal.classList.remove('active'); 
+    setTimeout(() => modal.style.visibility = 'hidden', 300); 
+}
+
+function addMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `message message-${role}`;
+    div.textContent = text;
+    els.chatMessages.appendChild(div);
+    scrollToBottom();
+    return div;
+}
+
+function scrollToBottom() {
+    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+}
+
+function showThinking() {
+    if(document.getElementById('thinkingAnim')) return;
+    const div = document.createElement('div');
+    div.className = 'thinking-animation';
+    div.id = 'thinkingAnim';
+    div.innerHTML = `<span style="font-size:0.8rem; color:rgba(255,255,255,0.5)">思考中</span><div class="thinking-dots"><div></div><div></div></div>`;
+    els.statusContent.appendChild(div);
+}
+function hideThinking() {
+    const el = document.getElementById('thinkingAnim');
+    if(el) el.remove();
+}
+
+function updateTraitsDisplay(summary) {
+    els.traitsContent.textContent = summary || "暂无特质数据";
+    if(summary) {
+        const dot = document.querySelector('.update-dot');
+        if(dot) {
+            dot.style.display = 'inline-block';
+            setTimeout(() => dot.style.display = 'none', 5000);
+        }
+    }
+}
+
+function showReport(content, topic) {
+    els.reportTitle.textContent = `分析报告：${topic}`;
+    els.reportContent.innerHTML = `<div style="white-space: pre-wrap;">${content}</div>`;
+    showModal(els.reportOverlay);
+}
+
 function showTraitsDetail() {
-    // 显示特质详情窗口
-    traitsDetailOverlay.style.display = 'flex';
+    els.traitsDetailContent.innerHTML = `<div style="white-space: pre-wrap;">${state.fullTraitReport || els.traitsContent.textContent}</div>`;
+    showModal(els.traitsDetailOverlay);
 }
 
-/**
- * 显示错误消息
- */
-function showError(message) {
-    const errorElement = document.createElement('div');
-    errorElement.className = 'message message-ai';
-    errorElement.style.color = '#ef4444';
-    errorElement.textContent = `错误: ${message}`;
-    chatMessages.appendChild(errorElement);
-    
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+function updateAuthUI() {
+    els.authBtn.innerHTML = '<span class="user-avatar-btn">M</span>';
 }
 
-/**
- * 格式化日期
- */
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) {
-        return '昨天';
-    } else if (diffDays === 2) {
-        return '前天';
-    } else if (diffDays <= 7) {
-        return `${diffDays}天前`;
-    } else {
-        return date.toLocaleDateString('zh-CN');
-    }
-}
-
-// ==================== 模拟数据函数 ====================
-
-/**
- * 获取模拟话题数据
- */
-function getMockTopics() {
-    return [
-        { id: 1, topic: '工作', concept_tag: '工作观' },
-        { id: 2, topic: '家庭', concept_tag: '家庭观' },
-        { id: 3, topic: '金钱', concept_tag: '金钱观' },
-        { id: 4, topic: '爱情', concept_tag: '爱情观' },
-        { id: 5, topic: '友谊', concept_tag: '友谊观' },
-        { id: 6, topic: '教育', concept_tag: '教育观' }
-    ];
-}
-
-/**
- * 获取模拟报告
- */
-function getMockReport() {
-    return {
-        content: '根据我们的对话分析，你倾向于将工作视为实现个人价值的重要途径。你重视工作中的自主性和创造性，认为工作与生活的平衡同样重要。',
-        topic: '工作'
-    };
-}
-
-/**
- * 获取模拟特质数据
- */
-function getMockTraits() {
-    return {
-        summary: '你的表达习惯结构化且逻辑清晰。你倾向于从价值层面解释行为。',
-        categories: {
-            '思维模式': [
-                {
-                    name: '逻辑性强',
-                    description: '你习惯用逻辑分析问题，表达观点时条理清晰。'
-                },
-                {
-                    name: '价值导向',
-                    description: '你倾向于从价值观角度解释行为和决策。'
-                }
-            ],
-            '沟通风格': [
-                {
-                    name: '结构化表达',
-                    description: '你的表达方式通常有明确的结构和层次。'
-                }
-            ]
-        }
-    };
+/** 生成唯一会话ID */
+function generateUUID() {
+    // 简单实现，生成类似 "1719238491234-r8s9" 的字符串
+    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
 }

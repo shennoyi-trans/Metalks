@@ -1,0 +1,83 @@
+server {
+    listen 443 ssl;
+    server_name metalks.me www.metalks.me;
+
+    root /opt/metalks/frontend;
+    index chat.html;
+
+    # --------------------
+    # API 路由（精确匹配，不影响静态文件）
+    # --------------------
+    
+    # 🔥 关键：匹配 /chat/ 开头（注意斜杠），不匹配 /chat.js
+    location ~ ^/chat/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_pass_header Set-Cookie;
+        proxy_buffering off;
+    }
+
+    location ~ ^/auth/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_pass_header Set-Cookie;
+    }
+
+    location ~ ^/sessions/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_pass_header Set-Cookie;
+    }
+
+    location ~ ^/topics/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+    }
+
+    location ~ ^/traits/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+    }
+
+    # 静态文件（最后匹配）
+    location / {
+        try_files $uri $uri/ /chat.html;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    if ($host = www.metalks.me) {
+        return 301 https://$host$request_uri;
+    }
+    if ($host = metalks.me) {
+        return 301 https://$host$request_uri;
+    }
+    listen 80;
+    server_name metalks.me www.metalks.me;
+    return 404;
+}

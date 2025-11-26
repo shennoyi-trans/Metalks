@@ -1,3 +1,7 @@
 aiohttp==3.11.12
 fastapi==0.121.3
+passlib==1.7.4
+pydantic==2.12.4
+python_jose==3.5.0
+SQLAlchemy==2.0.34
 uvicorn==0.38.0

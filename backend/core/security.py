@@ -14,12 +14,23 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 密码哈希
 # =======================
 def verify_password(plain_password, hashed):
+    plain_password = str(plain_password) if plain_password else ""
     return pwd_context.verify(plain_password, hashed)
 
 
-def hash_password(password):
-    return pwd_context.hash(password)
+def hash_password(password: str):
+    password = str(password) if password else ""
 
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
+    # 限制长度（虽然不太可能超）
+    if len(password.encode('utf-8')) > 72:
+        # bcrypt 限制，截断或用 SHA256 预处理
+        import hashlib
+        password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
+    return pwd_context.hash(password)
 
 # =======================
 # 创建 JWT token

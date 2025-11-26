@@ -7,13 +7,13 @@ from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
 from backend.db.models import Session, Message, TraitProfile
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+router = APIRouter(tags=["sessions"])
 
 
 # -------------------------------------------------------
 # 1. 获取当前用户的全部对话列表
 # -------------------------------------------------------
-@router.get("")
+@router.get("/sessions")
 async def list_sessions(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
@@ -42,11 +42,20 @@ async def list_sessions(
         })
     return output
 
+# 🔥 添加带尾斜杠的别名
+@router.get("/sessions/")
+async def list_sessions_slash(
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    # 直接调用上面的函数
+    return await list_sessions(db, user_id)
+
 
 # -------------------------------------------------------
 # 2. 获取某个 session 的全部内容（含 messages）
 # -------------------------------------------------------
-@router.get("/{session_id}")
+@router.get("/sessions/{session_id}")
 async def session_detail(
     session_id: str,
     db: AsyncSession = Depends(get_db),
@@ -78,7 +87,7 @@ async def session_detail(
 # -------------------------------------------------------
 # 3. 标记 session 已完成（ChatService 触发）
 # -------------------------------------------------------
-@router.post("/mark_completed")
+@router.post("/sessions/mark_completed")
 async def mark_completed(
     session_id: str,
     db: AsyncSession = Depends(get_db),
@@ -94,22 +103,3 @@ async def mark_completed(
     session.is_completed = cast(bool, True)
     await db.commit()
     return {"status": "ok"}
-
-
-# -------------------------------------------------------
-# 4. 获取用户最新特质
-# -------------------------------------------------------
-@router.get("/traits/global")
-async def global_traits(
-    db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(TraitProfile).where(TraitProfile.user_id == user_id)
-    )
-    profile = result.scalar_one_or_none()
-
-    if not profile:
-        return {"summary": ""}
-
-    return {"summary": profile.summary, "full_report": profile.full_report}
