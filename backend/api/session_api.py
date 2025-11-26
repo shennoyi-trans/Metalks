@@ -42,15 +42,6 @@ async def list_sessions(
         })
     return output
 
-# 🔥 添加带尾斜杠的别名
-@router.get("/sessions/")
-async def list_sessions_slash(
-    db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user)
-):
-    # 直接调用上面的函数
-    return await list_sessions(db, user_id)
-
 
 # -------------------------------------------------------
 # 2. 获取某个 session 的全部内容（含 messages）
