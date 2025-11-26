@@ -1,48 +1,30 @@
+# ==========================================
+# Server Block 1: HTTPS (处理业务逻辑)
+# ==========================================
 server {
     listen 443 ssl;
     server_name metalks.me www.metalks.me;
 
+    # SSL 证书配置
+    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # 静态文件根目录
     root /opt/metalks/frontend;
     index chat.html;
 
-    # --------------------
-    # API 路由（精确匹配，不影响静态文件）
-    # --------------------
-    
-    # 🔥 关键：匹配 /chat/ 开头（注意斜杠），不匹配 /chat.js
-    location ~ ^/chat/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
-        proxy_pass_header Set-Cookie;
+    # ----------------------------------------
+    # API 代理 (注意：前端 API_BASE_URL 必须为 '/api')
+    # ----------------------------------------
+    location /api/ {
+        # 这里的斜杠 / 非常重要，把 /api/ 剥离掉
+        proxy_pass http://127.0.0.1:8000/;
+        
         proxy_buffering off;
-    }
-
-    location ~ ^/auth/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
-        proxy_pass_header Set-Cookie;
-    }
-
-    location ~ ^/sessions/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
-        proxy_pass_header Set-Cookie;
-    }
-
-    location ~ ^/topics/ {
-        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -50,34 +32,21 @@ server {
         proxy_set_header Cookie $http_cookie;
     }
 
-    location ~ ^/traits/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
-    }
-
-    # 静态文件（最后匹配）
+    # ----------------------------------------
+    # 前端静态文件 & SPA 支持
+    # ----------------------------------------
     location / {
         try_files $uri $uri/ /chat.html;
     }
-
-    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 
+# ==========================================
+# Server Block 2: HTTP (仅负责跳转 HTTPS)
+# ==========================================
 server {
-    if ($host = www.metalks.me) {
-        return 301 https://$host$request_uri;
-    }
-    if ($host = metalks.me) {
-        return 301 https://$host$request_uri;
-    }
     listen 80;
     server_name metalks.me www.metalks.me;
-    return 404;
+
+    # 无论访问什么 HTTP 链接，都 301 重定向到 HTTPS
+    return 301 https://$host$request_uri;
 }
