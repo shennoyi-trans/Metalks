@@ -1,27 +1,24 @@
-# ==========================================
-# Server Block 1: HTTPS (处理业务逻辑)
-# ==========================================
 server {
     listen 443 ssl;
     server_name metalks.me www.metalks.me;
-
-    # SSL 证书配置
-    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
 
     # 静态文件根目录
     root /opt/metalks/frontend;
     index chat.html;
 
-    # ----------------------------------------
-    # API 代理 (注意：前端 API_BASE_URL 必须为 '/api')
-    # ----------------------------------------
+    # SSL 配置 (保持不变)
+    ssl_certificate /etc/letsencrypt/live/metalks.me/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/metalks.me/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # ===============================================
+    # 🔴 关键修复：统一 API 代理
+    # ===============================================
+    # 凡是前端发来的 /api/xxxx 请求，都转发给后端
     location /api/ {
-        # 这里的斜杠 / 非常重要，把 /api/ 剥离掉
+        # 注意端口后的斜杠 /，它会把 /api/ 去掉，
+        # 让 /api/sessions 变成 /sessions 发给后端
         proxy_pass http://127.0.0.1:8000/;
         
         proxy_buffering off;
@@ -29,24 +26,31 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 允许 Cookie 传递
         proxy_set_header Cookie $http_cookie;
+        proxy_pass_header Set-Cookie;
     }
 
-    # ----------------------------------------
-    # 前端静态文件 & SPA 支持
-    # ----------------------------------------
+    # ===============================================
+    # 静态文件兜底 (SPA 支持)
+    # ===============================================
+    # 删除之前所有的 location ~ ^/chat/, location ~ ^/sessions/ 等块
+    # 只保留这一个兜底
     location / {
         try_files $uri $uri/ /chat.html;
     }
 }
 
-# ==========================================
-# Server Block 2: HTTP (仅负责跳转 HTTPS)
-# ==========================================
+# HTTP 自动跳转 HTTPS
 server {
+    if ($host = www.metalks.me) {
+        return 301 https://$host$request_uri;
+    }
+    if ($host = metalks.me) {
+        return 301 https://$host$request_uri;
+    }
     listen 80;
     server_name metalks.me www.metalks.me;
-
-    # 无论访问什么 HTTP 链接，都 301 重定向到 HTTPS
-    return 301 https://$host$request_uri;
+    return 404;
 }
