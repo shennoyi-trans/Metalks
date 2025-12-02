@@ -131,26 +131,36 @@ body {
     font-size: 1rem;
 }
 
-/* 历史记录抽屉 */
 .history-drawer {
     position: absolute;
     left: 80px;
     top: 0;
     bottom: 0;
     width: 300px;
-    background: rgba(20, 20, 40, 0.95);
+    background: rgba(20, 20, 40, 0.95); /* 加深背景，减少杂乱透视 */
     backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
+    
+    /* 核心修改：提高层级，覆盖输入框 (input-dock z-index: 20) */
+    z-index: 30; 
+    
+    /* 核心修改：位移 + 可见性控制 */
     transform: translateX(-100%);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 15;
+    visibility: hidden; /* 收起时完全隐藏，避免毛玻璃穿透 */
+    
+    /* 收起动画：延迟隐藏 visibility，等待 transform 完成 */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.4s;
+    
     display: flex;
     flex-direction: column;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
 }
 
 .history-drawer.open {
     transform: translateX(0);
-    box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+    visibility: visible;
+    /* 展开动画：立即显示 visibility */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
 }
 
 .drawer-header {
@@ -187,6 +197,38 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    
+    /* 新增：为删除按钮留位置 */
+    position: relative;
+    padding-right: 36px;
+}
+
+/* 新增：删除按钮样式 */
+.delete-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    opacity: 0; /* 默认隐藏 */
+    transition: all 0.2s ease;
+    z-index: 2;
+}
+
+.session-item:hover .delete-btn {
+    opacity: 1; /* 悬停整行时显示 */
+}
+
+.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444; /* 红色高亮 */
+    transform: translateY(-50%) scale(1.1);
 }
 
 .session-item:hover {
@@ -849,4 +891,25 @@ body {
         padding: 0 1rem;
         bottom: 1rem;
     }
+}
+
+
+/* =========================================
+   滚动条美化 (添加在文件末尾)
+   ========================================= */
+.session-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.session-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.session-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.session-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
