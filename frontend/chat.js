@@ -1,5 +1,5 @@
 // ==================== API配置 ====================
-const API_BASE_URL = '/api'; // 如果前后端同源，留空即可；否则填 http://localhost:8000
+const API_BASE_URL = '/api'; 
 
 const API_ENDPOINTS = {
     CHAT_STREAM: '/chat/stream',
@@ -95,9 +95,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initEventListeners() {
-    // 1. 侧边栏交互
-    els.historyToggleBtn.addEventListener('click', () => els.historyDrawer.classList.add('open'));
-    els.closeHistoryBtn.addEventListener('click', () => els.historyDrawer.classList.remove('open'));
+    // 1. 侧边栏交互 (修改：toggle 模式 + 空白点击关闭)
+    els.historyToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // 阻止冒泡
+        els.historyDrawer.classList.toggle('open');
+    });
+
+    els.closeHistoryBtn.addEventListener('click', () => {
+        els.historyDrawer.classList.remove('open');
+    });
+
+    // 新增：点击页面空白处关闭侧边栏
+    document.addEventListener('click', (e) => {
+        // 如果侧边栏是打开的
+        if (els.historyDrawer.classList.contains('open')) {
+            // 且点击的不是侧边栏内部，也不是切换按钮
+            if (!els.historyDrawer.contains(e.target) && !els.historyToggleBtn.contains(e.target)) {
+                els.historyDrawer.classList.remove('open');
+            }
+        }
+    });
     
     // 2. 话题刷新与选择
     [els.refreshTopicsBtn, els.refreshTopicsBtnHeader].forEach(btn => {
@@ -148,7 +165,6 @@ function initEventListeners() {
 
     // 6. 确认弹窗
     els.confirmYes.addEventListener('click', () => {
-        // saveCurrentSession(); // 后端流式结束时已自动保存，这里只需清理状态
         hideModal(els.confirmOverlay);
         if (state.pendingTopicChange) {
             const { id, name, tag, casual } = state.pendingTopicChange;
@@ -193,7 +209,6 @@ function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
 
 async function executeTopicChange(topicId, topicName, topicTag, isCasual = false) {
     // 1. 重置状态
-    // 🔴 修复点：立即生成新的唯一 ID，不再让后端使用 "default"
     state.currentSessionId = generateUUID(); 
     
     state.currentMode = isCasual ? 'casual' : 'topic';
@@ -204,11 +219,16 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     state.conversationHistory = [];
     state.hasUnsavedChanges = false;
 
-    // 2. UI 更新
+    // 2. UI 更新 (修改文案)
+    // 原：“自由对话”、“自由漫游” -> 现：“随心对话”、“心流漫游”
+    const casualTitle = "随心对话";
+    const casualTag = "心流漫游";
+    const casualStatus = "思维通道已打开<br>准备进入潜意识之海...";
+
     els.currentTopic.textContent = isCasual ? '随便聊聊' : topicName;
-    els.headerTag.textContent = isCasual ? '自由漫游' : topicTag;
-    els.chatTitle.textContent = isCasual ? '自由对话' : `正在探索：${topicTag}`;
-    els.statusContent.innerHTML = isCasual ? '模型已就绪<br>正在捕捉思维碎片...' : `正在连接深层意识...<br>测试对象：${topicTag}`;
+    els.headerTag.textContent = isCasual ? casualTag : topicTag;
+    els.chatTitle.textContent = isCasual ? casualTitle : `正在探索：${topicTag}`;
+    els.statusContent.innerHTML = isCasual ? casualStatus : `正在连接深层意识...<br>测试对象：${topicTag}`;
     
     els.chatMessages.innerHTML = '';
     els.welcomePlaceholder.style.display = 'none';
@@ -220,7 +240,6 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     if (!isCasual) {
         showThinking();
         try {
-            // 发送空消息，带上 isFirst=true
             await sendMessageToAPI("", true);
             state.isFirstMessage = false;
         } catch (error) {
@@ -382,7 +401,7 @@ function handleEndEvent(event) {
 
 async function loadSessions() {
     try {
-        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions`); // 注意这里的斜杠，根据你的后端API
+        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions`);
         renderSessionList(sessions);
     } catch (e) {
         console.error("Load sessions failed", e);
@@ -399,27 +418,42 @@ function renderSessionList(sessions) {
     sessions.forEach(s => {
         const li = document.createElement('li');
         li.className = 'session-item';
+        // 绑定 ID 用于删除时的 DOM 操作
+        li.dataset.id = s.id;
+
         const dateStr = formatDate(s.created_at);
         let title = s.last_message || "无对话内容";
         if (title.length > 15) title = title.substring(0, 15) + "...";
         
-        // 尝试从缓存的话题列表里找名字，如果找不到就用 ID
         const topicObj = availableTopics.find(t => t.id === s.topic_id);
-        const topicLabel = s.mode === 1 ? (topicObj ? topicObj.topic : `话题${s.topic_id}`) : "随便聊聊";
+        const topicLabel = s.mode === 1 ? (topicObj ? topicObj.topic : `话题${s.topic_id}`) : "漫游";
 
         let tagsHtml = '';
         if (s.status === 'completed') tagsHtml += `<span class="tag">已完成</span>`;
         else tagsHtml += `<span class="tag tag-progress">进行中</span>`;
 
+        // 结构修改：增加删除按钮
         li.innerHTML = `
             <div class="session-title">[${topicLabel}] ${title}</div>
             <div class="session-meta">
                 <span>${dateStr}</span>
                 <div class="session-tags">${tagsHtml}</div>
             </div>
+            <div class="delete-btn" title="删除记录">
+                <i class="ri-delete-bin-line"></i>
+            </div>
         `;
         
+        // 点击列表项：加载
         li.addEventListener('click', () => loadSessionDetail(s.id));
+
+        // 点击删除按钮：删除
+        const delBtn = li.querySelector('.delete-btn');
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止触发加载
+            confirmDeleteSession(s.id);
+        });
+
         els.sessionList.appendChild(li);
     });
 }
@@ -436,9 +470,10 @@ async function loadSessionDetail(sessionId) {
         state.currentTopicName = topicObj ? topicObj.topic : "历史话题";
         state.currentTopicTag = topicObj ? topicObj.concept_tag : "";
         
+        // 文案同步优化
         els.currentTopic.textContent = state.currentTopicName;
-        els.headerTag.textContent = state.currentMode === 'topic' ? state.currentTopicTag : '自由漫游';
-        els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag}` : '回顾：自由对话';
+        els.headerTag.textContent = state.currentMode === 'topic' ? state.currentTopicTag : '心流漫游';
+        els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag}` : '回顾：随心对话';
         
         els.chatMessages.innerHTML = '';
         els.welcomePlaceholder.style.display = 'none';
@@ -447,6 +482,7 @@ async function loadSessionDetail(sessionId) {
             addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content);
         });
         
+        // 手机端体验优化：点击列表项后自动关闭侧边栏
         els.historyDrawer.classList.remove('open');
         
     } catch (e) {
@@ -658,12 +694,35 @@ function generateUUID() {
     // 简单实现，生成类似 "1719238491234-r8s9" 的字符串
     return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
 }
-function updateAuthUI() {
-    els.authBtn.innerHTML = '<span class="user-avatar-btn">M</span>';
+
+function confirmDeleteSession(sessionId) {
+    // 简单使用 confirm，为了效率
+    if (confirm("确定要删除这条对话记录吗？删除后不可恢复。")) {
+        deleteSession(sessionId);
+    }
 }
 
-/** 生成唯一会话ID */
-function generateUUID() {
-    // 简单实现，生成类似 "1719238491234-r8s9" 的字符串
-    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+async function deleteSession(sessionId) {
+    try {
+        await fetchWithAuth(`${API_BASE_URL}/sessions/${sessionId}`, {
+            method: 'DELETE'
+        });
+        
+        // UI 移除动画
+        const li = document.querySelector(`.session-item[data-id="${sessionId}"]`);
+        if (li) {
+            li.style.opacity = '0';
+            li.style.transform = 'translateX(-20px)';
+            setTimeout(() => li.remove(), 300);
+        }
+
+        // 如果删除的是当前正在显示的会话，重置主界面
+        if (state.currentSessionId === sessionId) {
+            // 返回欢迎页/重置
+            handleTopicChange(null, null, null, true);
+        }
+    } catch (e) {
+        console.error("删除失败", e);
+        alert("删除失败: " + e.message);
+    }
 }
