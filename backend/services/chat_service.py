@@ -135,7 +135,7 @@ class ChatService:
 
                 system_prompt = (
                     system_prompt
-                    + f"\n\n# 本次对话的主题是：{topic['topic']}（观念标签：{topic['concept_tag']}）。"
+                    + f"\n\n# 本次对话的话题是：{topic['topic']}（观念标签：{topic['concept_tag']}）。"
                     + mode1_intro
                 )
 
@@ -151,21 +151,7 @@ class ChatService:
 
                 visible_text = strip_control_markers(assistant_text)
                 await history_mgr.add(session_id, "assistant", visible_text)
-
-                flags = parse_control_flags(assistant_text)
-                if flags.end_test:
-                    async for event in self._handle_final_outputs(
-                        session_id=session_id,
-                        mode=mode,
-                        topic_id=topic_id,
-                        force_end=False,
-                        history_mgr=history_mgr,
-                        db=db,
-                        user_id=user_id,
-                        trait_summary=trait_summary,
-                        trait_profile=trait_profile,
-                    ):
-                        yield event
+                
                 return
 
             # --------------------------
@@ -184,27 +170,48 @@ class ChatService:
                     trait_profile=trait_profile,
                 )
                 advice = analysis.get("advice", "")
+                
+                flags = parse_control_flags(advice)
+                
+                # 判断是否结束测试
+                if flags.end_test == False: # 未结束测试，继续对话
+                    
+                    final_prompt = (
+                        "# 来自内部模型的建议（用户不可见）：\n"
+                        + advice
+                        + "\n\n# 用户的最新回答：\n"
+                        + user_input
+                    )
 
-                final_prompt = (
-                    "# 来自内部模型的建议（用户不可见）：\n"
-                    + advice
-                    + "\n\n# 用户的最新回答：\n"
-                    + user_input
-                )
+                    async for chunk in self.llm.chat_stream(
+                        system_prompt=system_prompt,
+                        user_prompt=final_prompt,
+                        history=history,
+                    ):
+                        assistant_text += chunk
+                        yield {"type": "token", "content": chunk}
 
-                async for chunk in self.llm.chat_stream(
-                    system_prompt=system_prompt,
-                    user_prompt=final_prompt,
-                    history=history,
-                ):
-                    assistant_text += chunk
-                    yield {"type": "token", "content": chunk}
-
-                visible_text = strip_control_markers(assistant_text)
-                await history_mgr.add(session_id, "assistant", visible_text)
-
-                flags = parse_control_flags(assistant_text)
-                if flags.end_test:
+                    visible_text = strip_control_markers(assistant_text)
+                    await history_mgr.add(session_id, "assistant", visible_text)
+    
+                else:   # 结束测试，进行收尾
+                    
+                    final_prompt = (
+                        "经内部模型判断，本轮对话内容已足够生成观念报告。请生成最后的回复，自然地结束对话。\n"
+                        + "# 用户的最新回答：\n"
+                        + user_input                        
+                    )    
+                    
+                    async for chunk in self.llm.chat_stream(
+                        system_prompt=system_prompt,
+                        user_prompt=final_prompt,
+                        history=history,
+                    ):
+                        assistant_text += chunk
+                        yield {"type": "token", "content": chunk}
+                    
+                    await history_mgr.add(session_id, "assistant", assistant_text)
+                
                     async for event in self._handle_final_outputs(
                         session_id=session_id,
                         mode=mode,
@@ -217,6 +224,8 @@ class ChatService:
                         trait_profile=trait_profile,
                     ):
                         yield event
+
+
                 return
 
         # =======================================================
@@ -375,6 +384,3 @@ class ChatService:
             "trait_summary": new_trait_summary,
             "full_dialogue": full_history,
         }
-
-
-
