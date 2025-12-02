@@ -1,14 +1,15 @@
 frontend/
 │
 ├── chat.html          #聊天界面
+├── index.html        #欢迎界面
 ├── chat.js
 └── style.css
 
 backend/
 │
-├── api/                         # API 层完全独立
+├── api/                         # API 层
 │   ├── auth_api.py
-│   ├── chat_api.py              # /chat 流式接口
+│   ├── chat_api.py
 │   ├── traits_api.py
 │   ├── session_api.py
 │   └── topic_api.py
@@ -25,10 +26,10 @@ backend/
 │   ├── database.py
 │   └── models.py
 │
-├── llm_client/                  # 模块 1：LLM 调用层（你要的重点）
+├── llm_client/                  # 模块 1：LLM 调用层
 │   ├── base.py
 │   ├── deepseek_client.py
-│   ├── mock_client.py          #测试阶段假回复
+│   ├── mock_client.py          #测试用假回复
 │   └── factory.py
 │
 ├── prompts/                     # 提示词库
