@@ -1,8 +1,13 @@
 # backend/api/chat_api.py
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Body
 from fastapi.responses import StreamingResponse
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.db.database import get_db
+
 from backend.services.chat_service import ChatService
+from backend.core.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -10,7 +15,11 @@ router = APIRouter()
 def create_chat_router(chat_service: ChatService):
 
     @router.post("/chat/stream")
-    async def chat_stream(body: dict):
+    async def chat_stream(
+        body: dict = Body(...),
+        db: AsyncSession = Depends(get_db),
+        user_id: int = Depends(get_current_user),
+    ):
         """
         请求体 body 约定：
         - mode: 1 或 2（必填）
@@ -36,6 +45,8 @@ def create_chat_router(chat_service: ChatService):
                 user_input=user_input,
                 is_first=is_first,
                 force_end=force_end,
+                db=db,
+                user_id=user_id,
             ):
                 # event 是一个 dict，统一转为 JSON
                 yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"

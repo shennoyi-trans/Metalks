@@ -12,11 +12,12 @@ def strip_control_markers(text: str) -> str:
     # re.S 让 '.' 可以匹配换行
     cleaned = re.sub(r"<SYS>.*?</SYS>", "", text, flags=re.S)
     return cleaned.strip()
+
+
 @dataclass
 class ControlFlags:
-    end_test: bool = False
-    has_report: bool = False
-    # 以后可以扩展其它字段
+    user_want_to_quit: bool = False
+    # 可以扩展其它字段
 
 
 def parse_control_flags(text: str) -> ControlFlags:
@@ -35,6 +36,5 @@ def parse_control_flags(text: str) -> ControlFlags:
         return ControlFlags()
 
     return ControlFlags(
-        end_test=bool(data.get("end_test", False)),
-        has_report=bool(data.get("has_report", False)),
+        user_want_to_quit=bool(data.get("user_want_to_quit", False)),
     )

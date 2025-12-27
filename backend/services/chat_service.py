@@ -1,14 +1,19 @@
 # backend/services/chat_service.py
 
+import asyncio
 from typing import AsyncGenerator, Optional, List, Dict
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from backend.data.topics import TOPICS
 from backend.llm_client.base import LLMClient
 from backend.utils.prompt_loader import load_prompt
 from backend.utils.text_tools import strip_control_markers, parse_control_flags
-from backend.services.history_manager import HistoryManager
 from backend.services.model2_service import Model2Service
 from backend.services.model3_service import Model3Service
+from backend.services.db_history_manager import DatabaseHistoryManager
+from backend.db.models import TraitProfile, Session
 
 
 class ChatService:
@@ -20,24 +25,96 @@ class ChatService:
 
     对外暴露一个统一的流式接口：
     async def stream_response(...) -> AsyncGenerator[dict, None]
-
-    返回的事件格式：
-    - {"type": "token", "content": "..."}  # 流式对话内容
-    - {"type": "end", "summary": "...", "has_opinion_report": bool,
-       "opinion_report": str|None, "trait_summary": "..."}  # 对话结束块
-    - {"type": "error", "message": "..."}  # 预留，当前未使用
     """
 
     def __init__(self, llm: LLMClient):
         self.llm = llm
-        self.history_mgr = HistoryManager()
         self.model2 = Model2Service(llm)
         self.model3 = Model3Service(llm)
 
-        # ⭐ 跨 session 统一缓存用户特质（长期记忆）
-        self.trait_profile: str = ""   # 完整特质报告（full report）
-        self.trait_summary: str = ""   # 一句话特质总结（summary）
+    # ------------------------------------------------------
+    # 读取用户当前 trait
+    # ------------------------------------------------------
+    async def _load_trait_context(
+        self,
+        db: AsyncSession,
+        user_id: int,
+    ) -> tuple[str, str]:
+        """
+        从 TraitProfile 表中加载该用户的长期特质 summary 和 full_report。
+        如果没有记录，则返回 ('', '')。
+        """
+        result = await db.execute(
+            select(TraitProfile).where(TraitProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
 
+        if not profile:
+            return "", ""
+
+        return str(profile.summary or ""), str(profile.full_report or "")
+
+    # ------------------------------------------------------
+    # 后台异步生成报告
+    # ------------------------------------------------------
+    async def _generate_report_background(
+        self,
+        session_id: str,
+        mode: int,
+        topic_id: Optional[int],
+        db: AsyncSession,
+        trait_summary: str,
+        trait_profile: str,
+    ):
+        """
+        后台任务：生成观念报告并更新数据库
+        """
+        try:
+            # 获取完整历史
+            result = await db.execute(
+                select(Session).where(Session.id == session_id)
+            )
+            session = result.scalar_one_or_none()
+            if not session:
+                return
+
+            # 如果报告已生成，避免重复
+            if session.report_ready:
+                return
+
+            # 获取对话历史
+            from backend.db.models import Message
+            msg_result = await db.execute(
+                select(Message)
+                .where(Message.session_id == session_id)
+                .order_by(Message.created_at.asc())
+            )
+            messages = msg_result.scalars().all()
+            full_history = [
+                {"role": m.role, "content": m.content} for m in messages
+            ]
+
+            # 调用 model2 生成报告
+            report = await self.model2.final_report(
+                full_history=full_history,
+                mode=mode,
+                topic_id=topic_id,
+                trait_summary=trait_summary,
+                trait_profile=trait_profile,
+            )
+
+            # 更新数据库
+            session.report_ready = True
+            session.opinion_report = report
+            await db.commit()
+
+        except Exception as e:
+            print(f"[ERROR] 后台报告生成失败: {e}")
+            await db.rollback()
+
+    # ------------------------------------------------------
+    # 主流式入口
+    # ------------------------------------------------------
     async def stream_response(
         self,
         session_id: str,
@@ -46,131 +123,134 @@ class ChatService:
         user_input: str,
         is_first: bool = False,
         force_end: bool = False,
+        db: Optional[AsyncSession] = None,
+        user_id: Optional[int] = None,
     ) -> AsyncGenerator[dict, None]:
-        """
-        对外统一入口（被 chat_api 调用）。
-        根据 mode / is_first / force_end 决定行为：
 
-        - mode == 1：话题测试模式（必须有 topic_id）
-          - is_first = True：model1 先开场（用户不说话）
-          - is_first = False：用户先说 → model2 给建议 → model1 回复
+        if db is None or user_id is None:
+            raise ValueError("db and user_id are required")
 
-        - mode == 2：随便聊聊模式
-          - 用户先说，每轮都是：用户输入 → model2 → model1
-
-        - force_end = True：用户主动结束
-          - 不再调用 model1 回复
-          - 直接走收尾逻辑：summary + model3 特质更新
-          - 不生成观念报告（model2.final_report 不被调用）
-        """
-
-        # ----------------------------
-        # 规范化 topic_id（前端 dataset 传的永远是字符串）
-        # ----------------------------
+        # 规范化 topic_id
         if topic_id is not None and isinstance(topic_id, str):
             try:
                 topic_id = int(topic_id)
-            except:
+            except Exception:
                 raise ValueError(f"Invalid topic_id: {topic_id}")
 
-        # ===========================
-        # 0. 用户主动结束对话
-        # ===========================
+        # 基于当前用户构造 DB 历史管理器
+        history_mgr = DatabaseHistoryManager(db=db, user_id=user_id)
+        await history_mgr.ensure_session(session_id=session_id, mode=mode, topic_id=topic_id)
+
+        # 当前用户长期特质
+        trait_summary, trait_profile = await self._load_trait_context(db, user_id)
+
+        # 用户主动结束
         if force_end:
             async for event in self._handle_final_outputs(
                 session_id=session_id,
                 mode=mode,
                 topic_id=topic_id,
                 force_end=True,
+                history_mgr=history_mgr,
+                db=db,
+                user_id=user_id,
+                trait_summary=trait_summary,
+                trait_profile=trait_profile,
             ):
                 yield event
             return
 
-        # ======================
-        # 1. 构造 model1 的 system_prompt
-        # ======================
+        # ------------------------------
+        # model1 system prompt
+        # ------------------------------
         system_prompt = load_prompt("model1/system.txt")
 
-        # 若已有长期特质，则注入“用户特质总结”
-        # （注意：这里用 summary，而不是完整画像，避免占用过多 token）
-        if self.trait_summary:
+        if trait_summary:
             system_prompt += (
                 "\n\n# 用户长期特质总结（供你参考）：\n"
-                f"{self.trait_summary}"
+                f"{trait_summary}"
             )
 
-        assistant_text: str = ""  # 用于累积本轮 assistant 全部输出
+        assistant_text = ""
 
-        # ======================
-        # 2. mode1：话题测试
-        # ======================
+        # =======================================================
+        # mode == 1（话题测试）
+        # =======================================================
         if mode == 1:
+
             if topic_id is None:
                 raise ValueError("mode1 requires topic_id")
 
-            # 找到对应的话题配置
             topic = next((t for t in TOPICS if t["id"] == topic_id), None)
             if topic is None:
-                raise ValueError(f"invalid topic_id: {topic_id}")
+                raise ValueError(f"Invalid topic_id: {topic_id}")
 
-            # ---------- 第一轮：模型先说 ----------
+            # --------------------------
+            # 第一轮：模型先说
+            # --------------------------
             if is_first:
-                history: List[Dict] = self.history_mgr.get(session_id)
+                history = await history_mgr.get(session_id)
                 mode1_intro = load_prompt("model1/mode1_intro.txt")
-            
-                system_prompt=(
+
+                system_prompt = (
                     system_prompt
                     + f"\n\n# 本次对话的主题是：{topic['topic']}（观念标签：{topic['concept_tag']}）。"
                     + mode1_intro
                 )
+
                 final_prompt = ""
-                
+
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
                     history=history,
                 ):
-                    text = str(chunk)
-                    assistant_text += text
-                    # 流式 token 事件（前端直接展示）
-                    yield {"type": "token", "content": text}
+                    assistant_text += str(chunk)
+                    yield {"type": "token", "content": str(chunk)}
 
-                # 去掉内部控制标记，写入历史
                 visible_text = strip_control_markers(assistant_text)
-                self.history_mgr.add(session_id, "assistant", visible_text)
+                await history_mgr.add(session_id, "assistant", visible_text)
 
-                # 解析控制标记
+                # 检查用户是否想退出
                 flags = parse_control_flags(assistant_text)
-                if flags.end_test:
-                    # 测试结束：走统一收尾逻辑
-                    async for event in self._handle_final_outputs(
-                        session_id=session_id,
-                        mode=mode,
-                        topic_id=topic_id,
-                        force_end=False,
-                    ):
-                        yield event
+                if flags.user_want_to_quit:
+                    yield {"type": "user_want_quit"}
                 return
 
-            # ---------- 之后的轮次：用户先说 ----------
+            # --------------------------
+            # 后续轮：用户先说
+            # --------------------------
             else:
-                # 1) 写入用户输入
-                self.history_mgr.add(session_id, "user", user_input)
-                history = self.history_mgr.get(session_id)
+                await history_mgr.add(session_id, "user", user_input)
+                history = await history_mgr.get(session_id)
 
-                # 2) 先由 model2 分析，给出“内部建议”
+                # 🆕 调用 model2 分析
                 analysis = await self.model2.analyze(
                     session_history=history,
                     user_input=user_input,
                     mode=1,
                     topic_id=topic_id,
-                    trait_summary=self.trait_summary,
-                    trait_profile=self.trait_profile,
+                    trait_summary=trait_summary,
+                    trait_profile=trait_profile,
                 )
                 advice = analysis.get("advice", "")
+                report_ready = analysis.get("signals", {}).get("report_ready", False)
 
-                # 3) model1 的最终 prompt：
-                #    不再重复 topic_prompt，只用内部建议 + 用户回答
+                # 🆕 如果报告就绪，触发后台生成任务
+                if report_ready:
+                    asyncio.create_task(
+                        self._generate_report_background(
+                            session_id=session_id,
+                            mode=mode,
+                            topic_id=topic_id,
+                            db=db,
+                            trait_summary=trait_summary,
+                            trait_profile=trait_profile,
+                        )
+                    )
+                    # 告知 model1
+                    advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
+
                 final_prompt = (
                     "# 来自内部模型的建议（用户不可见）：\n"
                     + advice
@@ -186,45 +266,50 @@ class ChatService:
                     assistant_text += chunk
                     yield {"type": "token", "content": chunk}
 
-                # 4) strip 内部控制标记，写入历史
                 visible_text = strip_control_markers(assistant_text)
-                self.history_mgr.add(session_id, "assistant", visible_text)
+                await history_mgr.add(session_id, "assistant", visible_text)
 
-                # 5) 解析控制标记，判断是否结束
+                # 🆕 检查用户是否想退出
                 flags = parse_control_flags(assistant_text)
-                if flags.end_test:
-                    async for event in self._handle_final_outputs(
-                        session_id=session_id,
-                        mode=mode,
-                        topic_id=topic_id,
-                        force_end=False,
-                    ):
-                        yield event
+                if flags.user_want_to_quit:
+                    yield {"type": "user_want_quit"}
                 return
 
-        # ======================
-        # 3. mode2：随便聊聊
-        # ======================
+        # =======================================================
+        # mode == 2（随便聊聊）
+        # =======================================================
         elif mode == 2:
-            # mode2 不需要 topic_id，用户先说
-            # 所以第一轮和后续轮完全一样：用户发什么就记什么
 
-            # 1) 写入用户输入
-            self.history_mgr.add(session_id, "user", user_input)
-            history = self.history_mgr.get(session_id)
+            await history_mgr.add(session_id, "user", user_input)
+            history = await history_mgr.get(session_id)
 
-            # 2) 先由 model2 分析，生成建议
+            # 🆕 调用 model2 分析
             analysis = await self.model2.analyze(
                 session_history=history,
                 user_input=user_input,
                 mode=2,
                 topic_id=None,
-                trait_summary=self.trait_summary,
-                trait_profile=self.trait_profile,
+                trait_summary=trait_summary,
+                trait_profile=trait_profile,
             )
             advice = analysis.get("advice", "")
+            report_ready = analysis.get("signals", {}).get("report_ready", False)
 
-            # 3) 载入 mode2 的对话风格 prompt
+            # 🆕 如果报告就绪，触发后台生成任务
+            if report_ready:
+                asyncio.create_task(
+                    self._generate_report_background(
+                        session_id=session_id,
+                        mode=mode,
+                        topic_id=None,
+                        db=db,
+                        trait_summary=trait_summary,
+                        trait_profile=trait_profile,
+                    )
+                )
+                # 告知 model1
+                advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
+
             mode2_intro = load_prompt("model1/mode2_intro.txt")
             system_prompt = system_prompt + "\n\n" + mode2_intro
 
@@ -243,43 +328,22 @@ class ChatService:
                 assistant_text += chunk
                 yield {"type": "token", "content": chunk}
 
-            # 4) strip 内部控制标记，写入历史
             visible_text = strip_control_markers(assistant_text)
-            self.history_mgr.add(session_id, "assistant", visible_text)
+            await history_mgr.add(session_id, "assistant", visible_text)
 
-            # 5) 解析控制信息
+            # 🆕 检查用户是否想退出
             flags = parse_control_flags(assistant_text)
-            if flags.end_test:
-                async for event in self._handle_final_outputs(
-                    session_id=session_id,
-                    mode=mode,
-                    topic_id=None,
-                    force_end=False,
-                ):
-                    yield event
+            if flags.user_want_to_quit:
+                yield {"type": "user_want_quit"}
             return
 
-        # ======================
-        # 4. 其它模式（预留）
-        # ======================
         else:
             raise ValueError(f"Unknown mode: {mode}")
 
     # =======================================================
-    # 工具：将对话历史格式化成文本，便于生成一句话总结
+    # 格式化历史 → 一句话总结
     # =======================================================
     def _format_history_for_summary(self, history: List[Dict]) -> str:
-        """
-        history 示例：
-        [
-            {"role": "user", "content": "我想聊聊压力"},
-            {"role": "assistant", "content": "好的，你最近压力大吗？"},
-        ]
-
-        转换后：
-        用户：我想聊聊压力
-        助手：好的，你最近压力大吗？
-        """
         lines = []
         for turn in history:
             role = "用户" if turn.get("role") == "user" else "助手"
@@ -287,28 +351,25 @@ class ChatService:
         return "\n".join(lines).strip()
 
     # =======================================================
-    # 统一的收尾逻辑：生成 summary / 观念报告 / 特质分析
+    # 收尾逻辑：summary + traits（不再生成 report）
     # =======================================================
     async def _handle_final_outputs(
         self,
         session_id: str,
         mode: int,
         topic_id: Optional[int],
-        force_end: bool = False,
+        force_end: bool,
+        history_mgr: DatabaseHistoryManager,
+        db: AsyncSession,
+        user_id: int,
+        trait_summary: str,
+        trait_profile: str,
     ) -> AsyncGenerator[dict, None]:
-        """
-        对话结束时调用：
-        - model1 → 生成一句话总结（summary）
-        - model2 → 生成观念报告（仅当不是 force_end）
-        - model3 → 更新长期特质画像（始终执行）
 
-        返回一个或多个 {"type": "end", ...} 事件（当前只返回一次）。
-        """
-        full_history = self.history_mgr.get(session_id)
+        # 1. 取历史
+        full_history = await history_mgr.get(session_id)
 
-        # ========================
-        # 1. model1：一句话总结（summary）
-        # ========================
+        # 2. model1 summary
         summary_prompt = (
             "请根据以下完整对话，生成一句话总结（面向用户，可直接展示）：\n\n"
             + self._format_history_for_summary(full_history)
@@ -324,44 +385,42 @@ class ChatService:
 
         model1_summary = strip_control_markers(model1_summary).strip()
 
-        # ========================
-        # 2. model2：观念报告（正常结束时才生成）
-        # ========================
-        if not force_end:
-            opinion_report = await self.model2.final_report(
-                full_history=full_history,
-                mode=mode,
-                topic_id=topic_id,
-                trait_summary=self.trait_summary,
-                trait_profile=self.trait_profile,
+        # 3. model3：更新特质（只用本 session）
+        trait_data = await self.model3.update_traits({session_id: full_history})
+        new_trait_summary = trait_data.get("summary", "")
+        new_full_report = trait_data.get("full_report", "")
+
+        # 4. 写 TraitProfile
+        result = await db.execute(
+            select(TraitProfile).where(TraitProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+
+        if profile is None:
+            profile = TraitProfile(
+                user_id=user_id,
+                summary=new_trait_summary,
+                full_report=new_full_report,
             )
+            db.add(profile)
         else:
-            opinion_report = None
+            profile.summary = new_trait_summary
+            profile.full_report = new_full_report
 
-        # ========================
-        # 3. model3：更新长期特质画像（始终执行）
-        # ========================
-        trait_data = await self.model3.update_traits(self.history_mgr.histories)
-        trait_summary = trait_data.get("summary", "")
+        await db.commit()
+        
+        # 5. 标记 session 完成
+        session = await db.execute(select(Session).where(Session.id == session_id))
+        session = session.scalar_one_or_none()
+        if session:
+            session.is_completed = True
+            db.add(session)
+            await db.commit()
 
-        # ⭐ 将最新特质写回 ChatService，作为后续对话的长期记忆
-        self.trait_summary = trait_summary
-        self.trait_profile = trait_data.get("full_report", "")
-
-        # ========================
-        # 4. 清空本 session 历史（开启下一场对话）
-        # ========================
-        self.history_mgr.clear(session_id)
-
-        # ========================
-        # 5. 返回 end 事件
-        # ========================
+        # 6. 输出最终事件（不再包含 opinion_report）
         yield {
             "type": "end",
             "summary": model1_summary,
-            "has_opinion_report": (opinion_report is not None),
-            "opinion_report": opinion_report,
-            "trait_summary": trait_summary,
-            "full_dialogue": full_history
+            "trait_summary": new_trait_summary,
+            "full_dialogue": full_history,
         }
-

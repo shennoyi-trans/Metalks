@@ -1,5 +1,6 @@
 # backend/services/model2_service.py
 
+import json
 from typing import List, Dict, Optional
 
 from backend.utils.prompt_loader import load_prompt
@@ -9,7 +10,7 @@ from backend.data.topics import TOPICS
 
 class Model2Service:
     """
-    model2：负责从对话历史中分析用户的“观念”，并在每轮对话前
+    model2：负责从对话历史中分析用户的"观念"，并在每轮对话前
     为 model1 生成内部建议；在对话结束时生成完整观念报告。
 
     说明：
@@ -37,17 +38,20 @@ class Model2Service:
         """
         每轮对话前调用：
         - 结合历史对话 / 用户最新输入 / 模式 /（可选）话题 /（可选）长期特质
-        - 生成对 model1 的“内部对话建议”（advice），用户不可见。
+        - 生成对 model1 的"内部对话建议"（advice），用户不可见。
+        - 判断是否已捕捉到足够观念（report_ready）
 
         返回结构：
         {
             "advice": str,     # 供 model1 使用的内部建议
-            "signals": dict,   # 预留：内部标记（如已捕捉到观念等）
+            "signals": {
+                "report_ready": bool  # 是否可以生成报告
+            }
         }
         """
         if self.llm is None:
             # 防御式：尚未注入 llm 时避免崩溃
-            return {"advice": "", "signals": {}}
+            return {"advice": "", "signals": {"report_ready": False}}
 
         # ================================
         # 1. 加载分析提示词（由提示词工程同学维护）
@@ -97,7 +101,11 @@ class Model2Service:
             f"{formatted_history}\n\n"
             "【用户最新输入】\n"
             f"{user_input}\n\n"
-            "请基于上述信息，生成对 model1 的内部建议。"
+            "请以 JSON 格式返回：\n"
+            "{\n"
+            '  "advice": "给 model1 的建议文本",\n'
+            '  "report_ready": true/false  // 是否已捕捉到足够观念可生成报告\n'
+            "}"
         )
 
         # ================================
@@ -113,9 +121,34 @@ class Model2Service:
 
         advice_text = strip_control_markers(advice_text).strip()
 
+        # ================================
+        # 4. 解析 JSON 格式（容错处理）
+        # ================================
+        try:
+            # 尝试提取 JSON（可能包裹在 markdown 代码块中）
+            if "```json" in advice_text:
+                json_match = advice_text.split("```json")[1].split("```")[0]
+                advice_data = json.loads(json_match.strip())
+            elif advice_text.startswith("{"):
+                advice_data = json.loads(advice_text)
+            else:
+                # 如果不是 JSON，则视为纯文本建议
+                advice_data = {
+                    "advice": advice_text,
+                    "report_ready": False
+                }
+        except (json.JSONDecodeError, IndexError):
+            # JSON 解析失败，降级处理
+            advice_data = {
+                "advice": advice_text,
+                "report_ready": False
+            }
+
         return {
-            "advice": advice_text,
-            "signals": {}  # 以后可以在提示词中要求输出 JSON，再解析到这里
+            "advice": advice_data.get("advice", ""),
+            "signals": {
+                "report_ready": bool(advice_data.get("report_ready", False))
+            }
         }
 
     async def final_report(
@@ -129,7 +162,7 @@ class Model2Service:
         """
         对话结束后调用：
         - 基于本次完整对话历史
-        - 生成一份“观念分析报告”（给用户看的）
+        - 生成一份"观念分析报告"（给用户看的）
 
         mode:
         - 1：话题测试模式，有话题与观念标签
@@ -139,7 +172,7 @@ class Model2Service:
             return ""
 
         # ================================
-        # 1. 加载“最终报告”提示词
+        # 1. 加载"最终报告"提示词
         # ================================
         if mode == 1:
             prompt_path = "model2/final_report_mode1.txt"
