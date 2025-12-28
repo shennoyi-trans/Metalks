@@ -1,3 +1,12 @@
+/* ==================== 字体定义 ==================== */
+@font-face {
+    font-family: 'OPPO Sans';
+    src: url('/fonts/OPPO_Sans_4.0/OPPO Sans 4.0.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ==================== 公共变量 ==================== */
 :root {
     --bg-deep: #0f0c29;
@@ -21,7 +30,7 @@
 }
 
 body {
-    font-family: "Alibaba_puhui", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'OPPO Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--bg-deep);
     color: var(--text-primary);
     overflow: hidden;

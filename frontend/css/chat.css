@@ -59,7 +59,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* ==================== 历史侧边栏 ==================== */
+/* ==================== 🎨 优化后的历史侧边栏动画 ==================== */
 .history-drawer {
     position: absolute;
     left: 80px;
@@ -70,21 +70,64 @@
     backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
     z-index: 30;
+    
+    /* 🎨 初始状态 */
     transform: translateX(-100%);
+    opacity: 0;
     visibility: hidden;
-    /* 🔧 优化过渡效果，移除闪光 */
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                visibility 0s linear 0.4s;
+    
     display: flex;
     flex-direction: column;
-    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    
+    /* 🎨 关键优化：阴影从无到有的过渡 */
+    box-shadow: 10px 0 30px rgba(0,0,0,0);
+    
+    /* 🎨 流畅的多属性过渡 */
+    transition: 
+        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),  /* 轻微回弹效果 */
+        opacity 0.25s ease-out,                              /* 透明度淡出 */
+        box-shadow 0.35s ease-out,                          /* 阴影消失 */
+        visibility 0s linear 0.35s;                          /* 延迟隐藏 */
+    
+    /* 🎨 性能优化提示 */
+    will-change: transform, opacity;
 }
 
+/* 🎨 展开状态 */
 .history-drawer.open {
     transform: translateX(0);
+    opacity: 1;
     visibility: visible;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                visibility 0s linear 0s;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    
+    /* 🎨 展开时的过渡（稍有不同的时序） */
+    transition: 
+        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),  /* 轻微回弹 */
+        opacity 0.25s ease-in,                               /* 透明度淡入 */
+        box-shadow 0.35s ease-in,                           /* 阴影出现 */
+        visibility 0s linear 0s;                             /* 立即可见 */
+}
+
+/* 🎨 内容项的渐入动画 */
+.history-drawer.open .session-item {
+    animation: slideInFromLeft 0.4s ease-out backwards;
+}
+
+.history-drawer.open .session-item:nth-child(1) { animation-delay: 0.05s; }
+.history-drawer.open .session-item:nth-child(2) { animation-delay: 0.08s; }
+.history-drawer.open .session-item:nth-child(3) { animation-delay: 0.11s; }
+.history-drawer.open .session-item:nth-child(4) { animation-delay: 0.14s; }
+.history-drawer.open .session-item:nth-child(5) { animation-delay: 0.17s; }
+
+@keyframes slideInFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .drawer-header {
@@ -534,7 +577,7 @@
     background: rgba(30, 30, 50, 0.98);
     padding: 1.5rem;
     border-radius: 16px;
-    border: 1px solid var(--error-color);
+    border: none;
     text-align: left;
     width: 90%;
     max-width: 420px;

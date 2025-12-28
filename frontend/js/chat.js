@@ -253,7 +253,7 @@ function initEventListeners() {
     
     // 点解链接
     els.dimgaaiLink?.addEventListener('click', () => {
-        window.location.href = '/html/dimgaai.html';
+        window.location.href = '/dimgaai';
     });
     
     // User Menu
@@ -266,7 +266,7 @@ function initEventListeners() {
     });
     
     els.dimgaaiMenuBtn?.addEventListener('click', () => {
-        window.location.href = '/html/dimgaai.html';
+        window.location.href = '/dimgaai';
     });
     
     els.logoutBtn?.addEventListener('click', () => {
@@ -282,7 +282,7 @@ function initEventListeners() {
     });
     
     els.traitsDetailLink?.addEventListener('click', () => {
-        window.location.href = '/html/dimgaai.html';
+        window.location.href = '/dimgaai';
     });
 
     // Update
