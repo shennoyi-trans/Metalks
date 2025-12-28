@@ -200,15 +200,21 @@ class ChatService:
 
                 final_prompt = ""
 
+                # 🆕 先收集完整输出
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
                     history=history,
                 ):
                     assistant_text += str(chunk)
-                    yield {"type": "token", "content": str(chunk)}
 
+                # 🆕 清洗后再流式输出
                 visible_text = strip_control_markers(assistant_text)
+                
+                # 逐字符流式输出（模拟打字机效果）
+                for char in visible_text:
+                    yield {"type": "token", "content": char}
+                
                 await history_mgr.add(session_id, "assistant", visible_text)
 
                 # 检查用户是否想退出
@@ -224,7 +230,7 @@ class ChatService:
                 await history_mgr.add(session_id, "user", user_input)
                 history = await history_mgr.get(session_id)
 
-                # 🆕 调用 model2 分析
+                # 调用 model2 分析
                 analysis = await self.model2.analyze(
                     session_history=history,
                     user_input=user_input,
@@ -236,7 +242,7 @@ class ChatService:
                 advice = analysis.get("advice", "")
                 report_ready = analysis.get("signals", {}).get("report_ready", False)
 
-                # 🆕 如果报告就绪，触发后台生成任务
+                # 如果报告就绪，触发后台生成任务
                 if report_ready:
                     asyncio.create_task(
                         self._generate_report_background(
@@ -258,18 +264,24 @@ class ChatService:
                     + user_input
                 )
 
+                # 🆕 先收集完整输出
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
                     history=history,
                 ):
                     assistant_text += chunk
-                    yield {"type": "token", "content": chunk}
 
+                # 🆕 清洗后再流式输出
                 visible_text = strip_control_markers(assistant_text)
+                
+                # 逐字符流式输出
+                for char in visible_text:
+                    yield {"type": "token", "content": char}
+
                 await history_mgr.add(session_id, "assistant", visible_text)
 
-                # 🆕 检查用户是否想退出
+                # 检查用户是否想退出
                 flags = parse_control_flags(assistant_text)
                 if flags.user_want_to_quit:
                     yield {"type": "user_want_quit"}
@@ -283,7 +295,7 @@ class ChatService:
             await history_mgr.add(session_id, "user", user_input)
             history = await history_mgr.get(session_id)
 
-            # 🆕 调用 model2 分析
+            # 调用 model2 分析
             analysis = await self.model2.analyze(
                 session_history=history,
                 user_input=user_input,
@@ -295,7 +307,7 @@ class ChatService:
             advice = analysis.get("advice", "")
             report_ready = analysis.get("signals", {}).get("report_ready", False)
 
-            # 🆕 如果报告就绪，触发后台生成任务
+            # 如果报告就绪，触发后台生成任务
             if report_ready:
                 asyncio.create_task(
                     self._generate_report_background(
@@ -320,18 +332,24 @@ class ChatService:
                 + user_input
             )
 
+            # 🆕 先收集完整输出
             async for chunk in self.llm.chat_stream(
                 system_prompt=system_prompt,
                 user_prompt=final_prompt,
                 history=history,
             ):
                 assistant_text += chunk
-                yield {"type": "token", "content": chunk}
 
+            # 🆕 清洗后再流式输出
             visible_text = strip_control_markers(assistant_text)
+            
+            # 逐字符流式输出
+            for char in visible_text:
+                yield {"type": "token", "content": char}
+
             await history_mgr.add(session_id, "assistant", visible_text)
 
-            # 🆕 检查用户是否想退出
+            # 检查用户是否想退出
             flags = parse_control_flags(assistant_text)
             if flags.user_want_to_quit:
                 yield {"type": "user_want_quit"}
@@ -417,7 +435,7 @@ class ChatService:
             db.add(session)
             await db.commit()
 
-        # 6. 输出最终事件（不再包含 opinion_report）
+        # 6. 输出最终事件
         yield {
             "type": "end",
             "summary": model1_summary,

@@ -37,16 +37,14 @@ class Model2Service:
     ) -> dict:
         """
         每轮对话前调用：
-        - 结合历史对话 / 用户最新输入 / 模式 /（可选）话题 /（可选）长期特质
+        - 结合历史对话 / 模式 /（可选）话题 /（可选）长期特质
         - 生成对 model1 的"内部对话建议"（advice），用户不可见。
         - 判断是否已捕捉到足够观念（report_ready）
 
         返回结构：
         {
             "advice": str,     # 供 model1 使用的内部建议
-            "signals": {
-                "report_ready": bool  # 是否可以生成报告
-            }
+            "report_ready": bool  # 是否可以生成报告
         }
         """
         if self.llm is None:
@@ -95,17 +93,9 @@ class Model2Service:
         formatted_history = self._format_history(session_history)
 
         user_prompt = (
-            "以下是当前会话的历史与用户最新输入，请根据系统提示中的要求进行分析，"
-            "并给出对 model1 的内部对话建议（不直接呈现给用户）。\n\n"
+            "以下是当前对话的历史，请根据系统提示中的要求进行分析。"
             "【对话历史】\n"
             f"{formatted_history}\n\n"
-            "【用户最新输入】\n"
-            f"{user_input}\n\n"
-            "请以 JSON 格式返回：\n"
-            "{\n"
-            '  "advice": "给 model1 的建议文本",\n'
-            '  "report_ready": true/false  // 是否已捕捉到足够观念可生成报告\n'
-            "}"
         )
 
         # ================================
