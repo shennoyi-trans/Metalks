@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>点解 - Metalks</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/dimgaai.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 背景 -->
+    <div class="bg-cosmos">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="dimgaai-layout">
+        <!-- 导航栏 -->
+        <nav class="dimgaai-nav">
+            <div class="nav-header">
+                <div class="logo">M</div>
+            </div>
+            
+            <div class="nav-actions">
+                <button class="nav-btn" id="backToChatBtn" title="返回对话">
+                    <i class="ri-arrow-left-line"></i>
+                </button>
+            </div>
+
+            <div class="nav-footer">
+                <button class="nav-btn" id="userMenuBtn" title="用户">
+                    <i class="ri-user-3-line"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="dimgaai-main">
+            <div class="dimgaai-container">
+                <!-- 头部 -->
+                <header class="dimgaai-header">
+                    <h1>
+                        <i class="ri-brain-line"></i> 点解
+                    </h1>
+                    <p class="subtitle">你的思维轨迹与观念图谱</p>
+                </header>
+
+                <!-- 特质报告卡片 -->
+                <section class="trait-section">
+                    <div class="section-title">
+                        <i class="ri-user-search-line"></i>
+                        <h2>你的特质画像</h2>
+                    </div>
+                    <div class="trait-card">
+                        <div class="trait-summary" id="traitSummary">
+                            加载中...
+                        </div>
+                        <div class="trait-detail" id="traitDetail">
+                            <div class="loading-placeholder">
+                                <i class="ri-loader-4-line"></i> 正在加载完整报告...
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 观念报告列表 -->
+                <section class="reports-section">
+                    <div class="section-title">
+                        <i class="ri-file-list-3-line"></i>
+                        <h2>观念报告集</h2>
+                        <span class="report-count" id="reportCount">共 0 份</span>
+                    </div>
+                    <div class="reports-grid" id="reportsGrid">
+                        <div class="loading-placeholder">
+                            <i class="ri-loader-4-line"></i> 正在加载报告...
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- 报告详情模态框 -->
+    <div class="modal-overlay" id="reportDetailOverlay">
+        <div class="modal-glass report-modal">
+            <div class="modal-header">
+                <h2 id="reportDetailTitle">观念分析报告</h2>
+                <button class="close-icon" id="closeReportDetailBtn">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div class="report-scroll-area" id="reportDetailContent">
+                <!-- 报告内容 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户菜单模态框 -->
+    <div class="modal-overlay" id="userMenuOverlay">
+        <div class="user-menu-popup">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="ri-user-3-fill"></i>
+                </div>
+                <div class="user-email" id="userEmail">user@example.com</div>
+            </div>
+            <div class="menu-divider"></div>
+            <button class="menu-item disabled" id="upgradeBtn">
+                <i class="ri-vip-crown-line"></i>
+                <span>订阅</span>
+            </button>
+            <button class="menu-item disabled" id="personalizeBtn">
+                <i class="ri-settings-3-line"></i>
+                <span>个性化</span>
+            </button>
+            <button class="menu-item" id="dimgaaiMenuBtn">
+                <i class="ri-brain-line"></i>
+                <span>点解</span>
+            </button>
+            <div class="menu-divider"></div>
+            <button class="menu-item logout" id="logoutBtn">
+                <i class="ri-logout-box-line"></i>
+                <span>退出登录</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="/js/utils.js"></script>
+    <script src="/js/dimgaai.js"></script>
+</body>
+</html>

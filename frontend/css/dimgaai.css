@@ -1,0 +1,391 @@
+/* ==================== 布局 ==================== */
+.dimgaai-layout {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    height: 100vh;
+    position: relative;
+}
+
+/* ==================== 导航栏 ==================== */
+.dimgaai-nav {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 0;
+    z-index: 20;
+}
+
+.logo {
+    font-family: sans-serif;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin-bottom: 3rem;
+    background: linear-gradient(135deg, #fff 0%, var(--accent-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex: 1;
+}
+
+.nav-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-btn:hover {
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ==================== 主内容区 ==================== */
+.dimgaai-main {
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.dimgaai-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ==================== 头部 ==================== */
+.dimgaai-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem 0;
+}
+
+.dimgaai-header h1 {
+    font-size: 2.5rem;
+    font-weight: 300;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.dimgaai-header h1 i {
+    color: var(--accent-glow);
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* ==================== 区块标题 ==================== */
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.section-title i {
+    font-size: 1.5rem;
+    color: var(--accent-primary);
+}
+
+.section-title h2 {
+    font-size: 1.5rem;
+    font-weight: 400;
+    flex: 1;
+}
+
+.report-count {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    background: var(--glass-bg);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+}
+
+/* ==================== 特质卡片 ==================== */
+.trait-section {
+    margin-bottom: 3rem;
+}
+
+.trait-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 2rem;
+    transition: all 0.3s;
+}
+
+.trait-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.trait-summary {
+    font-size: 1.3rem;
+    line-height: 1.8;
+    color: var(--accent-glow);
+    margin-bottom: 2rem;
+    text-align: center;
+    font-weight: 300;
+}
+
+.trait-detail {
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    padding: 1.5rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+}
+
+/* ==================== 观念报告网格 ==================== */
+.reports-section {
+    margin-bottom: 3rem;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.report-item {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.report-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, var(--accent-primary), var(--accent-secondary));
+    transform: scaleY(0);
+    transition: transform 0.3s;
+}
+
+.report-item:hover::before {
+    transform: scaleY(1);
+}
+
+.report-item:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent-primary);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.report-topic {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.report-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.report-preview {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.report-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+}
+
+.report-footer i {
+    font-size: 1rem;
+}
+
+/* ==================== 加载占位符 ==================== */
+.loading-placeholder {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+.loading-placeholder i {
+    font-size: 2rem;
+    animation: spin 1s linear infinite;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ==================== 报告详情模态框 ==================== */
+.report-modal {
+    max-width: 900px;
+}
+
+.report-scroll-area {
+    max-height: 60vh;
+    overflow-y: auto;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    padding: 1rem;
+}
+
+/* ==================== 用户菜单弹窗 ==================== */
+.user-menu-popup {
+    position: fixed;
+    left: 90px;
+    bottom: 20px;
+    background: rgba(30, 30, 50, 0.98);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 0.75rem 0;
+    min-width: 240px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 101;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.modal-overlay.active .user-menu-popup {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.user-info {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.user-email {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.menu-divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 0.5rem 0;
+}
+
+.menu-item {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.menu-item:hover:not(.disabled) {
+    background: var(--glass-bg);
+}
+
+.menu-item.disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.menu-item.logout {
+    color: var(--error-color);
+}
+
+.menu-item i {
+    font-size: 1.1rem;
+    width: 20px;
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 768px) {
+    .dimgaai-layout {
+        grid-template-columns: 60px 1fr;
+    }
+    
+    .dimgaai-main {
+        padding: 1rem;
+    }
+    
+    .dimgaai-header h1 {
+        font-size: 2rem;
+    }
+    
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-menu-popup {
+        left: 70px;
+    }
+}

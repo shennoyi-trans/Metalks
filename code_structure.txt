@@ -1,9 +1,17 @@
-frontend/
+frontend/                    # 前端代码目录
+├── html/                    # HTML页面
+│   ├── chat.html              # 聊天主页面
+│   └── dimgaai.html           # 点解页面
 │
-├── chat.html          #聊天界面
-├── index.html        #欢迎界面
-├── chat.js
-└── style.css
+├── css/                     # 样式文件
+│   ├── common.css             # 公共样式
+│   ├── chat.css               # 聊天页面样式
+│   └── dimgaai.css            # 点解页面样式
+│
+└── js/                      # JavaScript文件
+    ├── utils.js               # 公共工具函数
+    ├── chat.js                # 聊天页面逻辑
+    └── dimgaai.js             # 点解页面逻辑
 
 backend/
 │

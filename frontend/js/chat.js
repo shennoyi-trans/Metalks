@@ -1,39 +1,36 @@
+// 解构工具函数
+const {
+    API_BASE_URL,
+    API_ENDPOINTS,
+    fetchWithAuth,
+    formatDate,
+    generateUUID,
+    showModal,
+    hideModal,
+    showToast,
+    logout
+} = window.MetalksUtils;
+
 // ==================== 更新公告配置 ====================
 const UPDATE_CONFIG = {
-    version: "v1.1.0_20251229",
+    version: "v1.2.0_20251229",
     date: "2025/12/29 更新",
     content: `
         <ul style="list-style: none; padding: 0;">
             <li style="margin-bottom: 10px;">
-                <strong style="color: var(--accent-primary);">🎯 核心升级</strong><br>
-                报告生成逻辑优化：现在报告会在后台自动生成，不再阻塞对话流程。
+                <strong style="color: var(--accent-primary);">✨ 全新"点解"功能</strong><br>
+                现可查看完整特质报告和历史观念报告集
             </li>
             <li style="margin-bottom: 10px;">
-                <strong style="color: var(--accent-secondary);">💡 交互改进</strong><br>
-                当系统捕捉到您的观念时，会主动提示；您也可以随时选择结束对话。
+                <strong style="color: var(--accent-secondary);">🎨 UI优化</strong><br>
+                优化删除确认弹窗、用户菜单和侧边栏动画
             </li>
             <li>
-                <strong style="color: var(--accent-glow);">🐛 问题修复</strong><br>
-                修复了会话 ID 生成的 Bug，确保每次对话都有独立记录。
+                <strong style="color: var(--accent-glow);">⚡ 体验改进</strong><br>
+                删除对话时保持侧边栏展开，方便连续操作
             </li>
         </ul>
     `
-};
-
-// ==================== API配置 ====================
-const API_BASE_URL = '/api';
-
-const API_ENDPOINTS = {
-    CHAT_STREAM: '/chat/stream',
-    TOPICS_RANDOM: '/topics/random',
-    SESSION_LIST: '/sessions',
-    SESSION_DETAIL: '/sessions', // + /{id}
-    SESSION_COMPLETE: '/sessions', // + /{id}/complete
-    REPORT_STATUS: '/sessions', // + /{id}/report_status
-    REPORT_GET: '/sessions', // + /{id}/report
-    TRAITS_GLOBAL: '/traits/global',
-    AUTH_LOGIN: '/auth/login',
-    AUTH_REGISTER: '/auth/register'
 };
 
 // ==================== DOM元素 ====================
@@ -45,6 +42,8 @@ const els = {
     confirmOverlay: document.getElementById('confirmOverlay'),
     authOverlay: document.getElementById('authOverlay'),
     updateOverlay: document.getElementById('updateOverlay'),
+    deleteConfirmOverlay: document.getElementById('deleteConfirmOverlay'),
+    userMenuOverlay: document.getElementById('userMenuOverlay'),
     
     // 侧边栏
     historyDrawer: document.getElementById('historyDrawer'),
@@ -91,12 +90,19 @@ const els = {
     confirmNo: document.getElementById('confirmNo'),
     confirmMessage: document.getElementById('confirmMessage'),
     
-    // 🆕 Delete Confirm
-    deleteConfirmOverlay: document.getElementById('deleteConfirmOverlay'),
+    // Delete Confirm
     deleteConfirmYes: document.getElementById('deleteConfirmYes'),
     deleteConfirmNo: document.getElementById('deleteConfirmNo'),
+    dimgaaiLink: document.getElementById('dimgaaiLink'),
     
-    // Update Announcement
+    // 🆕 User Menu
+    userEmail: document.getElementById('userEmail'),
+    upgradeBtn: document.getElementById('upgradeBtn'),
+    personalizeBtn: document.getElementById('personalizeBtn'),
+    dimgaaiMenuBtn: document.getElementById('dimgaaiMenuBtn'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    
+    // Update
     updateContentBody: document.getElementById('updateContentBody'),
     updateVersionDate: document.getElementById('updateVersionDate'),
     closeUpdateBtn: document.getElementById('closeUpdateBtn'),
@@ -106,7 +112,7 @@ const els = {
 // ==================== 状态变量 ====================
 let state = {
     isLoggedIn: false,
-    currentMode: null, // 'topic' | 'casual'
+    currentMode: null,
     currentTopicId: null,
     currentTopicName: null,
     currentTopicTag: null,
@@ -114,48 +120,58 @@ let state = {
     conversationHistory: [],
     hasUnsavedChanges: false,
     pendingTopicChange: null,
-    pendingDeleteSessionId: null, // 🆕 待删除的会话ID
-    pendingDeleteIndex: null, // 🆕 待删除的会话索引
+    pendingDeleteSessionId: null,
+    pendingDeleteIndex: null,
     isFirstMessage: false,
     streamController: null,
     isAuthLoginMode: true,
     fullTraitReport: "",
-    reportCheckInterval: null, // 🆕 轮询定时器
-    allSessions: [], // 🆕 存储所有会话列表
+    reportCheckInterval: null,
+    allSessions: [],
+    userEmail: '', // 🆕 存储用户邮箱
+    keepDrawerOpen: false // 🆕 控制侧边栏是否保持展开
 };
 
-// 模拟缓存
 let availableTopics = [];
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Nebula UI initialized');
+    console.log('Metalks Chat initialized');
     initEventListeners();
     checkLoginStatus();
     checkUpdatePopup();
 });
 
 function initEventListeners() {
-    // 1. 侧边栏交互 (修改：toggle 模式 + 空白点击关闭)
+    // 侧边栏交互
     els.historyToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         els.historyDrawer.classList.toggle('open');
+        state.keepDrawerOpen = els.historyDrawer.classList.contains('open');
     });
 
     els.closeHistoryBtn.addEventListener('click', () => {
         els.historyDrawer.classList.remove('open');
+        state.keepDrawerOpen = false;
     });
 
-    // 新增：点击页面空白处关闭侧边栏
+    // 🔧 优化：只在非删除操作时关闭侧边栏
     document.addEventListener('click', (e) => {
-        if (els.historyDrawer.classList.contains('open')) {
-            if (!els.historyDrawer.contains(e.target) && !els.historyToggleBtn.contains(e.target)) {
-                els.historyDrawer.classList.remove('open');
-            }
+        if (!state.keepDrawerOpen) return;
+        
+        const isDrawer = els.historyDrawer.contains(e.target);
+        const isToggleBtn = els.historyToggleBtn.contains(e.target);
+        const isDeleteBtn = e.target.closest('.delete-btn');
+        const isDeleteConfirm = els.deleteConfirmOverlay.contains(e.target);
+        
+        // 如果不是侧边栏、toggle按钮、删除按钮或删除确认框，则关闭
+        if (!isDrawer && !isToggleBtn && !isDeleteBtn && !isDeleteConfirm) {
+            els.historyDrawer.classList.remove('open');
+            state.keepDrawerOpen = false;
         }
     });
     
-    // 2. 话题刷新与选择
+    // 话题刷新与选择
     [els.refreshTopicsBtn, els.refreshTopicsBtnHeader].forEach(btn => {
         btn?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -166,10 +182,9 @@ function initEventListeners() {
 
     els.topicSelectorMini.addEventListener('click', () => showModal(els.topicOverlay));
     els.newChatBtn.addEventListener('click', () => showModal(els.topicOverlay));
-    
     els.casualChatBtn.addEventListener('click', () => handleTopicChange(null, null, null, true));
 
-    // 3. 聊天交互
+    // 聊天交互
     els.sendButton.addEventListener('click', () => sendMessage());
     els.chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -182,7 +197,7 @@ function initEventListeners() {
         this.style.height = (this.scrollHeight) + 'px';
     });
 
-    // 4. 模态框关闭逻辑
+    // 模态框关闭
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
@@ -191,18 +206,25 @@ function initEventListeners() {
         });
     });
     
-    document.getElementById('closeReportButton').addEventListener('click', () => hideModal(els.reportOverlay));
-    document.getElementById('closeTraitsDetailButton').addEventListener('click', () => hideModal(els.traitsDetailOverlay));
-    els.closeAuthBtn.addEventListener('click', () => hideModal(els.authOverlay));
+    document.getElementById('closeReportButton')?.addEventListener('click', () => hideModal(els.reportOverlay));
+    document.getElementById('closeTraitsDetailButton')?.addEventListener('click', () => hideModal(els.traitsDetailOverlay));
+    els.closeAuthBtn?.addEventListener('click', () => hideModal(els.authOverlay));
 
-    // 5. Auth 交互
-    els.authBtn.addEventListener('click', () => showModal(els.authOverlay));
+    // Auth
+    els.authBtn.addEventListener('click', () => {
+        if (state.isLoggedIn) {
+            showModal(els.userMenuOverlay);
+        } else {
+            showModal(els.authOverlay);
+        }
+    });
+    
     els.authTabs.forEach(tab => {
         tab.addEventListener('click', () => switchAuthMode(tab.dataset.mode === 'login'));
     });
     els.submitAuthBtn.addEventListener('click', handleAuthSubmit);
 
-    // 6. 确认弹窗
+    // Confirm
     els.confirmYes.addEventListener('click', () => {
         hideModal(els.confirmOverlay);
         if (state.pendingTopicChange) {
@@ -216,17 +238,13 @@ function initEventListeners() {
         state.pendingTopicChange = null;
     });
     
-    els.traitsDetailLink.addEventListener('click', showTraitsDetail);
-
-    // 7. 更新弹窗交互
-    els.closeUpdateBtn?.addEventListener('click', () => handleUpdateClose());
-    els.acknowledgeUpdateBtn?.addEventListener('click', () => handleUpdateClose());
-    
-    // 8. 🆕 删除确认弹窗
+    // 🆕 Delete Confirm
     els.deleteConfirmNo?.addEventListener('click', () => {
         hideModal(els.deleteConfirmOverlay);
         state.pendingDeleteSessionId = null;
-        state.pendingDeleteIndex = null;  // 🔧 清理索引
+        state.pendingDeleteIndex = null;
+        // 🔧 删除取消后保持侧边栏展开
+        state.keepDrawerOpen = true;
     });
     
     els.deleteConfirmYes?.addEventListener('click', () => {
@@ -234,13 +252,53 @@ function initEventListeners() {
         if (state.pendingDeleteSessionId) {
             executeDeleteSession(state.pendingDeleteSessionId);
             state.pendingDeleteSessionId = null;
-            state.pendingDeleteIndex = null;  // 🔧 清理索引
+            state.pendingDeleteIndex = null;
+        }
+        // 🔧 删除确认后也保持侧边栏展开
+        state.keepDrawerOpen = true;
+    });
+    
+    // 🆕 点解链接
+    els.dimgaaiLink?.addEventListener('click', () => {
+        window.location.href = '/html/dimgaai.html';
+    });
+    
+    // 🆕 User Menu
+    els.upgradeBtn?.addEventListener('click', () => {
+        showToast('功能尚在开发中~', true);
+    });
+    
+    els.personalizeBtn?.addEventListener('click', () => {
+        showToast('功能尚在开发中~', true);
+    });
+    
+    els.dimgaaiMenuBtn?.addEventListener('click', () => {
+        window.location.href = '/html/dimgaai.html';
+    });
+    
+    els.logoutBtn?.addEventListener('click', () => {
+        if (confirm('确定要退出登录吗？')) {
+            logout();
         }
     });
+    
+    // 关闭用户菜单
+    els.userMenuOverlay?.addEventListener('click', (e) => {
+        if (e.target === els.userMenuOverlay) {
+            hideModal(els.userMenuOverlay);
+        }
+    });
+    
+    els.traitsDetailLink?.addEventListener('click', () => {
+        window.location.href = '/html/dimgaai.html';
+    });
+
+    // Update
+    els.closeUpdateBtn?.addEventListener('click', () => handleUpdateClose());
+    els.acknowledgeUpdateBtn?.addEventListener('click', () => handleUpdateClose());
 }
 
 // ==================== 核心逻辑 ====================
-
 async function checkLoginStatus() {
     try {
         await loadGlobalTraits();
@@ -267,12 +325,9 @@ function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
 }
 
 async function executeTopicChange(topicId, topicName, topicTag, isCasual = false) {
-    // 🆕 停止之前的报告轮询
     stopReportPolling();
     
-    // 1. 重置状态
     state.currentSessionId = generateUUID();
-    
     state.currentMode = isCasual ? 'casual' : 'topic';
     state.currentTopicId = topicId;
     state.currentTopicName = topicName;
@@ -281,7 +336,6 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     state.conversationHistory = [];
     state.hasUnsavedChanges = false;
 
-    // 2. UI 更新
     const casualTitle = "随心对话";
     const casualTag = "心流漫游";
     const casualStatus = "思维通道已打开<br>准备进入潜意识之海...";
@@ -294,13 +348,10 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     els.chatMessages.innerHTML = '';
     els.welcomePlaceholder.style.display = 'none';
     hideModal(els.topicOverlay);
-    
     els.chatInput.value = '';
     
-    // 🆕 开始报告轮询
     startReportPolling(state.currentSessionId);
     
-    // 3. 自动开场 (Mode 1)
     if (!isCasual) {
         showThinking();
         try {
@@ -318,24 +369,18 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     }
 }
 
-/** 发送消息 */
 async function sendMessage() {
     const text = els.chatInput.value.trim();
-    
     if (!text) return;
 
-    // 1. 上屏用户消息
     addMessage('user', text);
     els.chatInput.value = '';
     els.chatInput.style.height = 'auto';
     els.welcomePlaceholder.style.display = 'none';
-
-    // 2. 锁定并显示思考
     els.sendButton.disabled = true;
     showThinking();
     state.hasUnsavedChanges = true;
 
-    // 3. 发送请求
     try {
         await sendMessageToAPI(text, state.isFirstMessage);
         state.isFirstMessage = false;
@@ -400,7 +445,6 @@ async function sendMessageToAPI(message, isFirst = false) {
                 try {
                     const event = JSON.parse(jsonStr);
                     
-                    // 🆕 处理新的事件类型
                     if (event.type === 'user_want_quit') {
                         handleUserWantQuit();
                         continue;
@@ -439,11 +483,9 @@ async function sendMessageToAPI(message, isFirst = false) {
     }
 }
 
-// 🆕 处理用户想退出事件
 function handleUserWantQuit() {
     hideThinking();
     
-    // 在消息区域添加"结束对话"按钮
     const quitPrompt = document.createElement('div');
     quitPrompt.className = 'quit-prompt';
     quitPrompt.innerHTML = `
@@ -457,16 +499,13 @@ function handleUserWantQuit() {
     els.chatMessages.appendChild(quitPrompt);
     scrollToBottom();
     
-    // 绑定点击事件
     document.getElementById('quitSessionBtn').addEventListener('click', async () => {
         await completeSession();
-        // 跳转回话题广场
         showModal(els.topicOverlay);
         loadRandomTopics();
     });
 }
 
-// 🆕 完成会话
 async function completeSession() {
     try {
         stopReportPolling();
@@ -475,14 +514,12 @@ async function completeSession() {
             method: 'POST'
         });
         
-        // 重置状态
         state.currentSessionId = null;
         state.conversationHistory = [];
         state.hasUnsavedChanges = false;
         els.chatMessages.innerHTML = '';
         els.welcomePlaceholder.style.display = 'block';
         
-        // 刷新历史列表
         loadSessions();
     } catch (e) {
         console.error("Complete session failed", e);
@@ -490,22 +527,14 @@ async function completeSession() {
 }
 
 function handleEndEvent(event) {
-    if (event.summary) {
-        // 可以选择显示总结，或者只是记录
-    }
-    
-    // 🆕 删除旧的报告处理逻辑
-    // 报告现在由后台生成，通过轮询获取
-    
     if (event.trait_summary) {
         updateTraitsDisplay(event.trait_summary);
     }
     state.hasUnsavedChanges = false;
 }
 
-// 🆕 报告轮询逻辑
 function startReportPolling(sessionId) {
-    stopReportPolling(); // 先停止之前的轮询
+    stopReportPolling();
     
     state.reportCheckInterval = setInterval(async () => {
         try {
@@ -516,15 +545,12 @@ function startReportPolling(sessionId) {
                 showReportReadyNotification(sessionId);
             }
         } catch (e) {
-            // 🔧 如果是 404 或其他错误，停止无意义的轮询
             if (e.message.includes('404') || e.message.includes('Not Found')) {
                 console.warn('Session not found, stopping report polling');
                 stopReportPolling();
-            } else {
-                console.warn('Report status check failed', e);
             }
         }
-    }, 3000); // 每3秒检查一次
+    }, 3000);
 }
 
 function stopReportPolling() {
@@ -534,9 +560,7 @@ function stopReportPolling() {
     }
 }
 
-// 🆕 显示报告就绪提示
 function showReportReadyNotification(sessionId) {
-    // 在右侧状态栏显示提示
     els.statusContent.innerHTML = `
         <div style="color: var(--accent-glow);">
             ✨ 观念分析已完成！
@@ -546,13 +570,11 @@ function showReportReadyNotification(sessionId) {
         </button>
     `;
     
-    // 绑定点击事件
     document.getElementById('viewReportBtn').addEventListener('click', () => {
         viewReport(sessionId);
     });
 }
 
-// 🆕 查看报告
 async function viewReport(sessionId) {
     try {
         const res = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.REPORT_GET}/${sessionId}/report`);
@@ -560,16 +582,15 @@ async function viewReport(sessionId) {
         if (res.ready && res.report) {
             showReport(res.report, state.currentTopicTag || '观念分析');
         } else {
-            alert('报告正在生成中，请稍后再试');
+            showToast('报告正在生成中，请稍后再试');
         }
     } catch (e) {
         console.error('Load report failed', e);
-        alert('加载报告失败: ' + e.message);
+        showToast('加载报告失败: ' + e.message);
     }
 }
 
 // ==================== 数据加载 ====================
-
 async function loadSessions() {
     try {
         const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions`);
@@ -580,7 +601,6 @@ async function loadSessions() {
 }
 
 function renderSessionList(sessions) {
-    // 🆕 保存到全局状态
     state.allSessions = sessions;
     
     els.sessionList.innerHTML = '';
@@ -589,11 +609,11 @@ function renderSessionList(sessions) {
         return;
     }
 
-    sessions.forEach((s, index) => {  // 🆕 添加 index 参数
+    sessions.forEach((s, index) => {
         const li = document.createElement('li');
         li.className = 'session-item';
         li.dataset.id = s.id;
-        li.dataset.index = index;  // 🆕 存储索引
+        li.dataset.index = index;
 
         const dateStr = formatDate(s.created_at);
         let title = s.last_message || "无对话内容";
@@ -606,7 +626,6 @@ function renderSessionList(sessions) {
         if (s.status === 'completed') tagsHtml += `<span class="tag">已完成</span>`;
         else tagsHtml += `<span class="tag tag-progress">进行中</span>`;
         
-        // 🆕 显示报告状态
         if (s.report_ready) {
             tagsHtml += `<span class="tag" style="background: rgba(244, 114, 182, 0.2); color: #f472b6;">有报告</span>`;
         }
@@ -617,25 +636,22 @@ function renderSessionList(sessions) {
                 <span>${dateStr}</span>
                 <div class="session-tags">${tagsHtml}</div>
             </div>
-            <div class="delete-btn" title="删除记录">
+            <button class="delete-btn" title="删除记录">
                 <i class="ri-delete-bin-line"></i>
-            </div>
+            </button>
         `;
         
-        // 点击列表项：加载
         li.addEventListener('click', (e) => {
-            // 如果点击的是删除按钮，不触发加载
             if (e.target.closest('.delete-btn')) {
                 return;
             }
             loadSessionDetail(s.id);
         });
         
-        // 🆕 点击删除按钮：传入索引
         const delBtn = li.querySelector('.delete-btn');
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            confirmDeleteSession(s.id, index);  // 🆕 传入索引
+            confirmDeleteSession(s.id, index);
         });
         
         els.sessionList.appendChild(li);
@@ -644,7 +660,6 @@ function renderSessionList(sessions) {
 
 async function loadSessionDetail(sessionId) {
     try {
-        // 🔧 停止之前的轮询（查看历史时不需要轮询）
         stopReportPolling();
         
         const session = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
@@ -668,15 +683,14 @@ async function loadSessionDetail(sessionId) {
             addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content);
         });
         
-        // 🆕 如果报告已就绪，显示提示
         if (session.report_ready) {
             showReportReadyNotification(sessionId);
         } else if (session.status === 'in_progress') {
-            // 🔧 只有进行中的会话才启动轮询
             startReportPolling(sessionId);
         }
         
-        els.historyDrawer.classList.remove('open');
+        // 🔧 加载会话后不关闭侧边栏（除非用户主动点击其他地方）
+        // els.historyDrawer.classList.remove('open');
         
     } catch (e) {
         console.error("Load detail failed", e);
@@ -713,8 +727,7 @@ async function loadGlobalTraits() {
     state.fullTraitReport = data.full_report;
 }
 
-// ==================== Auth 逻辑 ====================
-
+// ==================== Auth ====================
 function switchAuthMode(isLogin) {
     state.isAuthLoginMode = isLogin;
     els.authTabs.forEach(t => t.classList.toggle('active', 
@@ -749,6 +762,7 @@ async function handleAuthSubmit() {
 
         if (state.isAuthLoginMode) {
             state.isLoggedIn = true;
+            state.userEmail = email; // 🆕 保存邮箱
             hideModal(els.authOverlay);
             await checkLoginStatus();
         } else {
@@ -763,65 +777,7 @@ async function handleAuthSubmit() {
     }
 }
 
-// ==================== 工具函数 ====================
-
-async function fetchWithAuth(url, options = {}) {
-    const finalOptions = {
-        method: options.method || 'GET',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options.headers || {})
-        },
-        body: options.body,
-        signal: options.signal
-    };
-
-    try {
-        const response = await fetch(url, finalOptions);
-
-        if (response.status === 401) {
-            const error = new Error("未登录或会话过期");
-            error.status = 401;
-            throw error;
-        }
-
-        if (!response.ok) {
-            let errorText = response.statusText;
-            try {
-                const errJson = await response.json();
-                errorText = errJson.detail || JSON.stringify(errJson);
-            } catch (e) { /* ignore json parse error */ }
-            
-            throw new Error(`HTTP Error ${response.status}: ${errorText}`);
-        }
-
-        if (url.includes('/chat/stream')) {
-            return response;
-        }
-
-        return response.json();
-    } catch (err) {
-        console.error("Fetch Error Details:", err);
-        throw err;
-    }
-}
-
-function formatDate(isoString) {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    return `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-}
-
-function showModal(modal) { 
-    modal.classList.add('active'); 
-    modal.style.visibility = 'visible'; 
-}
-function hideModal(modal) { 
-    modal.classList.remove('active'); 
-    setTimeout(() => modal.style.visibility = 'hidden', 300); 
-}
-
+// ==================== UI Helpers ====================
 function addMessage(role, text) {
     const div = document.createElement('div');
     div.className = `message message-${role}`;
@@ -843,6 +799,7 @@ function showThinking() {
     div.innerHTML = `<span style="font-size:0.8rem; color:rgba(255,255,255,0.5)">思考中</span><div class="thinking-dots"><div></div><div></div></div>`;
     els.statusContent.appendChild(div);
 }
+
 function hideThinking() {
     const el = document.getElementById('thinkingAnim');
     if(el) el.remove();
@@ -850,13 +807,6 @@ function hideThinking() {
 
 function updateTraitsDisplay(summary) {
     els.traitsContent.textContent = summary || "暂无特质数据";
-    if(summary) {
-        const dot = document.querySelector('.update-dot');
-        if(dot) {
-            dot.style.display = 'inline-block';
-            setTimeout(() => dot.style.display = 'none', 5000);
-        }
-    }
 }
 
 function showReport(content, topic) {
@@ -865,76 +815,51 @@ function showReport(content, topic) {
     showModal(els.reportOverlay);
 }
 
-function showTraitsDetail() {
-    els.traitsDetailContent.innerHTML = `<div style="white-space: pre-wrap;">${state.fullTraitReport || els.traitsContent.textContent}</div>`;
-    showModal(els.traitsDetailOverlay);
-}
-
 function updateAuthUI() {
-    // 🔧 使用图标而非文字 M
+    // 🆕 更新用户按钮样式
     els.authBtn.innerHTML = '<i class="ri-user-3-fill" style="font-size: 1.3rem;"></i>';
     els.authBtn.style.background = 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))';
+    
+    // 设置用户邮箱
+    if (els.userEmail) {
+        els.userEmail.textContent = state.userEmail || '已登录用户';
+    }
 }
 
-function generateUUID() {
-    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
-}
-
-// 🆕 删除会话逻辑
+// ==================== Delete Session ====================
 function confirmDeleteSession(sessionId, index) {
     state.pendingDeleteSessionId = sessionId;
-    state.pendingDeleteIndex = index;  // 🆕 存储索引
+    state.pendingDeleteIndex = index;
+    state.keepDrawerOpen = true; // 🔧 确保删除操作不关闭侧边栏
     showModal(els.deleteConfirmOverlay);
 }
 
 async function executeDeleteSession(sessionId) {
     try {
-        console.log('[DELETE] Starting deletion for session:', sessionId);
-        console.log('[DELETE] Current Index:', state.pendingDeleteIndex);
-        console.log('[DELETE] Total Sessions:', state.allSessions.length);
-        
-        // 1. 🆕 在删除前确定下一个要跳转的会话
         const currentIndex = state.pendingDeleteIndex;
         const totalSessions = state.allSessions.length;
         let nextSessionId = null;
 
         if (totalSessions > 1) {
-            // 🔹 优先跳转到下一条（索引 + 1）
             if (currentIndex < totalSessions - 1) {
                 nextSessionId = state.allSessions[currentIndex + 1].id;
-                console.log('[DELETE] Will jump to next session:', nextSessionId);
-            } 
-            // 🔹 如果是最后一条，跳转到上一条（索引 - 1）
-            else if (currentIndex > 0) {
+            } else if (currentIndex > 0) {
                 nextSessionId = state.allSessions[currentIndex - 1].id;
-                console.log('[DELETE] Will jump to previous session:', nextSessionId);
             }
-        } else {
-            console.log('[DELETE] Last session, will jump to topic selector');
         }
 
-        // 2. 🔧 调用真正的删除接口（DELETE 方法）
         await fetchWithAuth(`${API_BASE_URL}/sessions/${sessionId}`, {
             method: 'DELETE'
         });
-        console.log('[DELETE] Backend deletion successful');
         
-        // 3. 刷新列表（会自动过滤掉已删除的记录）
         await loadSessions();
-        console.log('[DELETE] Session list refreshed');
         
-        // 4. 🆕 智能跳转逻辑
         if (nextSessionId) {
-            // 🔹 有下一条/上一条，跳转过去
-            console.log('[DELETE] Jumping to session:', nextSessionId);
             await loadSessionDetail(nextSessionId);
         } else {
-            // 🔹 这是最后一条记录，跳转到话题广场
             if (state.currentSessionId === sessionId) {
-                console.log('[DELETE] Jumping to topic selector');
                 showModal(els.topicOverlay);
                 loadRandomTopics();
-                // 重置状态
                 state.currentSessionId = null;
                 state.conversationHistory = [];
                 state.hasUnsavedChanges = false;
@@ -943,33 +868,21 @@ async function executeDeleteSession(sessionId) {
             }
         }
 
+        // 🔧 删除后保持侧边栏展开
+        state.keepDrawerOpen = true;
+
     } catch (e) {
         console.error("[DELETE] Failed:", e);
-        alert("删除失败: " + e.message);
+        showToast("删除失败: " + e.message);
     }
 }
 
-// 🆕 更新公告逻辑
+// ==================== Update Popup ====================
 function checkUpdatePopup() {
-    // 🔧 增加调试信息
-    console.log('[Update Check] Starting...');
-    console.log('[Update Check] Current version:', UPDATE_CONFIG.version);
-    
-    // 🔧 检查必要的 DOM 元素是否存在
-    if (!els.updateOverlay) {
-        console.error('[Update Check] updateOverlay element not found!');
-        return;
-    }
-    
     const storageKey = 'metalks_last_version';
     const lastSeenVersion = localStorage.getItem(storageKey);
     
-    console.log('[Update Check] Last seen version:', lastSeenVersion);
-
     if (lastSeenVersion !== UPDATE_CONFIG.version) {
-        console.log('[Update Check] Showing update popup');
-        
-        // 🔧 安全设置内容
         if (els.updateVersionDate) {
             els.updateVersionDate.textContent = UPDATE_CONFIG.date;
         }
@@ -978,14 +891,11 @@ function checkUpdatePopup() {
         }
         
         showModal(els.updateOverlay);
-    } else {
-        console.log('[Update Check] Already up to date, skipping popup');
     }
 }
 
 function handleUpdateClose() {
     const storageKey = 'metalks_last_version';
     localStorage.setItem(storageKey, UPDATE_CONFIG.version);
-    console.log('[Update Check] Version marked as seen:', UPDATE_CONFIG.version);
     hideModal(els.updateOverlay);
 }

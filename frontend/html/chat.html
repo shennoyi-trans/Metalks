@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Metalks - 认识你自己</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/chat.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 </head>
 <body>
@@ -100,7 +101,6 @@
                     <div class="card-label">
                         <i class="ri-user-search-line"></i> 你的特质
                     </div>
-                    <span class="update-dot" style="display: none;"></span>
                 </div>
                 <div class="traits-body" id="traitsContent">
                     随着对话深入，你的轮廓将逐渐清晰...
@@ -118,6 +118,7 @@
         </aside>
     </div>
 
+    <!-- 话题选择模态框 -->
     <div class="modal-overlay" id="topicOverlay">
         <div class="modal-glass">
             <div class="modal-header">
@@ -128,8 +129,7 @@
                 </button>
             </div>
             
-            <div class="topics-grid" id="topicsGrid">
-                </div>
+            <div class="topics-grid" id="topicsGrid"></div>
             
             <div class="modal-footer">
                 <button class="casual-btn" id="casualChatButton">
@@ -139,6 +139,7 @@
         </div>
     </div>
 
+    <!-- 认证模态框 -->
     <div class="modal-overlay" id="authOverlay">
         <div class="modal-glass auth-modal">
             <div class="modal-header">
@@ -164,6 +165,7 @@
         </div>
     </div>
 
+    <!-- 报告查看模态框 -->
     <div class="modal-overlay" id="reportOverlay">
         <div class="modal-glass report-modal">
             <div class="modal-header">
@@ -171,10 +173,11 @@
                 <button class="close-icon" id="closeReportButton"><i class="ri-close-line"></i></button>
             </div>
             <div class="report-scroll-area" id="reportContent" style="max-height: 60vh; overflow-y: auto; line-height: 1.8;">
-                </div>
+            </div>
         </div>
     </div>
 
+    <!-- 特质详情模态框 -->
     <div class="modal-overlay" id="traitsDetailOverlay">
         <div class="modal-glass report-modal">
             <div class="modal-header">
@@ -182,10 +185,11 @@
                 <button class="close-icon" id="closeTraitsDetailButton"><i class="ri-close-line"></i></button>
             </div>
             <div class="report-scroll-area" id="traitsDetailContent" style="max-height: 60vh; overflow-y: auto;">
-                </div>
+            </div>
         </div>
     </div>
 
+    <!-- 话题切换确认 -->
     <div class="modal-overlay" id="confirmOverlay">
         <div class="confirm-box">
             <h3>切换话题？</h3>
@@ -197,18 +201,48 @@
         </div>
     </div>
 
-    <!-- 🆕 删除确认弹窗 -->
+    <!-- 🆕 删除确认弹窗（优化版） -->
     <div class="modal-overlay" id="deleteConfirmOverlay">
-        <div class="confirm-box">
-            <h3 style="color: var(--error-color);">⚠️ 确认删除</h3>
-            <p style="margin-bottom: 1.5rem; color: rgba(255,255,255,0.7);">
-                确定要删除这条对话记录吗？<br>
-                <span style="color: var(--error-color); font-size: 0.9rem;">删除后不可恢复</span>
+        <div class="delete-confirm-box">
+            <h3>删除聊天?</h3>
+            <p class="warning-text">
+                这会删除"<span id="deleteTopicName">实时视频通话实况</span>"。<br>
+                访问<a id="dimgaaiLink" class="dimgaai-link">点解</a>以删除此聊天期间生成的观念报告。
             </p>
-            <div class="confirm-actions">
+            <div class="delete-confirm-actions">
                 <button class="btn-ghost" id="deleteConfirmNo">取消</button>
-                <button class="btn-primary" id="deleteConfirmYes" style="background: var(--error-color);">确认删除</button>
+                <button class="btn-primary" id="deleteConfirmYes" style="background: var(--error-color);">删除</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 🆕 用户菜单弹窗 -->
+    <div class="modal-overlay" id="userMenuOverlay">
+        <div class="user-menu-popup">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="ri-user-3-fill"></i>
+                </div>
+                <div class="user-email" id="userEmail">user@example.com</div>
+            </div>
+            <div class="menu-divider"></div>
+            <button class="menu-item disabled" id="upgradeBtn">
+                <i class="ri-vip-crown-line"></i>
+                <span>订阅</span>
+            </button>
+            <button class="menu-item disabled" id="personalizeBtn">
+                <i class="ri-settings-3-line"></i>
+                <span>个性化</span>
+            </button>
+            <button class="menu-item" id="dimgaaiMenuBtn">
+                <i class="ri-brain-line"></i>
+                <span>点解</span>
+            </button>
+            <div class="menu-divider"></div>
+            <button class="menu-item logout" id="logoutBtn">
+                <i class="ri-logout-box-line"></i>
+                <span>退出登录</span>
+            </button>
         </div>
     </div>
 
@@ -232,7 +266,7 @@
         </div>
     </div>
 
-    <!-- 🔧 重要：script 标签移到所有 HTML 元素之后 -->
-    <script src="/chat.js?v=1.1.0"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/chat.js"></script>
 </body>
 </html>

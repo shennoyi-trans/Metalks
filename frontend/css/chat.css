@@ -1,75 +1,12 @@
-:root {
-    --bg-deep: #0f0c29;
-    --bg-mid: #302b63;
-    --bg-light: #24243e;
-    --accent-primary: #6366f1; /* Indigo */
-    --accent-secondary: #a855f7; /* Purple */
-    --accent-glow: #f472b6; /* Pink */
-    --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --error-color: #ef4444;
-    --success-color: #10b981;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: "Alibaba_puhui", -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: var(--bg-deep);
-    color: var(--text-primary);
-    height: 100vh;
-    overflow: hidden; /* 禁止body滚动，只让内部滚动 */
-}
-
-/* ================= 背景系统 ================= */
-.bg-cosmos {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
-}
-
-.orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
-    animation: float 20s infinite ease-in-out;
-}
-
-.orb-1 { width: 400px; height: 400px; background: var(--accent-primary); top: -100px; left: -100px; }
-.orb-2 { width: 500px; height: 500px; background: var(--accent-secondary); bottom: -100px; right: -100px; animation-delay: -5s; }
-.orb-3 { width: 300px; height: 300px; background: var(--accent-glow); top: 40%; left: 40%; filter: blur(100px); opacity: 0.2; animation-delay: -10s; }
-
-.grid-overlay {
-    position: absolute;
-    inset: 0;
-    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
-    mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-}
-
-@keyframes float {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(30px, 50px); }
-}
-
-/* ================= 布局系统 ================= */
+/* ==================== 布局系统 ==================== */
 .app-layout {
     display: grid;
-    grid-template-columns: 80px 1fr 320px; /* 左导航 - 主舞台 - 右HUD */
+    grid-template-columns: 80px 1fr 320px;
     height: 100vh;
     position: relative;
 }
 
-/* 左侧极简导航 */
+/* ==================== 左侧导航 ==================== */
 .sidebar-nav {
     background: rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(10px);
@@ -115,45 +52,29 @@ body {
     position: relative;
 }
 
-.nav-btn:hover, .nav-btn.active {
+.nav-btn:hover,
+.nav-btn.active {
     background: var(--glass-bg);
     color: var(--text-primary);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.user-avatar-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    font-weight: bold;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
+/* ==================== 历史侧边栏 ==================== */
 .history-drawer {
     position: absolute;
     left: 80px;
     top: 0;
     bottom: 0;
     width: 300px;
-    background: rgba(20, 20, 40, 0.95); /* 加深背景，减少杂乱透视 */
+    background: rgba(20, 20, 40, 0.98);
     backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
-    
-    /* 核心修改：提高层级，覆盖输入框 (input-dock z-index: 20) */
-    z-index: 30; 
-    
-    /* 核心修改：位移 + 可见性控制 */
+    z-index: 30;
     transform: translateX(-100%);
-    visibility: hidden; /* 收起时完全隐藏，避免毛玻璃穿透 */
-    
-    /* 收起动画：延迟隐藏 visibility，等待 transform 完成 */
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.4s;
-    
+    visibility: hidden;
+    /* 🔧 优化过渡效果，移除闪光 */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0.4s;
     display: flex;
     flex-direction: column;
     box-shadow: 10px 0 30px rgba(0,0,0,0.5);
@@ -162,8 +83,8 @@ body {
 .history-drawer.open {
     transform: translateX(0);
     visibility: visible;
-    /* 展开动画：立即显示 visibility */
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0s;
 }
 
 .drawer-header {
@@ -180,6 +101,11 @@ body {
     color: var(--text-secondary);
     cursor: pointer;
     font-size: 1.2rem;
+    transition: color 0.2s;
+}
+
+.icon-btn:hover {
+    color: var(--text-primary);
 }
 
 .session-list {
@@ -188,7 +114,6 @@ body {
     padding: 1rem;
 }
 
-/* 历史列表项优化 */
 .session-item {
     padding: 1rem;
     margin-bottom: 0.8rem;
@@ -200,13 +125,15 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    
-    /* 新增：为删除按钮留位置 */
     position: relative;
     padding-right: 36px;
 }
 
-/* 新增：删除按钮样式 */
+.session-item:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
 .delete-btn {
     position: absolute;
     right: 8px;
@@ -219,24 +146,22 @@ body {
     justify-content: center;
     border-radius: 6px;
     color: var(--text-secondary);
-    opacity: 0; /* 默认隐藏 */
+    opacity: 0;
     transition: all 0.2s ease;
     z-index: 2;
+    background: none;
+    border: none;
+    cursor: pointer;
 }
 
 .session-item:hover .delete-btn {
-    opacity: 1; /* 悬停整行时显示 */
+    opacity: 1;
 }
 
 .delete-btn:hover {
     background: rgba(239, 68, 68, 0.2);
-    color: #ef4444; /* 红色高亮 */
+    color: #ef4444;
     transform: translateY(-50%) scale(1.1);
-}
-
-.session-item:hover {
-    border-color: var(--accent-primary);
-    background: rgba(99, 102, 241, 0.1);
 }
 
 .session-title {
@@ -267,24 +192,19 @@ body {
     color: #4ade80;
 }
 
-.tag-trait {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-}
-
 .tag-progress {
     background: rgba(59, 130, 246, 0.2);
     color: #3b82f6;
 }
 
-/* ================= 主舞台 (Chat) 修复滚动 ================= */
+/* ==================== 主聊天区域 ==================== */
 .chat-stage {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 100vh; /* 强制占满高度 */
-    overflow: hidden; /* 防止父级滚动 */
+    height: 100vh;
+    overflow: hidden;
 }
 
 .chat-wrapper {
@@ -302,7 +222,7 @@ body {
     justify-content: space-between;
     align-items: flex-end;
     z-index: 10;
-    flex-shrink: 0; /* 防止header被压缩 */
+    flex-shrink: 0;
 }
 
 .topic-badge {
@@ -337,32 +257,18 @@ body {
     background: rgba(255,255,255,0.2);
 }
 
-/* 关键：消息容器配置 */
 .messages-container {
-    flex: 1; /* 占据剩余空间 */
-    overflow-y: auto; /* 允许内部滚动 */
-    padding: 2rem 2rem 140px 2rem; /* 底部预留大片空间给输入框，防止遮挡 */
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem 2rem 140px 2rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
     scroll-behavior: smooth;
-    /* 隐藏滚动条但保留功能 */
-    scrollbar-width: thin; 
+    scrollbar-width: thin;
     scrollbar-color: var(--glass-border) transparent;
 }
 
-.messages-container::-webkit-scrollbar {
-    width: 6px;
-}
-.messages-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-.messages-container::-webkit-scrollbar-thumb {
-    background-color: var(--glass-border);
-    border-radius: 3px;
-}
-
-/* 消息气泡样式 */
 .message {
     max-width: 80%;
     padding: 1.25rem 1.75rem;
@@ -394,7 +300,6 @@ body {
     color: var(--text-primary);
 }
 
-/* 输入框区域 - 绝对定位悬浮 */
 .input-dock {
     position: absolute;
     bottom: 2rem;
@@ -405,14 +310,14 @@ body {
     justify-content: center;
     padding: 0 2rem;
     z-index: 20;
-    pointer-events: none; /* 让点击穿透dock空白区域 */
+    pointer-events: none;
 }
 
 .input-glass {
-    pointer-events: auto; /* 恢复输入框交互 */
+    pointer-events: auto;
     width: 100%;
     max-width: 800px;
-    background: rgba(20, 20, 40, 0.75); /* 加深背景防止文字重叠 */
+    background: rgba(20, 20, 40, 0.75);
     backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: 30px;
@@ -473,7 +378,7 @@ body {
     transform: none;
 }
 
-/* ================= HUD 右侧栏 ================= */
+/* ==================== 右侧HUD ==================== */
 .insight-hud {
     padding: 2rem;
     display: flex;
@@ -510,7 +415,8 @@ body {
     letter-spacing: 0.05em;
 }
 
-.status-content, .traits-body {
+.status-content,
+.traits-body {
     font-size: 0.9rem;
     line-height: 1.5;
     color: rgba(255,255,255,0.9);
@@ -520,15 +426,6 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-}
-
-.update-dot {
-    width: 8px;
-    height: 8px;
-    background: #ef4444;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #ef4444;
-    animation: pulse 2s infinite;
 }
 
 .hud-link {
@@ -560,74 +457,7 @@ body {
     color: var(--text-secondary);
 }
 
-/* ================= 模态窗口 ================= */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 12, 41, 0.85);
-    backdrop-filter: blur(8px);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-}
-
-.modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.modal-glass {
-    background: rgba(30, 30, 50, 0.95);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 2.5rem;
-    width: 90%;
-    max-width: 700px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    position: relative;
-    transform: scale(0.95);
-    transition: transform 0.3s ease;
-}
-
-.modal-overlay.active .modal-glass {
-    transform: scale(1);
-}
-
-.modal-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    position: relative;
-}
-
-.modal-header h2 {
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-}
-
-.subtitle {
-    color: var(--text-secondary);
-}
-
-.refresh-icon-btn {
-    position: absolute;
-    right: 0;
-    top: 0;
-    background: none;
-    border: none;
-    color: var(--accent-primary);
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: transform 0.5s;
-}
-
-.refresh-icon-btn:hover {
-    transform: rotate(180deg);
-}
-
+/* ==================== 话题选择模态框 ==================== */
 .topics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -664,10 +494,20 @@ body {
     color: var(--text-secondary);
 }
 
-.modal-footer {
-    text-align: center;
-    border-top: 1px solid var(--glass-border);
-    padding-top: 1.5rem;
+.refresh-icon-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: none;
+    border: none;
+    color: var(--accent-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: transform 0.5s;
+}
+
+.refresh-icon-btn:hover {
+    transform: rotate(180deg);
 }
 
 .casual-btn {
@@ -689,17 +529,137 @@ body {
     color: black;
 }
 
-.close-icon {
-    position: absolute;
-    top: -1rem;
-    right: 0;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 1.5rem;
-    cursor: pointer;
+/* ==================== 🆕 优化后的删除确认弹窗 ==================== */
+.delete-confirm-box {
+    background: rgba(30, 30, 50, 0.98);
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid var(--error-color);
+    text-align: left;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);
 }
 
+.delete-confirm-box h3 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.delete-confirm-box .warning-text {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.delete-confirm-box .dimgaai-link {
+    color: var(--accent-primary);
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.delete-confirm-box .dimgaai-link:hover {
+    color: var(--accent-secondary);
+}
+
+.delete-confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+/* ==================== 🆕 用户菜单弹窗 ==================== */
+.user-menu-popup {
+    position: fixed;
+    left: 90px;
+    bottom: 20px;
+    background: rgba(30, 30, 50, 0.98);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 0.75rem 0;
+    min-width: 240px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 101;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.modal-overlay.active .user-menu-popup {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.user-info {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.user-email {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.menu-divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 0.5rem 0;
+}
+
+.menu-item {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.menu-item:hover:not(.disabled) {
+    background: var(--glass-bg);
+}
+
+.menu-item.disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.menu-item.logout {
+    color: var(--error-color);
+}
+
+.menu-item i {
+    font-size: 1.1rem;
+    width: 20px;
+}
+
+/* ==================== 其他 ==================== */
 .welcome-placeholder {
     text-align: center;
     margin-top: 15vh;
@@ -707,54 +667,6 @@ body {
     animation: fadeIn 1s ease;
 }
 
-/* 确认框样式 */
-.confirm-box {
-    background: #1f2937;
-    padding: 2rem;
-    border-radius: 16px;
-    border: 1px solid var(--glass-border);
-    text-align: center;
-    width: 90%;
-    max-width: 400px;
-}
-
-.confirm-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 1.5rem;
-}
-
-.btn-primary {
-    background: var(--accent-primary);
-    color: white;
-    border: none;
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-primary:hover {
-    background: #4f46e5;
-}
-
-.btn-ghost {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--glass-border);
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-ghost:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-}
-
-/* 思考动画 */
 .thinking-animation {
     padding: 0 0.5rem;
     display: flex;
@@ -785,12 +697,18 @@ body {
     to { opacity: 0.5; }
 }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
+.quit-prompt {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    text-align: center;
+    animation: slideIn 0.4s ease;
 }
 
-/* ================= 登录/注册模态框样式 ================= */
+/* ==================== 认证模态框 ==================== */
 .auth-modal {
     max-width: 400px;
 }
@@ -848,13 +766,6 @@ body {
     border-color: var(--accent-primary);
 }
 
-.auth-btn {
-    width: 100%;
-    margin-top: 0.5rem;
-    padding: 0.8rem;
-    font-size: 1rem;
-}
-
 .error-msg {
     color: var(--error-color);
     font-size: 0.85rem;
@@ -862,24 +773,13 @@ body {
     min-height: 1.2em;
 }
 
-/* 响应式适配 */
+/* ==================== 响应式 ==================== */
 @media (max-width: 1024px) {
     .app-layout {
-        grid-template-columns: 60px 1fr 0px; /* 隐藏右侧 */
+        grid-template-columns: 60px 1fr 0px;
     }
     .insight-hud {
-        position: fixed;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 280px;
-        transform: translateX(100%);
-        transition: transform 0.3s;
-        background: #1a1a2e;
-        z-index: 30;
-    }
-    .hud-toggle-btn {
-        display: block;
+        display: none;
     }
 }
 
@@ -894,58 +794,9 @@ body {
         padding: 0 1rem;
         bottom: 1rem;
     }
-}
-
-
-/* =========================================
-   滚动条美化 (添加在文件末尾)
-   ========================================= */
-.session-list::-webkit-scrollbar {
-    width: 4px;
-}
-
-.session-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.session-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-}
-
-.session-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.quit-prompt {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin: 1rem 0;
-    text-align: center;
-    animation: slideIn 0.4s ease;
-}
-
-.quit-prompt .btn-primary {
-    padding: 0.8rem 1.5rem;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.3s;
-}
-
-.quit-prompt .btn-primary:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-}
-
-#updateContentBody strong {
-    font-size: 1.05rem;
-}
-
-#updateContentBody li {
-    padding-left: 0.5rem;
-    border-left: 2px solid var(--glass-border);
-    margin-bottom: 1rem;
+    
+    .user-menu-popup {
+        left: 10px;
+        bottom: 10px;
+    }
 }
