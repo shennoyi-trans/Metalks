@@ -1,14 +1,10 @@
-// 解构工具函数
-const {
-    API_BASE_URL,
-    API_ENDPOINTS,
-    fetchWithAuth,
-    formatDate,
-    showModal,
-    hideModal,
-    showToast,
-    logout
-} = window.MetalksUtils;
+// ==================== 直接使用 MetalksUtils，不重新声明 ====================
+if (!window.MetalksUtils) {
+    console.error('❌ MetalksUtils not loaded!');
+    alert('系统初始化失败，请刷新页面');
+}
+
+var utils = window.MetalksUtils;
 
 // ==================== DOM元素 ====================
 const els = {
@@ -43,7 +39,8 @@ const els = {
 let state = {
     traitData: null,
     sessions: [],
-    userEmail: ''
+    userEmail: '',
+    topics: []  // 🆕 存储话题列表
 };
 
 // ==================== 初始化 ====================
@@ -53,80 +50,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     initEventListeners();
     
     try {
-        // 检查登录状态
-        const isLoggedIn = await window.MetalksUtils.checkAuth();
+        const isLoggedIn = await utils.checkAuth();
         if (!isLoggedIn) {
             window.location.href = '/chat.html';
             return;
         }
         
-        // 加载数据
+        // 🆕 先加载话题列表，再加载报告（报告需要用到话题信息）
+        await loadTopics();
+        
         await Promise.all([
             loadTraitData(),
             loadReports()
         ]);
         
-        // 设置用户邮箱（从cookie或其他方式获取）
-        // 这里简化处理，实际应该从后端获取
         els.userEmail.textContent = state.userEmail || '已登录用户';
         
     } catch (error) {
         console.error('初始化失败:', error);
-        showToast('加载失败: ' + error.message);
+        utils.showToast('加载失败: ' + error.message);
     }
 });
 
 // ==================== 事件监听 ====================
 function initEventListeners() {
-    // 返回聊天
     els.backToChatBtn.addEventListener('click', () => {
-        window.location.href = '/chat.html';
+        window.location.href = '/';
     });
     
-    // 用户菜单
     els.userMenuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        showModal(els.userMenuOverlay);
+        utils.showModal(els.userMenuOverlay);
     });
     
-    // 点击外部关闭用户菜单
     els.userMenuOverlay.addEventListener('click', (e) => {
         if (e.target === els.userMenuOverlay) {
-            hideModal(els.userMenuOverlay);
+            utils.hideModal(els.userMenuOverlay);
         }
     });
     
-    // 未开发功能提示
     els.upgradeBtn.addEventListener('click', () => {
-        showToast('功能尚在开发中~', true);
+        utils.showToast('功能尚在开发中~', true);
     });
     
     els.personalizeBtn.addEventListener('click', () => {
-        showToast('功能尚在开发中~', true);
+        utils.showToast('功能尚在开发中~', true);
     });
     
-    // 点解按钮（当前已在点解页面）
     els.dimgaaiMenuBtn.addEventListener('click', () => {
-        hideModal(els.userMenuOverlay);
-        showToast('您已在点解页面');
+        utils.hideModal(els.userMenuOverlay);
+        utils.showToast('您已在点解页面');
     });
     
-    // 登出
     els.logoutBtn.addEventListener('click', () => {
         if (confirm('确定要退出登录吗？')) {
-            logout();
+            utils.logout();
         }
     });
     
-    // 关闭报告详情
     els.closeReportDetailBtn.addEventListener('click', () => {
-        hideModal(els.reportDetailOverlay);
+        utils.hideModal(els.reportDetailOverlay);
     });
     
-    // 点击外部关闭报告详情
     els.reportDetailOverlay.addEventListener('click', (e) => {
         if (e.target === els.reportDetailOverlay) {
-            hideModal(els.reportDetailOverlay);
+            utils.hideModal(els.reportDetailOverlay);
         }
     });
 }
@@ -134,14 +122,28 @@ function initEventListeners() {
 // ==================== 数据加载 ====================
 
 /**
+ * 🆕 加载话题列表
+ */
+async function loadTopics() {
+    try {
+        const topics = await utils.fetchWithAuth(`${utils.API_BASE_URL}/topics`);
+        state.topics = topics;
+        console.log('✅ 话题列表加载成功:', topics);
+    } catch (error) {
+        console.error('❌ 加载话题列表失败:', error);
+        // 即使失败也继续，使用降级方案
+        state.topics = [];
+    }
+}
+
+/**
  * 加载特质数据
  */
 async function loadTraitData() {
     try {
-        const data = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TRAITS_GLOBAL}`);
+        const data = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.TRAITS_GLOBAL}`);
         state.traitData = data;
         
-        // 渲染特质卡片
         els.traitSummary.textContent = data.summary || '暂无特质数据';
         els.traitDetail.innerHTML = data.full_report 
             ? `<div style="white-space: pre-wrap;">${data.full_report}</div>`
@@ -159,9 +161,8 @@ async function loadTraitData() {
  */
 async function loadReports() {
     try {
-        const sessions = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_LIST}`);
+        const sessions = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.SESSION_LIST}`);
         
-        // 只保留有报告的会话
         const sessionsWithReport = sessions.filter(s => s.report_ready);
         
         state.sessions = sessionsWithReport;
@@ -204,13 +205,8 @@ function createReportCard(session) {
     const div = document.createElement('div');
     div.className = 'report-item';
     
-    // 获取话题名称
     const topicName = getTopicName(session.mode, session.topic_id);
-    
-    // 格式化日期
-    const dateStr = formatDate(session.created_at);
-    
-    // 预览文本（使用last_message作为预览）
+    const dateStr = utils.formatDate(session.created_at);
     const preview = session.last_message || '点击查看完整报告';
     
     div.innerHTML = `
@@ -231,22 +227,24 @@ function createReportCard(session) {
 }
 
 /**
- * 获取话题名称
+ * 🔧 获取话题名称（从实际话题列表中查找）
  */
 function getTopicName(mode, topicId) {
+    // mode 2 是随便聊聊模式
     if (mode === 2) {
         return '心流漫游';
     }
     
-    // 这里应该从话题列表中查找，简化处理
-    const topicMap = {
-        1: '友谊',
-        2: '爱情',
-        3: '工作',
-        4: '消费'
-    };
+    // 🆕 从加载的话题列表中查找
+    const topic = state.topics.find(t => t.id === topicId);
     
-    return topicMap[topicId] || `话题${topicId}`;
+    if (topic) {
+        return topic.topic;  // 返回话题名称（如：友谊、爱情）
+    }
+    
+    // 降级方案：如果没找到（话题列表加载失败或话题已被删除）
+    console.warn(`⚠️ 未找到 topic_id=${topicId} 的话题信息`);
+    return `话题${topicId}`;
 }
 
 /**
@@ -254,17 +252,17 @@ function getTopicName(mode, topicId) {
  */
 async function viewReport(sessionId, topicName) {
     try {
-        const res = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.REPORT_GET}/${sessionId}/report`);
+        const res = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.REPORT_GET}/${sessionId}/report`);
         
         if (res.ready && res.report) {
             els.reportDetailTitle.textContent = `观念分析报告：${topicName}`;
             els.reportDetailContent.innerHTML = `<div style="white-space: pre-wrap;">${res.report}</div>`;
-            showModal(els.reportDetailOverlay);
+            utils.showModal(els.reportDetailOverlay);
         } else {
-            showToast('报告正在生成中，请稍后再试');
+            utils.showToast('报告正在生成中，请稍后再试');
         }
     } catch (error) {
         console.error('加载报告失败:', error);
-        showToast('加载报告失败: ' + error.message);
+        utils.showToast('加载报告失败: ' + error.message);
     }
 }

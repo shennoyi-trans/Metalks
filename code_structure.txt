@@ -72,6 +72,9 @@ backend/
 │
 └── config.json
 
+server/
+└── nginx配置.conf
+
 main.py                      # FastAPI 入口
 create_tables.py
 migrate_add_report_fields.py

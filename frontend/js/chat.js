@@ -1,15 +1,12 @@
-// 解构工具函数
-const {
-    API_BASE_URL,
-    API_ENDPOINTS,
-    fetchWithAuth,
-    formatDate,
-    generateUUID,
-    showModal,
-    hideModal,
-    showToast,
-    logout
-} = window.MetalksUtils;
+// ==================== 直接使用 MetalksUtils，不重新声明 ====================
+// 确保 utils.js 已加载
+if (!window.MetalksUtils) {
+    console.error('❌ MetalksUtils not loaded!');
+    alert('系统初始化失败，请刷新页面');
+}
+
+// 使用简短的别名引用（不使用const声明）
+var utils = window.MetalksUtils;
 
 // ==================== 更新公告配置 ====================
 const UPDATE_CONFIG = {
@@ -95,7 +92,7 @@ const els = {
     deleteConfirmNo: document.getElementById('deleteConfirmNo'),
     dimgaaiLink: document.getElementById('dimgaaiLink'),
     
-    // 🆕 User Menu
+    // User Menu
     userEmail: document.getElementById('userEmail'),
     upgradeBtn: document.getElementById('upgradeBtn'),
     personalizeBtn: document.getElementById('personalizeBtn'),
@@ -128,8 +125,8 @@ let state = {
     fullTraitReport: "",
     reportCheckInterval: null,
     allSessions: [],
-    userEmail: '', // 🆕 存储用户邮箱
-    keepDrawerOpen: false // 🆕 控制侧边栏是否保持展开
+    userEmail: '',
+    keepDrawerOpen: false
 };
 
 let availableTopics = [];
@@ -155,7 +152,6 @@ function initEventListeners() {
         state.keepDrawerOpen = false;
     });
 
-    // 🔧 优化：只在非删除操作时关闭侧边栏
     document.addEventListener('click', (e) => {
         if (!state.keepDrawerOpen) return;
         
@@ -164,7 +160,6 @@ function initEventListeners() {
         const isDeleteBtn = e.target.closest('.delete-btn');
         const isDeleteConfirm = els.deleteConfirmOverlay.contains(e.target);
         
-        // 如果不是侧边栏、toggle按钮、删除按钮或删除确认框，则关闭
         if (!isDrawer && !isToggleBtn && !isDeleteBtn && !isDeleteConfirm) {
             els.historyDrawer.classList.remove('open');
             state.keepDrawerOpen = false;
@@ -175,13 +170,13 @@ function initEventListeners() {
     [els.refreshTopicsBtn, els.refreshTopicsBtnHeader].forEach(btn => {
         btn?.addEventListener('click', (e) => {
             e.stopPropagation();
-            if(btn === els.refreshTopicsBtnHeader) showModal(els.topicOverlay);
+            if(btn === els.refreshTopicsBtnHeader) utils.showModal(els.topicOverlay);
             loadRandomTopics();
         });
     });
 
-    els.topicSelectorMini.addEventListener('click', () => showModal(els.topicOverlay));
-    els.newChatBtn.addEventListener('click', () => showModal(els.topicOverlay));
+    els.topicSelectorMini.addEventListener('click', () => utils.showModal(els.topicOverlay));
+    els.newChatBtn.addEventListener('click', () => utils.showModal(els.topicOverlay));
     els.casualChatBtn.addEventListener('click', () => handleTopicChange(null, null, null, true));
 
     // 聊天交互
@@ -201,21 +196,21 @@ function initEventListeners() {
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                hideModal(overlay);
+                utils.hideModal(overlay);
             }
         });
     });
     
-    document.getElementById('closeReportButton')?.addEventListener('click', () => hideModal(els.reportOverlay));
-    document.getElementById('closeTraitsDetailButton')?.addEventListener('click', () => hideModal(els.traitsDetailOverlay));
-    els.closeAuthBtn?.addEventListener('click', () => hideModal(els.authOverlay));
+    document.getElementById('closeReportButton')?.addEventListener('click', () => utils.hideModal(els.reportOverlay));
+    document.getElementById('closeTraitsDetailButton')?.addEventListener('click', () => utils.hideModal(els.traitsDetailOverlay));
+    els.closeAuthBtn?.addEventListener('click', () => utils.hideModal(els.authOverlay));
 
     // Auth
     els.authBtn.addEventListener('click', () => {
         if (state.isLoggedIn) {
-            showModal(els.userMenuOverlay);
+            utils.showModal(els.userMenuOverlay);
         } else {
-            showModal(els.authOverlay);
+            utils.showModal(els.authOverlay);
         }
     });
     
@@ -226,7 +221,7 @@ function initEventListeners() {
 
     // Confirm
     els.confirmYes.addEventListener('click', () => {
-        hideModal(els.confirmOverlay);
+        utils.hideModal(els.confirmOverlay);
         if (state.pendingTopicChange) {
             const { id, name, tag, casual } = state.pendingTopicChange;
             executeTopicChange(id, name, tag, casual);
@@ -234,42 +229,40 @@ function initEventListeners() {
         }
     });
     els.confirmNo.addEventListener('click', () => {
-        hideModal(els.confirmOverlay);
+        utils.hideModal(els.confirmOverlay);
         state.pendingTopicChange = null;
     });
     
-    // 🆕 Delete Confirm
+    // Delete Confirm
     els.deleteConfirmNo?.addEventListener('click', () => {
-        hideModal(els.deleteConfirmOverlay);
+        utils.hideModal(els.deleteConfirmOverlay);
         state.pendingDeleteSessionId = null;
         state.pendingDeleteIndex = null;
-        // 🔧 删除取消后保持侧边栏展开
         state.keepDrawerOpen = true;
     });
     
     els.deleteConfirmYes?.addEventListener('click', () => {
-        hideModal(els.deleteConfirmOverlay);
+        utils.hideModal(els.deleteConfirmOverlay);
         if (state.pendingDeleteSessionId) {
             executeDeleteSession(state.pendingDeleteSessionId);
             state.pendingDeleteSessionId = null;
             state.pendingDeleteIndex = null;
         }
-        // 🔧 删除确认后也保持侧边栏展开
         state.keepDrawerOpen = true;
     });
     
-    // 🆕 点解链接
+    // 点解链接
     els.dimgaaiLink?.addEventListener('click', () => {
         window.location.href = '/html/dimgaai.html';
     });
     
-    // 🆕 User Menu
+    // User Menu
     els.upgradeBtn?.addEventListener('click', () => {
-        showToast('功能尚在开发中~', true);
+        utils.showToast('功能尚在开发中~', true);
     });
     
     els.personalizeBtn?.addEventListener('click', () => {
-        showToast('功能尚在开发中~', true);
+        utils.showToast('功能尚在开发中~', true);
     });
     
     els.dimgaaiMenuBtn?.addEventListener('click', () => {
@@ -278,14 +271,13 @@ function initEventListeners() {
     
     els.logoutBtn?.addEventListener('click', () => {
         if (confirm('确定要退出登录吗？')) {
-            logout();
+            utils.logout();
         }
     });
     
-    // 关闭用户菜单
     els.userMenuOverlay?.addEventListener('click', (e) => {
         if (e.target === els.userMenuOverlay) {
-            hideModal(els.userMenuOverlay);
+            utils.hideModal(els.userMenuOverlay);
         }
     });
     
@@ -306,11 +298,11 @@ async function checkLoginStatus() {
         updateAuthUI();
         loadSessions();
         loadRandomTopics();
-        showModal(els.topicOverlay);
+        utils.showModal(els.topicOverlay);
     } catch (error) {
         if (error.status === 401) {
             state.isLoggedIn = false;
-            showModal(els.authOverlay);
+            utils.showModal(els.authOverlay);
         }
     }
 }
@@ -318,7 +310,7 @@ async function checkLoginStatus() {
 function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
     if (state.hasUnsavedChanges && state.conversationHistory.length > 0) {
         state.pendingTopicChange = { id: topicId, name: topicName, tag: topicTag, casual: isCasual };
-        showModal(els.confirmOverlay);
+        utils.showModal(els.confirmOverlay);
     } else {
         executeTopicChange(topicId, topicName, topicTag, isCasual);
     }
@@ -327,7 +319,7 @@ function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
 async function executeTopicChange(topicId, topicName, topicTag, isCasual = false) {
     stopReportPolling();
     
-    state.currentSessionId = generateUUID();
+    state.currentSessionId = utils.generateUUID();
     state.currentMode = isCasual ? 'casual' : 'topic';
     state.currentTopicId = topicId;
     state.currentTopicName = topicName;
@@ -347,7 +339,7 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     
     els.chatMessages.innerHTML = '';
     els.welcomePlaceholder.style.display = 'none';
-    hideModal(els.topicOverlay);
+    utils.hideModal(els.topicOverlay);
     els.chatInput.value = '';
     
     startReportPolling(state.currentSessionId);
@@ -367,6 +359,9 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
         els.welcomePlaceholder.innerHTML = `<h2>准备好了</h2><p>告诉我你现在在想什么...</p>`;
         els.chatInput.focus();
     }
+    
+    // 🆕 更新历史记录列表（清除所有高亮，因为这是新对话）
+    loadSessions();
 }
 
 async function sendMessage() {
@@ -397,7 +392,7 @@ async function sendMessageToAPI(message, isFirst = false) {
     state.streamController = new AbortController();
 
     if (!state.currentSessionId) {
-        state.currentSessionId = generateUUID();
+        state.currentSessionId = utils.generateUUID();
     }
 
     const payload = {
@@ -410,7 +405,7 @@ async function sendMessageToAPI(message, isFirst = false) {
 
     let response;
     try {
-        response = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.CHAT_STREAM}`, {
+        response = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.CHAT_STREAM}`, {
             method: 'POST',
             body: JSON.stringify(payload),
             signal: state.streamController.signal
@@ -501,7 +496,7 @@ function handleUserWantQuit() {
     
     document.getElementById('quitSessionBtn').addEventListener('click', async () => {
         await completeSession();
-        showModal(els.topicOverlay);
+        utils.showModal(els.topicOverlay);
         loadRandomTopics();
     });
 }
@@ -510,7 +505,7 @@ async function completeSession() {
     try {
         stopReportPolling();
         
-        await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_COMPLETE}/${state.currentSessionId}/complete`, {
+        await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.SESSION_COMPLETE}/${state.currentSessionId}/complete`, {
             method: 'POST'
         });
         
@@ -538,7 +533,7 @@ function startReportPolling(sessionId) {
     
     state.reportCheckInterval = setInterval(async () => {
         try {
-            const res = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.REPORT_STATUS}/${sessionId}/report_status`);
+            const res = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.REPORT_STATUS}/${sessionId}/report_status`);
             
             if (res.ready) {
                 stopReportPolling();
@@ -577,23 +572,23 @@ function showReportReadyNotification(sessionId) {
 
 async function viewReport(sessionId) {
     try {
-        const res = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.REPORT_GET}/${sessionId}/report`);
+        const res = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.REPORT_GET}/${sessionId}/report`);
         
         if (res.ready && res.report) {
             showReport(res.report, state.currentTopicTag || '观念分析');
         } else {
-            showToast('报告正在生成中，请稍后再试');
+            utils.showToast('报告正在生成中，请稍后再试');
         }
     } catch (e) {
         console.error('Load report failed', e);
-        showToast('加载报告失败: ' + e.message);
+        utils.showToast('加载报告失败: ' + e.message);
     }
 }
 
 // ==================== 数据加载 ====================
 async function loadSessions() {
     try {
-        const sessions = await fetchWithAuth(`${API_BASE_URL}/sessions`);
+        const sessions = await utils.fetchWithAuth(`${utils.API_BASE_URL}/sessions`);
         renderSessionList(sessions);
     } catch (e) {
         console.error("Load sessions failed", e);
@@ -612,10 +607,14 @@ function renderSessionList(sessions) {
     sessions.forEach((s, index) => {
         const li = document.createElement('li');
         li.className = 'session-item';
+        // 🆕 高亮当前正在查看的会话
+        if (s.id === state.currentSessionId) {
+            li.classList.add('active');
+        }
         li.dataset.id = s.id;
         li.dataset.index = index;
 
-        const dateStr = formatDate(s.created_at);
+        const dateStr = utils.formatDate(s.created_at);
         let title = s.last_message || "无对话内容";
         if (title.length > 15) title = title.substring(0, 15) + "...";
         
@@ -662,7 +661,7 @@ async function loadSessionDetail(sessionId) {
     try {
         stopReportPolling();
         
-        const session = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
+        const session = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.SESSION_DETAIL}/${sessionId}`);
         
         state.currentSessionId = session.id;
         state.currentMode = session.mode === 1 ? 'topic' : 'casual';
@@ -689,8 +688,8 @@ async function loadSessionDetail(sessionId) {
             startReportPolling(sessionId);
         }
         
-        // 🔧 加载会话后不关闭侧边栏（除非用户主动点击其他地方）
-        // els.historyDrawer.classList.remove('open');
+        // 🆕 重新渲染列表以更新高亮状态
+        loadSessions();
         
     } catch (e) {
         console.error("Load detail failed", e);
@@ -699,7 +698,7 @@ async function loadSessionDetail(sessionId) {
 
 async function loadRandomTopics() {
     try {
-        const topics = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
+        const topics = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
         topics.forEach(t => {
             if(!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
         });
@@ -722,7 +721,7 @@ function renderTopicsGrid(topics) {
 }
 
 async function loadGlobalTraits() {
-    const data = await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.TRAITS_GLOBAL}`);
+    const data = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.TRAITS_GLOBAL}`);
     updateTraitsDisplay(data.summary);
     state.fullTraitReport = data.full_report;
 }
@@ -744,11 +743,11 @@ async function handleAuthSubmit() {
     if (!email || !password) return;
 
     const endpoint = state.isAuthLoginMode
-        ? API_ENDPOINTS.AUTH_LOGIN
-        : API_ENDPOINTS.AUTH_REGISTER;
+        ? utils.API_ENDPOINTS.AUTH_LOGIN
+        : utils.API_ENDPOINTS.AUTH_REGISTER;
 
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(`${utils.API_BASE_URL}${endpoint}`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -762,8 +761,8 @@ async function handleAuthSubmit() {
 
         if (state.isAuthLoginMode) {
             state.isLoggedIn = true;
-            state.userEmail = email; // 🆕 保存邮箱
-            hideModal(els.authOverlay);
+            state.userEmail = email;
+            utils.hideModal(els.authOverlay);
             await checkLoginStatus();
         } else {
             switchAuthMode(true);
@@ -812,15 +811,13 @@ function updateTraitsDisplay(summary) {
 function showReport(content, topic) {
     els.reportTitle.textContent = `分析报告：${topic}`;
     els.reportContent.innerHTML = `<div style="white-space: pre-wrap;">${content}</div>`;
-    showModal(els.reportOverlay);
+    utils.showModal(els.reportOverlay);
 }
 
 function updateAuthUI() {
-    // 🆕 更新用户按钮样式
     els.authBtn.innerHTML = '<i class="ri-user-3-fill" style="font-size: 1.3rem;"></i>';
     els.authBtn.style.background = 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))';
     
-    // 设置用户邮箱
     if (els.userEmail) {
         els.userEmail.textContent = state.userEmail || '已登录用户';
     }
@@ -830,8 +827,8 @@ function updateAuthUI() {
 function confirmDeleteSession(sessionId, index) {
     state.pendingDeleteSessionId = sessionId;
     state.pendingDeleteIndex = index;
-    state.keepDrawerOpen = true; // 🔧 确保删除操作不关闭侧边栏
-    showModal(els.deleteConfirmOverlay);
+    state.keepDrawerOpen = true;
+    utils.showModal(els.deleteConfirmOverlay);
 }
 
 async function executeDeleteSession(sessionId) {
@@ -848,7 +845,7 @@ async function executeDeleteSession(sessionId) {
             }
         }
 
-        await fetchWithAuth(`${API_BASE_URL}/sessions/${sessionId}`, {
+        await utils.fetchWithAuth(`${utils.API_BASE_URL}/sessions/${sessionId}`, {
             method: 'DELETE'
         });
         
@@ -858,7 +855,7 @@ async function executeDeleteSession(sessionId) {
             await loadSessionDetail(nextSessionId);
         } else {
             if (state.currentSessionId === sessionId) {
-                showModal(els.topicOverlay);
+                utils.showModal(els.topicOverlay);
                 loadRandomTopics();
                 state.currentSessionId = null;
                 state.conversationHistory = [];
@@ -868,12 +865,11 @@ async function executeDeleteSession(sessionId) {
             }
         }
 
-        // 🔧 删除后保持侧边栏展开
         state.keepDrawerOpen = true;
 
     } catch (e) {
         console.error("[DELETE] Failed:", e);
-        showToast("删除失败: " + e.message);
+        utils.showToast("删除失败: " + e.message);
     }
 }
 
@@ -890,12 +886,12 @@ function checkUpdatePopup() {
             els.updateContentBody.innerHTML = UPDATE_CONFIG.content;
         }
         
-        showModal(els.updateOverlay);
+        utils.showModal(els.updateOverlay);
     }
 }
 
 function handleUpdateClose() {
     const storageKey = 'metalks_last_version';
     localStorage.setItem(storageKey, UPDATE_CONFIG.version);
-    hideModal(els.updateOverlay);
+    utils.hideModal(els.updateOverlay);
 }
