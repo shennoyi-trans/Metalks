@@ -44,24 +44,29 @@ class User(Base):
 class Session(Base):
     __tablename__ = "sessions"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # 自定义的 session_id
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False
     )
 
-    mode: Mapped[int] = mapped_column(Integer, nullable=False)  # 1=话题模式, 2=随便聊
+    mode: Mapped[int] = mapped_column(Integer, nullable=False)
     topic_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     is_completed: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
 
-    # 🆕 新增：报告相关字段
+    # 报告相关字段
     report_ready: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
     opinion_report: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True, default=None
+    )
+
+    # 🆕 软删除字段
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, default=None
     )
 
     created_at: Mapped[datetime] = mapped_column(

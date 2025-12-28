@@ -115,11 +115,13 @@ let state = {
     hasUnsavedChanges: false,
     pendingTopicChange: null,
     pendingDeleteSessionId: null, // 🆕 待删除的会话ID
+    pendingDeleteIndex: null, // 🆕 待删除的会话索引
     isFirstMessage: false,
     streamController: null,
     isAuthLoginMode: true,
     fullTraitReport: "",
     reportCheckInterval: null, // 🆕 轮询定时器
+    allSessions: [], // 🆕 存储所有会话列表
 };
 
 // 模拟缓存
@@ -224,6 +226,7 @@ function initEventListeners() {
     els.deleteConfirmNo?.addEventListener('click', () => {
         hideModal(els.deleteConfirmOverlay);
         state.pendingDeleteSessionId = null;
+        state.pendingDeleteIndex = null;  // 🔧 清理索引
     });
     
     els.deleteConfirmYes?.addEventListener('click', () => {
@@ -231,6 +234,7 @@ function initEventListeners() {
         if (state.pendingDeleteSessionId) {
             executeDeleteSession(state.pendingDeleteSessionId);
             state.pendingDeleteSessionId = null;
+            state.pendingDeleteIndex = null;  // 🔧 清理索引
         }
     });
 }
@@ -576,16 +580,20 @@ async function loadSessions() {
 }
 
 function renderSessionList(sessions) {
+    // 🆕 保存到全局状态
+    state.allSessions = sessions;
+    
     els.sessionList.innerHTML = '';
     if (!sessions || sessions.length === 0) {
         els.sessionList.innerHTML = '<div style="text-align:center; opacity:0.5; padding:1rem;">暂无记录</div>';
         return;
     }
 
-    sessions.forEach(s => {
+    sessions.forEach((s, index) => {  // 🆕 添加 index 参数
         const li = document.createElement('li');
         li.className = 'session-item';
         li.dataset.id = s.id;
+        li.dataset.index = index;  // 🆕 存储索引
 
         const dateStr = formatDate(s.created_at);
         let title = s.last_message || "无对话内容";
@@ -623,11 +631,11 @@ function renderSessionList(sessions) {
             loadSessionDetail(s.id);
         });
         
-        // 🆕 点击删除按钮：弹出确认框
+        // 🆕 点击删除按钮：传入索引
         const delBtn = li.querySelector('.delete-btn');
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            confirmDeleteSession(s.id);
+            confirmDeleteSession(s.id, index);  // 🆕 传入索引
         });
         
         els.sessionList.appendChild(li);
@@ -873,39 +881,70 @@ function generateUUID() {
 }
 
 // 🆕 删除会话逻辑
-function confirmDeleteSession(sessionId) {
+function confirmDeleteSession(sessionId, index) {
     state.pendingDeleteSessionId = sessionId;
+    state.pendingDeleteIndex = index;  // 🆕 存储索引
     showModal(els.deleteConfirmOverlay);
 }
 
 async function executeDeleteSession(sessionId) {
     try {
-        // 🔧 由于后端没有 DELETE 接口，这里标记为已完成作为替代
-        await fetchWithAuth(`${API_BASE_URL}${API_ENDPOINTS.SESSION_COMPLETE}/${sessionId}/complete`, {
-            method: 'POST'
-        });
+        console.log('[DELETE] Starting deletion for session:', sessionId);
+        console.log('[DELETE] Current Index:', state.pendingDeleteIndex);
+        console.log('[DELETE] Total Sessions:', state.allSessions.length);
         
-        // UI 移除动画
-        const li = document.querySelector(`.session-item[data-id="${sessionId}"]`);
-        if (li) {
-            li.style.opacity = '0';
-            li.style.transform = 'translateX(-20px)';
-            setTimeout(() => {
-                li.remove();
-                // 检查是否还有记录
-                if (els.sessionList.children.length === 0) {
-                    els.sessionList.innerHTML = '<div style="text-align:center; opacity:0.5; padding:1rem;">暂无记录</div>';
-                }
-            }, 300);
+        // 1. 🆕 在删除前确定下一个要跳转的会话
+        const currentIndex = state.pendingDeleteIndex;
+        const totalSessions = state.allSessions.length;
+        let nextSessionId = null;
+
+        if (totalSessions > 1) {
+            // 🔹 优先跳转到下一条（索引 + 1）
+            if (currentIndex < totalSessions - 1) {
+                nextSessionId = state.allSessions[currentIndex + 1].id;
+                console.log('[DELETE] Will jump to next session:', nextSessionId);
+            } 
+            // 🔹 如果是最后一条，跳转到上一条（索引 - 1）
+            else if (currentIndex > 0) {
+                nextSessionId = state.allSessions[currentIndex - 1].id;
+                console.log('[DELETE] Will jump to previous session:', nextSessionId);
+            }
+        } else {
+            console.log('[DELETE] Last session, will jump to topic selector');
         }
 
-        // 如果删除的是当前正在显示的会话，重置主界面
-        if (state.currentSessionId === sessionId) {
-            showModal(els.topicOverlay);
-            loadRandomTopics();
+        // 2. 🔧 调用真正的删除接口（DELETE 方法）
+        await fetchWithAuth(`${API_BASE_URL}/sessions/${sessionId}`, {
+            method: 'DELETE'
+        });
+        console.log('[DELETE] Backend deletion successful');
+        
+        // 3. 刷新列表（会自动过滤掉已删除的记录）
+        await loadSessions();
+        console.log('[DELETE] Session list refreshed');
+        
+        // 4. 🆕 智能跳转逻辑
+        if (nextSessionId) {
+            // 🔹 有下一条/上一条，跳转过去
+            console.log('[DELETE] Jumping to session:', nextSessionId);
+            await loadSessionDetail(nextSessionId);
+        } else {
+            // 🔹 这是最后一条记录，跳转到话题广场
+            if (state.currentSessionId === sessionId) {
+                console.log('[DELETE] Jumping to topic selector');
+                showModal(els.topicOverlay);
+                loadRandomTopics();
+                // 重置状态
+                state.currentSessionId = null;
+                state.conversationHistory = [];
+                state.hasUnsavedChanges = false;
+                els.chatMessages.innerHTML = '';
+                els.welcomePlaceholder.style.display = 'block';
+            }
         }
+
     } catch (e) {
-        console.error("删除失败", e);
+        console.error("[DELETE] Failed:", e);
         alert("删除失败: " + e.message);
     }
 }

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import cast
+from datetime import datetime
 
 from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
@@ -13,7 +14,7 @@ router = APIRouter(tags=["sessions"])
 
 
 # -------------------------------------------------------
-# 1. 获取当前用户的全部对话列表
+# 1. 获取当前用户的全部对话列表（🔧 过滤已删除）
 # -------------------------------------------------------
 @router.get("/sessions")
 async def list_sessions(
@@ -21,7 +22,10 @@ async def list_sessions(
     user_id: int = Depends(get_current_user)
 ):
     result = await db.execute(
-        select(Session).where(Session.user_id == user_id).order_by(Session.created_at.desc())
+        select(Session)
+        .where(Session.user_id == user_id)
+        .where(Session.deleted_at == None)  # 🆕 过滤已删除
+        .order_by(Session.created_at.desc())
     )
     sessions = result.scalars().all()
 
@@ -41,7 +45,7 @@ async def list_sessions(
             "created_at": s.created_at,
             "updated_at": s.updated_at,
             "last_message": last_msg.content if last_msg else "",
-            "report_ready": bool(s.report_ready)  # 🆕 新增字段
+            "report_ready": bool(s.report_ready)
         })
     return output
 
@@ -72,7 +76,7 @@ async def session_detail(
         "mode": session.mode,
         "topic_id": session.topic_id,
         "status": "completed" if bool(session.is_completed) else "in_progress",
-        "report_ready": bool(session.report_ready),  # 🆕 新增字段
+        "report_ready": bool(session.report_ready),
         "messages": [
             {"role": m.role, "content": m.content} for m in messages
         ]
@@ -80,7 +84,33 @@ async def session_detail(
 
 
 # -------------------------------------------------------
-# 3. 🆕 手动标记会话完成（用户点击"结束对话"）
+# 3. 🆕 软删除会话
+# -------------------------------------------------------
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    """
+    软删除会话（设置 deleted_at 时间戳）
+    """
+    result = await db.execute(
+        select(Session).where(Session.id == session_id, Session.user_id == user_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    # 🆕 软删除：设置删除时间
+    session.deleted_at = datetime.utcnow()
+    await db.commit()
+    
+    return {"status": "ok", "session_id": session_id}
+
+
+# -------------------------------------------------------
+# 4. 手动标记会话完成（用户点击"结束对话"）
 # -------------------------------------------------------
 @router.post("/sessions/{session_id}/complete")
 async def complete_session(
@@ -105,7 +135,7 @@ async def complete_session(
 
 
 # -------------------------------------------------------
-# 4. 标记 session 已完成（ChatService 触发 - 保留兼容）
+# 5. 标记 session 已完成（ChatService 触发 - 保留兼容）
 # -------------------------------------------------------
 @router.post("/sessions/mark_completed")
 async def mark_completed(
