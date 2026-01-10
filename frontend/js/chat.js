@@ -1,4 +1,3 @@
-// ==================== 直接使用 MetalksUtils，不重新声明 ====================
 // 确保 utils.js 已加载
 if (!window.MetalksUtils) {
     console.error('❌ MetalksUtils not loaded!');
@@ -878,7 +877,8 @@ function checkUpdatePopup() {
     const storageKey = 'metalks_last_version';
     const lastSeenVersion = localStorage.getItem(storageKey);
     
-    if (lastSeenVersion !== UPDATE_CONFIG.version) {
+    // 只有老用户（有历史版本）且版本不同时才显示更新公告
+    if (lastSeenVersion && lastSeenVersion !== UPDATE_CONFIG.version) {
         if (els.updateVersionDate) {
             els.updateVersionDate.textContent = UPDATE_CONFIG.date;
         }
@@ -887,6 +887,9 @@ function checkUpdatePopup() {
         }
         
         utils.showModal(els.updateOverlay);
+    } else if (!lastSeenVersion) {
+        // 新用户：静默记录当前版本，不显示公告
+        localStorage.setItem(storageKey, UPDATE_CONFIG.version);
     }
 }
 
