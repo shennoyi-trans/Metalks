@@ -13,6 +13,10 @@ from backend.api.traits_api import router as traits_router
 from backend.api.session_api import router as session_router
 from backend.api.report_api import router as report_router
 
+# 🆕 导入管理后台
+from backend.db.database import engine
+from backend.admin_panel import create_admin
+
 
 app = FastAPI()
 
@@ -56,6 +60,11 @@ app.include_router(auth_router)
 app.include_router(traits_router)
 app.include_router(session_router)
 app.include_router(report_router)
+
+# ==========================
+# 🆕 初始化管理后台
+# ==========================
+admin = create_admin(app, engine)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,3 +1,4 @@
+# backend/db/models.py
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
@@ -28,6 +29,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # 🆕 管理员标记
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
@@ -64,7 +66,7 @@ class Session(Base):
         Text, nullable=True, default=None
     )
 
-    # 🆕 软删除字段
+    # 软删除字段
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True, default=None
     )
