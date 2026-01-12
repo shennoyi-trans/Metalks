@@ -7,7 +7,7 @@ SQLAdmin 管理后台（自动推断字段版）
 from sqladmin import Admin, ModelView
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
-from backend.db.models import User, Session, Message, TraitProfile
+from backend.db.models import User, Session, Message, TraitProfile, SensitiveWord, NicknameHistory
 from backend.core.security import decode_access_token
 
 
@@ -66,7 +66,7 @@ class UserAdmin(ModelView, model=User):
     # column_list = None  # 默认就是 None
     
     # ✅ 只配置必要的选项
-    column_searchable_list = ["email"]
+    column_searchable_list = ["email", "nickname"]
     column_default_sort = ("id", True)
     
     # ✅ 隐藏敏感字段
@@ -104,6 +104,36 @@ class TraitProfileAdmin(ModelView, model=TraitProfile):
     column_default_sort = ("updated_at", True)
 
 
+class SensitiveWordAdmin(ModelView, model=SensitiveWord):
+    """敏感词管理"""
+    name = "敏感词"
+    name_plural = "敏感词库"
+    icon = "fa-solid fa-ban"
+    
+    column_searchable_list = ["word"]
+    column_default_sort = ("created_at", True)
+    
+    # 表单配置：创建时只需要填写 word
+    form_excluded_columns = ["created_at"]
+
+
+class NicknameHistoryAdmin(ModelView, model=NicknameHistory):
+    """昵称修改历史管理"""
+    name = "昵称历史"
+    name_plural = "昵称修改记录"
+    icon = "fa-solid fa-clock-rotate-left"
+    
+    column_searchable_list = ["old_nickname", "new_nickname"]
+    column_default_sort = ("created_at", True)
+    
+    # 表单配置：历史记录一般不需要手动编辑
+    form_excluded_columns = ["created_at"]
+    
+    # 可以设置为只读（可选）
+    can_create = False
+    can_edit = False
+
+
 # ============================================================
 # 创建 Admin 实例
 # ============================================================
@@ -117,9 +147,14 @@ def create_admin(app, engine):
         authentication_backend=AdminAuth(secret_key="metalks-admin-secret-key-change-me")
     )
     
+    # 核心功能模块
     admin.add_view(UserAdmin)
     admin.add_view(SessionAdmin)
     admin.add_view(MessageAdmin)
     admin.add_view(TraitProfileAdmin)
+    
+    # 🆕 辅助功能模块
+    admin.add_view(SensitiveWordAdmin)
+    admin.add_view(NicknameHistoryAdmin)
     
     return admin
