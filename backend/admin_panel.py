@@ -1,13 +1,17 @@
 # backend/admin_panel.py
 """
-SQLAdmin 管理后台（自动推断字段版）
+SQLAdmin 管理后台（自动推断字段版 + v1.4话题系统）
 访问地址：https://metalks.me/admin
 """
 
 from sqladmin import Admin, ModelView
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
-from backend.db.models import User, Session, Message, TraitProfile, SensitiveWord, NicknameHistory
+from backend.db.models import (
+    User, Session, Message, TraitProfile, 
+    SensitiveWord, NicknameHistory,
+    Topic, Tag, TopicAuthor, TopicTag, TopicLike  # 🆕 v1.4
+)
 from backend.core.security import decode_access_token
 
 
@@ -53,7 +57,7 @@ class AdminAuth(AuthenticationBackend):
 
 
 # ============================================================
-# 极简模型视图（自动推断所有字段）
+# 核心功能模型视图
 # ============================================================
 
 class UserAdmin(ModelView, model=User):
@@ -62,14 +66,10 @@ class UserAdmin(ModelView, model=User):
     name_plural = "用户管理"
     icon = "fa-solid fa-user"
     
-    # ✅ 不指定 column_list，自动显示所有字段
-    # column_list = None  # 默认就是 None
-    
-    # ✅ 只配置必要的选项
     column_searchable_list = ["email", "nickname"]
     column_default_sort = ("id", True)
     
-    # ✅ 隐藏敏感字段
+    # 隐藏敏感字段
     column_exclude_list = ["password_hash"]
     form_excluded_columns = ["password_hash", "created_at"]
 
@@ -113,7 +113,6 @@ class SensitiveWordAdmin(ModelView, model=SensitiveWord):
     column_searchable_list = ["word"]
     column_default_sort = ("created_at", True)
     
-    # 表单配置：创建时只需要填写 word
     form_excluded_columns = ["created_at"]
 
 
@@ -126,12 +125,160 @@ class NicknameHistoryAdmin(ModelView, model=NicknameHistory):
     column_searchable_list = ["old_nickname", "new_nickname"]
     column_default_sort = ("created_at", True)
     
-    # 表单配置：历史记录一般不需要手动编辑
     form_excluded_columns = ["created_at"]
-    
-    # 可以设置为只读（可选）
     can_create = False
     can_edit = False
+
+
+# ============================================================
+# 🆕 v1.4: 话题系统模型视图
+# ============================================================
+
+class TopicAdmin(ModelView, model=Topic):
+    """话题管理"""
+    name = "话题"
+    name_plural = "话题管理"
+    icon = "fa-solid fa-lightbulb"
+    
+    # 搜索配置
+    column_searchable_list = ["title", "prompt"]
+    column_default_sort = ("created_at", True)
+    
+    # 列表显示的字段
+    column_list = [
+        "id", 
+        "title", 
+        "creator_id",
+        "is_official", 
+        "status",
+        "is_active",
+        "likes_count",
+        "created_at"
+    ]
+    
+    # 表单排除字段
+    form_excluded_columns = [
+        "created_at", 
+        "updated_at", 
+        "likes_count",
+        "sessions",      # 关系字段
+        "authors",       # 关系字段
+        "tags",          # 关系字段
+        "likes"          # 关系字段
+    ]
+    
+    # 字段说明
+    column_labels = {
+        "id": "ID",
+        "title": "标题",
+        "prompt": "提示词",
+        "creator_id": "创建者ID",
+        "is_official": "官方话题",
+        "status": "审核状态",
+        "is_active": "启用状态",
+        "likes_count": "点赞数",
+        "created_at": "创建时间"
+    }
+
+
+class TagAdmin(ModelView, model=Tag):
+    """标签管理"""
+    name = "标签"
+    name_plural = "标签管理"
+    icon = "fa-solid fa-tag"
+    
+    column_searchable_list = ["name"]
+    column_default_sort = ("name", False)
+    
+    column_list = ["id", "name", "created_at"]
+    
+    form_excluded_columns = [
+        "created_at",
+        "topics"  # 关系字段
+    ]
+    
+    column_labels = {
+        "id": "ID",
+        "name": "标签名",
+        "created_at": "创建时间"
+    }
+
+
+class TopicAuthorAdmin(ModelView, model=TopicAuthor):
+    """话题作者关联管理"""
+    name = "话题作者"
+    name_plural = "话题作者关联"
+    icon = "fa-solid fa-user-pen"
+    
+    column_default_sort = ("created_at", True)
+    
+    column_list = [
+        "id",
+        "topic_id",
+        "user_id",
+        "electrolyte_share",
+        "created_at"
+    ]
+    
+    form_excluded_columns = ["created_at"]
+    
+    column_labels = {
+        "id": "ID",
+        "topic_id": "话题ID",
+        "user_id": "用户ID",
+        "electrolyte_share": "电解液分成(%)",
+        "created_at": "添加时间"
+    }
+
+
+class TopicTagAdmin(ModelView, model=TopicTag):
+    """话题标签关联管理"""
+    name = "话题标签"
+    name_plural = "话题标签关联"
+    icon = "fa-solid fa-tags"
+    
+    column_default_sort = ("topic_id", False)
+    
+    column_list = [
+        "id",
+        "topic_id",
+        "tag_id"
+    ]
+    
+    column_labels = {
+        "id": "ID",
+        "topic_id": "话题ID",
+        "tag_id": "标签ID"
+    }
+
+
+class TopicLikeAdmin(ModelView, model=TopicLike):
+    """话题点赞记录管理（只读）"""
+    name = "话题点赞"
+    name_plural = "话题点赞记录"
+    icon = "fa-solid fa-heart"
+    
+    column_default_sort = ("created_at", True)
+    
+    column_list = [
+        "id",
+        "topic_id",
+        "user_id",
+        "created_at"
+    ]
+    
+    form_excluded_columns = ["created_at"]
+    
+    # 设置为只读（不允许手动创建/编辑点赞）
+    can_create = False
+    can_edit = False
+    
+    column_labels = {
+        "id": "ID",
+        "topic_id": "话题ID",
+        "user_id": "用户ID",
+        "created_at": "点赞时间"
+    }
 
 
 # ============================================================
@@ -153,8 +300,15 @@ def create_admin(app, engine):
     admin.add_view(MessageAdmin)
     admin.add_view(TraitProfileAdmin)
     
-    # 🆕 辅助功能模块
+    # 辅助功能模块
     admin.add_view(SensitiveWordAdmin)
     admin.add_view(NicknameHistoryAdmin)
+    
+    # 🆕 v1.4: 话题系统模块
+    admin.add_view(TopicAdmin)
+    admin.add_view(TagAdmin)
+    admin.add_view(TopicAuthorAdmin)
+    admin.add_view(TopicTagAdmin)
+    admin.add_view(TopicLikeAdmin)
     
     return admin

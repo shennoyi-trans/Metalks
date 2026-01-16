@@ -1,16 +1,34 @@
 # backend/db/crud/__init__.py
 """
-CRUD 层统一导入文件
+CRUD 层统一导入文件 - v1.4 话题系统
 
 使用方式：
-    from backend.db.crud import user, nickname, electrolyte
+    from backend.db.crud import user, nickname, electrolyte, topic, tag, topic_author, topic_like
     
+    # 用户相关
     user_obj = await user.get_user_by_id(db, user_id)
-    await nickname.update_nickname(db, user_id, "new_name")
+    
+    # 话题相关
+    topic_obj = await topic.get_topic_by_id(db, topic_id)
+    await topic_like.toggle_like(db, user_id, topic_id)
 """
 
 from . import user
 from . import nickname
 from . import electrolyte
 
-__all__ = ["user", "nickname", "electrolyte"]
+# 🆕 v1.4 话题系统
+from . import topic
+from . import tag
+from . import topic_author
+from . import topic_like
+
+__all__ = [
+    "user", 
+    "nickname", 
+    "electrolyte",
+    "topic",
+    "tag",
+    "topic_author",
+    "topic_like"
+]

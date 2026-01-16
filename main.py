@@ -5,6 +5,8 @@ FastAPI 主入口文件
 - 配置CORS中间件
 - 初始化LLM服务
 - 初始化管理后台
+
+🆕 v1.4: 添加话题系统路由
 """
 
 import json
@@ -17,9 +19,9 @@ from backend.services.chat_service import ChatService
 
 # API路由
 from backend.api.auth_api import router as auth_router
-from backend.api.user_api import router as user_router  # 🆕 用户管理API
+from backend.api.user_api import router as user_router
 from backend.api.chat_api import create_chat_router
-from backend.api.topic_api import router as topic_router
+from backend.api.topic_api import router as topic_router_new  # 🆕 v1.4: 新话题系统路由
 from backend.api.traits_api import router as traits_router
 from backend.api.session_api import router as session_router
 from backend.api.report_api import router as report_router
@@ -35,7 +37,7 @@ from backend.admin_panel import create_admin
 app = FastAPI(
     title="Metalks API",
     description="对话驱动的个体观念识别与认知模式建模系统",
-    version="1.2.0"
+    version="1.4.0"  # 🆕 v1.4: 版本号更新
 )
 
 
@@ -86,14 +88,14 @@ chat_service = ChatService(llm_client)
 # 认证相关
 app.include_router(auth_router, prefix="/api")
 
-# 🆕 用户信息和昵称管理
+# 用户信息和昵称管理
 app.include_router(user_router, prefix="/api")
 
 # 聊天功能
 app.include_router(create_chat_router(chat_service), prefix="/api")
 
-# 话题相关
-app.include_router(topic_router, prefix="/api")
+# 🆕 v1.4: 新话题系统（Reddit风格）
+app.include_router(topic_router_new, prefix="/api")
 
 # 特质相关
 app.include_router(traits_router, prefix="/api")
@@ -121,8 +123,17 @@ async def root():
     """
     return {
         "service": "Metalks API",
-        "version": "1.2.0",
-        "status": "running"
+        "version": "1.4.0",  # 🆕 v1.4
+        "status": "running",
+        "features": [
+            "用户认证与管理",
+            "对话系统（mode1话题/mode2随便聊）",
+            "观念分析与报告生成",
+            "特质画像",
+            "Reddit风格话题系统（v1.4新增）",
+            "话题创建、审核、点赞、投喂",
+            "多作者协作与电解液分配"
+        ]
     }
 
 
@@ -134,7 +145,37 @@ async def health_check():
     return {
         "status": "healthy",
         "database": "connected",
-        "llm": "initialized"
+        "llm": "initialized",
+        "version": "1.4.0"
+    }
+
+
+# ============================================================
+# 🆕 v1.4: 版本信息接口
+# ============================================================
+@app.get("/api/version")
+async def get_version():
+    """
+    获取系统版本信息
+    """
+    return {
+        "version": "1.4.0",
+        "release_date": "2026-01-16",
+        "changelog": {
+            "v1.4.0": [
+                "Reddit风格话题系统",
+                "Session.topic_prompt快照机制",
+                "多作者协作与权重分配",
+                "标签系统",
+                "独立点赞表",
+                "电解液投喂功能"
+            ],
+            "v1.2.0": [
+                "点解功能",
+                "UI优化",
+                "用户管理改进"
+            ]
+        }
     }
 
 

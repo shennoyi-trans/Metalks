@@ -5,7 +5,6 @@ from typing import List, Dict, Optional
 
 from backend.utils.prompt_loader import load_prompt
 from backend.utils.text_tools import strip_control_markers
-from backend.data.topics import TOPICS
 
 
 class Model2Service:
@@ -32,6 +31,8 @@ class Model2Service:
         user_input: str,
         mode: int,
         topic_id: Optional[int],
+        topic_title: Optional[str] = None,      # 🆕 v1.4
+        topic_tags: Optional[List[str]] = None, # 🆕 v1.4
         trait_summary: str = "",
         trait_profile: str = "",
     ) -> dict:
@@ -41,10 +42,17 @@ class Model2Service:
         - 生成对 model1 的"内部对话建议"（advice），用户不可见。
         - 判断是否已捕捉到足够观念（report_ready）
 
+        🆕 v1.4 变更：
+        - 添加 topic_title 和 topic_tags 参数
+        - 不再依赖 TOPICS 字典
+        - 由 ChatService 传入话题元数据
+
         返回结构：
         {
             "advice": str,     # 供 model1 使用的内部建议
-            "report_ready": bool  # 是否可以生成报告
+            "signals": {
+                "report_ready": bool  # 是否可以生成报告
+            }
         }
         """
         if self.llm is None:
@@ -61,18 +69,16 @@ class Model2Service:
 
         system_prompt = load_prompt(prompt_path)
 
-        # 若为 mode1，并且有 topic_id，则注入对应话题的观念标签
-        if mode == 1 and topic_id is not None:
-            topic = next((t for t in TOPICS if t["id"] == topic_id), None)
-            if topic is not None:
-                concept_tag = topic.get("concept_tag", "")
-                topic_name = topic.get("topic", "")
-                system_prompt += (
-                    "\n\n# 本次对话的目标话题与观念标签：\n"
-                    f"- 话题：{topic_name}\n"
-                    f"- 观念标签：{concept_tag}\n"
-                    "请在分析时特别聚焦于该观念维度。"
-                )
+        # 🆕 v1.4：若为 mode1，注入话题元数据（而非从TOPICS字典查询）
+        if mode == 1 and topic_title:
+            system_prompt += (
+                "\n\n# 本次对话的目标话题与观念标签：\n"
+                f"- 话题：{topic_title}\n"
+            )
+            if topic_tags:
+                tags_str = "、".join(topic_tags)
+                system_prompt += f"- 标签：{tags_str}\n"
+            system_prompt += "请在分析时特别聚焦于该话题维度。"
 
         # 注入长期特质信息（由 ChatService 统一提供）
         if trait_summary:
@@ -146,6 +152,8 @@ class Model2Service:
         full_history: List[Dict],
         mode: int,
         topic_id: Optional[int],
+        topic_title: Optional[str] = None,      # 🆕 v1.4
+        topic_tags: Optional[List[str]] = None, # 🆕 v1.4
         trait_summary: str = "",
         trait_profile: str = "",
     ) -> str:
@@ -153,6 +161,11 @@ class Model2Service:
         对话结束后调用：
         - 基于本次完整对话历史
         - 生成一份"观念分析报告"（给用户看的）
+
+        🆕 v1.4 变更：
+        - 添加 topic_title 和 topic_tags 参数
+        - 不再依赖 TOPICS 字典
+        - 由 ChatService 传入话题元数据
 
         mode:
         - 1：话题测试模式，有话题与观念标签
@@ -171,18 +184,16 @@ class Model2Service:
 
         system_prompt = load_prompt(prompt_path)
 
-        # mode1 时注入话题与观念标签，方便提示词设定报告结构
-        if mode == 1 and topic_id is not None:
-            topic = next((t for t in TOPICS if t["id"] == topic_id), None)
-            if topic is not None:
-                concept_tag = topic.get("concept_tag", "")
-                topic_name = topic.get("topic", "")
-                system_prompt += (
-                    "\n\n# 本次观念报告对应的话题信息：\n"
-                    f"- 话题：{topic_name}\n"
-                    f"- 观念标签：{concept_tag}\n"
-                    "请围绕该观念维度，对用户在本次对话中的观点进行系统性分析。"
-                )
+        # 🆕 v1.4：mode1 时注入话题元数据（而非从TOPICS字典查询）
+        if mode == 1 and topic_title:
+            system_prompt += (
+                "\n\n# 本次观念报告对应的话题信息：\n"
+                f"- 话题：{topic_title}\n"
+            )
+            if topic_tags:
+                tags_str = "、".join(topic_tags)
+                system_prompt += f"- 标签：{tags_str}\n"
+            system_prompt += "请围绕该话题维度，对用户在本次对话中的观点进行系统性分析。"
 
         # 注入长期特质信息，帮助报告与既有画像保持一致
         if trait_summary:

@@ -1,4 +1,4 @@
-# backend/db/models.py
+# backend/db/models.py - v1.4 话题系统重构版
 from __future__ import annotations
 from datetime import datetime, date
 from typing import Optional, List
@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Float,
     Date,
+    Index,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -23,7 +24,7 @@ from backend.db.database import Base
 
 
 # ============================================================
-# User 表
+# User 表（保持原样）
 # ============================================================
 class User(Base):
     __tablename__ = "users"
@@ -34,9 +35,9 @@ class User(Base):
     
     nickname: Mapped[Optional[str]] = mapped_column(
         String(50), 
-        unique=True,      # ✅ 修正：true → True
+        unique=True,
         nullable=True, 
-        index=True,       # ✅ 修正：true → True
+        index=True,
         comment="用户昵称（唯一）"
     )
     
@@ -50,7 +51,7 @@ class User(Base):
         String(255), 
         unique=True, 
         nullable=False, 
-        index=True,       # ✅ 修正：true → True
+        index=True,
         comment="用户邮箱（唯一）"
     )
     
@@ -94,19 +95,326 @@ class User(Base):
         comment="创建时间"
     )
 
-    # 一对多：User → Sessions
+    # 关系
     sessions: Mapped[List["Session"]] = relationship(
         "Session", back_populates="user", cascade="all, delete-orphan"
     )
     
-    # 一对多：User → NicknameHistory
     nickname_histories: Mapped[List["NicknameHistory"]] = relationship(
         "NicknameHistory", back_populates="user", cascade="all, delete-orphan"
     )
 
 
 # ============================================================
-# Session 表
+# 🆕 Topic 表（话题主表）
+# ============================================================
+class Topic(Base):
+    __tablename__ = "topics"
+    
+    # 主键
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, comment="话题ID"
+    )
+    
+    # 内容字段
+    title: Mapped[str] = mapped_column(
+        String(200), 
+        nullable=False, 
+        index=True,
+        comment="话题标题"
+    )
+    
+    content: Mapped[str] = mapped_column(
+        Text, 
+        nullable=False, 
+        comment="话题详细内容"
+    )
+    
+    prompt: Mapped[str] = mapped_column(
+        Text, 
+        nullable=False, 
+        comment="对话提示词，用于model1"
+    )
+    
+    # 社交统计
+    likes_count: Mapped[int] = mapped_column(
+        Integer, 
+        default=0, 
+        nullable=False, 
+        comment="点赞数（冗余字段，便于排序）"
+    )
+    
+    electrolyte_received: Mapped[float] = mapped_column(
+        Float, 
+        default=0.0, 
+        nullable=False, 
+        comment="累计收到的电解液"
+    )
+    
+    # 状态字段
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        default="pending", 
+        nullable=False, 
+        index=True,
+        comment="审核状态: pending/approved/rejected"
+    )
+    
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, 
+        default=False, 
+        nullable=False, 
+        index=True,
+        comment="是否启用（下架功能）"
+    )
+    
+    is_official: Mapped[bool] = mapped_column(
+        Boolean, 
+        default=False, 
+        nullable=False, 
+        comment="是否官方话题"
+    )
+    
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow,
+        index=True,
+        comment="创建时间"
+    )
+    
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow, 
+        onupdate=datetime.utcnow, 
+        comment="更新时间"
+    )
+    
+    # 关系
+    authors: Mapped[List["TopicAuthor"]] = relationship(
+        "TopicAuthor", 
+        back_populates="topic", 
+        cascade="all, delete-orphan"
+    )
+    
+    tags: Mapped[List["TopicTag"]] = relationship(
+        "TopicTag", 
+        back_populates="topic", 
+        cascade="all, delete-orphan"
+    )
+    
+    likes: Mapped[List["TopicLike"]] = relationship(
+        "TopicLike", 
+        back_populates="topic", 
+        cascade="all, delete-orphan"
+    )
+
+    # 复合索引
+    __table_args__ = (
+        Index('idx_status_active', 'status', 'is_active'),
+    )
+
+
+# ============================================================
+# 🆕 TopicAuthor 表（话题作者关联）
+# ============================================================
+class TopicAuthor(Base):
+    __tablename__ = "topic_authors"
+    
+    id: Mapped[int] = mapped_column(
+        Integer, 
+        primary_key=True, 
+        index=True,
+        comment="记录ID"
+    )
+    
+    topic_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("topics.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="话题ID"
+    )
+    
+    user_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("users.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="作者用户ID"
+    )
+    
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, 
+        default=False, 
+        nullable=False, 
+        comment="是否为主要作者（每个话题只有一个）"
+    )
+    
+    electrolyte_share: Mapped[float] = mapped_column(
+        Float, 
+        default=0.0, 
+        nullable=False, 
+        comment="电解液分配比例（0-100），由主要作者设置"
+    )
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow,
+        comment="添加时间"
+    )
+    
+    # 关系
+    topic: Mapped["Topic"] = relationship("Topic", back_populates="authors")
+    user: Mapped["User"] = relationship("User")
+    
+    # 唯一约束：一个用户在一个话题中只能有一条记录
+    __table_args__ = (
+        Index('idx_topic_user_unique', 'topic_id', 'user_id', unique=True),
+    )
+
+
+# ============================================================
+# 🆕 Tag 表（标签）
+# ============================================================
+class Tag(Base):
+    __tablename__ = "tags"
+    
+    id: Mapped[int] = mapped_column(
+        Integer, 
+        primary_key=True, 
+        index=True,
+        comment="标签ID"
+    )
+    
+    name: Mapped[str] = mapped_column(
+        String(50), 
+        unique=True, 
+        nullable=False,
+        index=True,
+        comment="标签名称（如：情感、关系）"
+    )
+    
+    slug: Mapped[str] = mapped_column(
+        String(50), 
+        unique=True, 
+        nullable=False,
+        index=True,
+        comment="URL友好名称（如：emotion、relationship）"
+    )
+    
+    description: Mapped[Optional[str]] = mapped_column(
+        String(200), 
+        nullable=True, 
+        comment="标签描述"
+    )
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow,
+        comment="创建时间"
+    )
+    
+    # 关系
+    topics: Mapped[List["TopicTag"]] = relationship(
+        "TopicTag", 
+        back_populates="tag", 
+        cascade="all, delete-orphan"
+    )
+
+
+# ============================================================
+# 🆕 TopicTag 表（话题-标签关联）
+# ============================================================
+class TopicTag(Base):
+    __tablename__ = "topic_tags"
+    
+    id: Mapped[int] = mapped_column(
+        Integer, 
+        primary_key=True, 
+        index=True,
+        comment="记录ID"
+    )
+    
+    topic_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("topics.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="话题ID"
+    )
+    
+    tag_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("tags.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="标签ID"
+    )
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow,
+        comment="关联时间"
+    )
+    
+    # 关系
+    topic: Mapped["Topic"] = relationship("Topic", back_populates="tags")
+    tag: Mapped["Tag"] = relationship("Tag", back_populates="topics")
+    
+    # 唯一约束：一个话题-标签组合只能有一条记录
+    __table_args__ = (
+        Index('idx_topic_tag_unique', 'topic_id', 'tag_id', unique=True),
+    )
+
+
+# ============================================================
+# 🆕 TopicLike 表（点赞记录）
+# ============================================================
+class TopicLike(Base):
+    __tablename__ = "topic_likes"
+    
+    id: Mapped[int] = mapped_column(
+        Integer, 
+        primary_key=True, 
+        index=True,
+        comment="记录ID"
+    )
+    
+    topic_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("topics.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="话题ID"
+    )
+    
+    user_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("users.id", ondelete="CASCADE"), 
+        nullable=False, 
+        index=True,
+        comment="用户ID"
+    )
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=datetime.utcnow, 
+        comment="点赞时间"
+    )
+    
+    # 关系
+    topic: Mapped["Topic"] = relationship("Topic", back_populates="likes")
+    user: Mapped["User"] = relationship("User")
+    
+    # 唯一约束：一个用户只能给一个话题点赞一次
+    __table_args__ = (
+        Index('idx_topic_user_like_unique', 'topic_id', 'user_id', unique=True),
+    )
+
+
+# ============================================================
+# Session 表（修改版 - 添加topic_prompt字段）
 # ============================================================
 class Session(Base):
     __tablename__ = "sessions"
@@ -118,6 +426,14 @@ class Session(Base):
 
     mode: Mapped[int] = mapped_column(Integer, nullable=False)
     topic_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # 🆕 新增字段：话题提示词快照
+    topic_prompt: Mapped[Optional[str]] = mapped_column(
+        Text, 
+        nullable=True, 
+        default=None, 
+        comment="话题提示词快照（用于model1），即使话题删除也能继续对话"
+    )
 
     is_completed: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
@@ -151,7 +467,7 @@ class Session(Base):
 
 
 # ============================================================
-# Message 表
+# Message 表（保持原样）
 # ============================================================
 class Message(Base):
     __tablename__ = "messages"
@@ -173,7 +489,7 @@ class Message(Base):
 
 
 # ============================================================
-# TraitProfile 表（长期特质画像）
+# TraitProfile 表（保持原样）
 # ============================================================
 class TraitProfile(Base):
     __tablename__ = "trait_profiles"
@@ -195,14 +511,10 @@ class TraitProfile(Base):
 
 
 # ============================================================
-# SensitiveWord 表（敏感词库）
+# SensitiveWord 表（保持原样）
 # ============================================================
 class SensitiveWord(Base):
-    """
-    敏感词表
-    - 用于验证昵称是否包含敏感词
-    - 匹配规则：包含匹配（如 "admin123" 包含 "admin"）
-    """
+    """敏感词表"""
     __tablename__ = "sensitive_words"
 
     id: Mapped[int] = mapped_column(
@@ -228,14 +540,10 @@ class SensitiveWord(Base):
 
 
 # ============================================================
-# NicknameHistory 表（昵称修改历史）
+# NicknameHistory 表（保持原样）
 # ============================================================
 class NicknameHistory(Base):
-    """
-    昵称修改历史表
-    - 记录用户每次修改昵称的操作
-    - 用于审计和防止滥用
-    """
+    """昵称修改历史表"""
     __tablename__ = "nickname_history"
 
     id: Mapped[int] = mapped_column(

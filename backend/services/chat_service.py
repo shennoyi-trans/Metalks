@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.data.topics import TOPICS
+from backend.data.topics import TOPICS  # ⚠️ v1.4: 保留用于降级
 from backend.llm_client.base import LLMClient
 from backend.utils.prompt_loader import load_prompt
 from backend.utils.text_tools import strip_control_markers, parse_control_flags
@@ -14,6 +14,7 @@ from backend.services.model2_service import Model2Service
 from backend.services.model3_service import Model3Service
 from backend.services.db_history_manager import DatabaseHistoryManager
 from backend.db.models import TraitProfile, Session
+from backend.db.crud import topic as topic_crud  # 🆕 v1.4: 导入topic CRUD
 
 
 class ChatService:
@@ -55,6 +56,72 @@ class ChatService:
         return str(profile.summary or ""), str(profile.full_report or "")
 
     # ------------------------------------------------------
+    # 🆕 v1.4: 获取话题提示词（从Session快照或数据库）
+    # ------------------------------------------------------
+    async def _get_topic_prompt(
+        self,
+        db: AsyncSession,
+        session: Session,
+        topic_id: Optional[int]
+    ) -> tuple[Optional[str], Optional[str], Optional[str], Optional[List[str]]]:
+        """
+        获取话题的提示词、标题和标签
+        
+        优先级:
+        1. 从 session.topic_prompt 读取（快照）
+        2. 从数据库查询话题（如果session中没有快照）
+        3. 降级到 TOPICS 字典（兼容旧数据）
+        
+        返回:
+            (prompt, title, concept_tag, tags_list)
+        """
+        # 1. 优先使用 Session 的快照
+        if session.topic_prompt:
+            # 从快照中提取（假设快照格式包含了所有信息）
+            # 但我们还需要 title 和 tags，所以仍需查询数据库获取元数据
+            if topic_id:
+                topic = await topic_crud.get_topic_by_id(db, topic_id)
+                if topic:
+                    tags_list = [tag.tag.name for tag in topic.tags]
+                    return (
+                        session.topic_prompt,
+                        topic.title,
+                        None,  # v1.4不再使用concept_tag
+                        tags_list
+                    )
+            # 如果没有topic_id或查询失败，只返回快照的prompt
+            return (session.topic_prompt, None, None, [])
+        
+        # 2. 从数据库查询话题
+        if topic_id:
+            topic = await topic_crud.get_topic_by_id(db, topic_id)
+            if topic:
+                tags_list = [tag.tag.name for tag in topic.tags]
+                return (
+                    topic.prompt,
+                    topic.title,
+                    None,  # v1.4不再使用concept_tag
+                    tags_list
+                )
+        
+        # 3. 降级到旧的TOPICS字典（兼容性）
+        if topic_id:
+            old_topic = next((t for t in TOPICS if t["id"] == topic_id), None)
+            if old_topic:
+                try:
+                    prompt_content = load_prompt(old_topic["prompt_path"])
+                    return (
+                        prompt_content,
+                        old_topic["topic"],
+                        old_topic.get("concept_tag"),
+                        []
+                    )
+                except Exception as e:
+                    print(f"[WARNING] 降级加载失败: {e}")
+        
+        return None, None, None, []
+
+    # ------------------------------------------------------
     # 后台异步生成报告
     # ------------------------------------------------------
     async def _generate_report_background(
@@ -94,11 +161,18 @@ class ChatService:
                 {"role": m.role, "content": m.content} for m in messages
             ]
 
+            # 🆕 v1.4: 获取话题信息（用于报告生成）
+            _, topic_title, _, topic_tags = await self._get_topic_prompt(
+                db, session, topic_id
+            )
+
             # 调用 model2 生成报告
             report = await self.model2.final_report(
                 full_history=full_history,
                 mode=mode,
                 topic_id=topic_id,
+                topic_title=topic_title,      # 🆕 v1.4
+                topic_tags=topic_tags or [],  # 🆕 v1.4
                 trait_summary=trait_summary,
                 trait_profile=trait_profile,
             )
@@ -139,7 +213,18 @@ class ChatService:
 
         # 基于当前用户构造 DB 历史管理器
         history_mgr = DatabaseHistoryManager(db=db, user_id=user_id)
-        await history_mgr.ensure_session(session_id=session_id, mode=mode, topic_id=topic_id)
+        session = await history_mgr.ensure_session(
+            session_id=session_id, 
+            mode=mode, 
+            topic_id=topic_id
+        )
+
+        # 🆕 v1.4: 如果是新Session且有topic_id，快照prompt
+        if not session.topic_prompt and topic_id:
+            prompt, _, _, _ = await self._get_topic_prompt(db, session, topic_id)
+            if prompt:
+                session.topic_prompt = prompt
+                await db.commit()
 
         # 当前用户长期特质
         trait_summary, trait_profile = await self._load_trait_context(db, user_id)
@@ -181,9 +266,16 @@ class ChatService:
             if topic_id is None:
                 raise ValueError("mode1 requires topic_id")
 
-            topic = next((t for t in TOPICS if t["id"] == topic_id), None)
-            if topic is None:
-                raise ValueError(f"Invalid topic_id: {topic_id}")
+            # 🆕 v1.4: 使用新的话题获取逻辑
+            topic_prompt, topic_title, topic_concept_tag, topic_tags = await self._get_topic_prompt(
+                db, session, topic_id
+            )
+
+            if not topic_prompt:
+                raise ValueError(f"Invalid topic_id or topic not found: {topic_id}")
+
+            # 使用 topic_title 或降级到 concept_tag
+            display_name = topic_title or topic_concept_tag or f"话题{topic_id}"
 
             # --------------------------
             # 第一轮：模型先说
@@ -192,13 +284,21 @@ class ChatService:
                 history = await history_mgr.get(session_id)
                 mode1_intro = load_prompt("model1/mode1_intro.txt")
 
+                # 🆕 v1.4: 在system_prompt中注入话题信息
                 system_prompt = (
                     system_prompt
-                    + f"\n\n# 本次对话的主题是：{topic['topic']}（观念标签：{topic['concept_tag']}）。"
-                    + mode1_intro
+                    + f"\n\n# 本次对话的主题是：{display_name}"
                 )
-
-                final_prompt = ""
+                
+                # 如果有标签，也添加到系统提示中
+                if topic_tags:
+                    tags_str = "、".join(topic_tags)
+                    system_prompt += f"\n标签：{tags_str}"
+                
+                system_prompt += "\n" + mode1_intro
+                
+                # 🆕 v1.4: 话题提示词作为user_prompt
+                final_prompt = topic_prompt
 
                 # 🆕 先收集完整输出
                 async for chunk in self.llm.chat_stream(
@@ -230,12 +330,14 @@ class ChatService:
                 await history_mgr.add(session_id, "user", user_input)
                 history = await history_mgr.get(session_id)
 
-                # 调用 model2 分析
+                # 🆕 v1.4: 调用 model2 分析（传入话题元数据）
                 analysis = await self.model2.analyze(
                     session_history=history,
                     user_input=user_input,
                     mode=1,
                     topic_id=topic_id,
+                    topic_title=topic_title,      # 🆕 v1.4
+                    topic_tags=topic_tags or [],  # 🆕 v1.4
                     trait_summary=trait_summary,
                     trait_profile=trait_profile,
                 )
@@ -301,6 +403,8 @@ class ChatService:
                 user_input=user_input,
                 mode=2,
                 topic_id=None,
+                topic_title=None,      # 🆕 v1.4
+                topic_tags=[],         # 🆕 v1.4
                 trait_summary=trait_summary,
                 trait_profile=trait_profile,
             )
