@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.data.topics import TOPICS  # ⚠️ v1.4: 保留用于降级
+# ❌ 已删除旧版引用: from backend.data.topics import TOPICS
 from backend.llm_client.base import LLMClient
 from backend.utils.prompt_loader import load_prompt
 from backend.utils.text_tools import strip_control_markers, parse_control_flags
@@ -14,7 +14,7 @@ from backend.services.model2_service import Model2Service
 from backend.services.model3_service import Model3Service
 from backend.services.db_history_manager import DatabaseHistoryManager
 from backend.db.models import TraitProfile, Session
-from backend.db.crud import topic as topic_crud  # 🆕 v1.4: 导入topic CRUD
+from backend.db.crud import topic as topic_crud
 
 
 class ChatService:
@@ -70,15 +70,15 @@ class ChatService:
         优先级:
         1. 从 session.topic_prompt 读取（快照）
         2. 从数据库查询话题（如果session中没有快照）
-        3. 降级到 TOPICS 字典（兼容旧数据）
         
         返回:
             (prompt, title, concept_tag, tags_list)
+            
+        注意: 已删除旧版TOPICS字典降级逻辑
         """
         # 1. 优先使用 Session 的快照
         if session.topic_prompt:
-            # 从快照中提取（假设快照格式包含了所有信息）
-            # 但我们还需要 title 和 tags，所以仍需查询数据库获取元数据
+            # 从快照中提取
             if topic_id:
                 topic = await topic_crud.get_topic_by_id(db, topic_id)
                 if topic:
@@ -104,21 +104,8 @@ class ChatService:
                     tags_list
                 )
         
-        # 3. 降级到旧的TOPICS字典（兼容性）
-        if topic_id:
-            old_topic = next((t for t in TOPICS if t["id"] == topic_id), None)
-            if old_topic:
-                try:
-                    prompt_content = load_prompt(old_topic["prompt_path"])
-                    return (
-                        prompt_content,
-                        old_topic["topic"],
-                        old_topic.get("concept_tag"),
-                        []
-                    )
-                except Exception as e:
-                    print(f"[WARNING] 降级加载失败: {e}")
-        
+        # 3. ❌ 已删除旧版TOPICS字典降级逻辑
+        # 如果找不到话题，返回None
         return None, None, None, []
 
     # ------------------------------------------------------
@@ -245,76 +232,51 @@ class ChatService:
                 yield event
             return
 
-        # ------------------------------
-        # model1 system prompt
-        # ------------------------------
-        system_prompt = load_prompt("model1/system.txt")
-
-        if trait_summary:
-            system_prompt += (
-                "\n\n# 用户长期特质总结（供你参考）：\n"
-                f"{trait_summary}"
-            )
-
-        assistant_text = ""
-
         # =======================================================
         # mode == 1（话题测试）
         # =======================================================
         if mode == 1:
 
-            if topic_id is None:
-                raise ValueError("mode1 requires topic_id")
-
-            # 🆕 v1.4: 使用新的话题获取逻辑
-            topic_prompt, topic_title, topic_concept_tag, topic_tags = await self._get_topic_prompt(
+            # 获取话题信息
+            topic_prompt, topic_title, _, topic_tags = await self._get_topic_prompt(
                 db, session, topic_id
             )
 
             if not topic_prompt:
-                raise ValueError(f"Invalid topic_id or topic not found: {topic_id}")
+                raise ValueError(f"话题 ID {topic_id} 不存在或未找到提示词")
 
-            # 使用 topic_title 或降级到 concept_tag
-            display_name = topic_title or topic_concept_tag or f"话题{topic_id}"
+            # 加载 model1 基础 prompt
+            base_model1 = load_prompt("model1/base.txt")
+            system_prompt = base_model1 + "\n\n" + topic_prompt
+
+            assistant_text = ""
 
             # --------------------------
-            # 第一轮：模型先说
+            # 首轮：机器人先主动说话
             # --------------------------
             if is_first:
-                history = await history_mgr.get(session_id)
-                mode1_intro = load_prompt("model1/mode1_intro.txt")
-
-                # 🆕 v1.4: 在system_prompt中注入话题信息
-                system_prompt = (
-                    system_prompt
-                    + f"\n\n# 本次对话的主题是：{display_name}"
+                first_prompt = load_prompt("model1/mode1_first.txt")
+                final_prompt = (
+                    "# 内部提示（用户不可见）：\n"
+                    + first_prompt
+                    + "\n\n请根据话题，生成你的第一句话。"
                 )
-                
-                # 如果有标签，也添加到系统提示中
-                if topic_tags:
-                    tags_str = "、".join(topic_tags)
-                    system_prompt += f"\n标签：{tags_str}"
-                
-                system_prompt += "\n" + mode1_intro
-                
-                # 🆕 v1.4: 话题提示词作为user_prompt
-                final_prompt = topic_prompt
 
                 # 🆕 先收集完整输出
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
-                    history=history,
+                    history=[],
                 ):
-                    assistant_text += str(chunk)
+                    assistant_text += chunk
 
                 # 🆕 清洗后再流式输出
                 visible_text = strip_control_markers(assistant_text)
                 
-                # 逐字符流式输出（模拟打字机效果）
+                # 逐字符流式输出
                 for char in visible_text:
                     yield {"type": "token", "content": char}
-                
+
                 await history_mgr.add(session_id, "assistant", visible_text)
 
                 # 检查用户是否想退出
@@ -426,6 +388,8 @@ class ChatService:
                 # 告知 model1
                 advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
 
+            base_model1 = load_prompt("model1/base.txt")
+            system_prompt = base_model1
             mode2_intro = load_prompt("model1/mode2_intro.txt")
             system_prompt = system_prompt + "\n\n" + mode2_intro
 
@@ -436,6 +400,7 @@ class ChatService:
                 + user_input
             )
 
+            assistant_text = ""
             # 🆕 先收集完整输出
             async for chunk in self.llm.chat_stream(
                 system_prompt=system_prompt,
@@ -488,7 +453,7 @@ class ChatService:
         trait_profile: str,
     ) -> AsyncGenerator[dict, None]:
 
-        # 1. 取历史
+        # 1. 获取历史
         full_history = await history_mgr.get(session_id)
 
         # 2. model1 summary
