@@ -2,8 +2,9 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
+import os
 
-DATABASE_URL = "mysql+aiomysql://metalks_user:WeiChenTeam666%5E_%5E@localhost/metalks"
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 engine = create_async_engine(
     DATABASE_URL,

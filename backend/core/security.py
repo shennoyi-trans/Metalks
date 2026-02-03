@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+import os
 
-SECRET_KEY = "metalks_super_secret_jwt_key_please_change"
+SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  #30天
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

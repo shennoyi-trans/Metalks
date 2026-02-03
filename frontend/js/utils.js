@@ -149,14 +149,6 @@ async function checkAuth() {
     }
 }
 
-/**
- * 登出
- */
-function logout() {
-    // 清除cookie（通过设置过期时间为过去）
-    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    window.location.href = '/chat.html';
-}
 
 // 导出到全局作用域
 window.MetalksUtils = {
@@ -169,7 +161,6 @@ window.MetalksUtils = {
     hideModal,
     showToast,
     checkAuth,
-    logout
 };
 // utils.js - 添加认证相关函数
 
