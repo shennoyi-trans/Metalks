@@ -95,14 +95,15 @@ document.addEventListener('DOMContentLoaded', function() {
         loadRememberedAccount();
     }
     
-    function checkLoginStatus() {
-        // 如果有token，直接跳转到聊天页面
-        if (utils.isLoggedIn()) {
-            state.isLoggedIn = true;
-            // 延迟跳转，避免页面闪烁
-            setTimeout(() => {
+    async function checkLoginStatus() {
+        try {
+            const loggedIn = await utils.checkAuth();
+            if (loggedIn) {
+                state.isLoggedIn = true;
                 window.location.href = '/';
-            }, 100);
+            }
+        } catch (e) {
+            // 未登录，留在认证页面
         }
     }
     
@@ -474,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 登录功能
     async function handlePasswordLogin() {
         const email = elements.passwordLoginEmail?.value.trim() || '';
-        const password = elements.password?.value.trim() || '';
+        const password = elements.password?.value || '';
         const rememberMe = elements.rememberMe?.checked || false;
         
         // 前端验证
@@ -552,8 +553,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (password.length < 8) {
-            showToast('密码至少需要8位', 'error');
+        if (password.length < 6) {
+            showToast('密码至少需要6位', 'error');
             if (elements.emailRegisterPassword) elements.emailRegisterPassword.classList.add('error');
             return;
         }
@@ -581,17 +582,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!checkData.available) {
                 throw new Error('邮箱已被注册');
-            }
-            
-            // 注册请求
-            const registerData = {
-                email: email,
-                password: password
-            };
-            
-            // 添加可选昵称
-            if (nickname) {
-                registerData.nickname = nickname;
             }
             
             const result = await utils.register(email, password, nickname);
