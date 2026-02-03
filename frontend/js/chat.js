@@ -125,11 +125,13 @@ let state = {
 let availableTopics = [];
 
 // ==================== 初始化 ====================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('Metalks Chat initialized');
     initEventListeners();
-    checkLoginStatus();
-    checkUpdatePopup();
+    await checkLoginStatus();
+    if (state.isLoggedIn) {
+        checkUpdatePopup();
+    }   
 });
 
 function initEventListeners() {
