@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metalks - 登录/注册</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- 引入utils -->
+    <script src="../js/utils.js"></script>
+</head>
+<body>
+    <div class="bg-cosmos">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <div class="auth-container">
+        <div class="auth-glass">
+            <!-- 返回按钮 -->
+            <a href="chat.html" class="back-btn">
+                <i class="ri-arrow-left-line"></i> 返回主页
+            </a>
+
+            <!-- Logo和标题 -->
+            <div class="auth-header">
+                <div class="auth-logo">M</div>
+                <h1 class="auth-title">Metalks</h1>
+                <p class="auth-subtitle">认识你自己</p>
+            </div>
+
+            <!-- 登录/注册切换 -->
+            <div class="auth-mode-tabs">
+                <button class="mode-tab active" data-mode="login">
+                    <i class="ri-login-circle-line"></i>
+                    <span>登录</span>
+                </button>
+                <button class="mode-tab" data-mode="register">
+                    <i class="ri-user-add-line"></i>
+                    <span>注册</span>
+                </button>
+            </div>
+
+            <!-- 登录方式切换 -->
+            <div class="login-type-tabs">
+                <button class="type-tab active" data-type="password">
+                    <i class="ri-lock-password-line"></i>
+                    <span>密码登录</span>
+                </button>
+                <button class="type-tab" data-type="code">
+                    <i class="ri-message-3-line"></i>
+                    <span>验证码登录</span>
+                </button>
+            </div>
+
+            <!-- 密码登录表单 -->
+            <form class="auth-form active" id="passwordLoginForm">
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-mail-line"></i>
+                        <input 
+                            type="email" 
+                            id="passwordLoginEmail" 
+                            name="email"
+                            placeholder="请输入邮箱"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-key-line"></i>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password"
+                            placeholder="请输入密码"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button type="button" class="toggle-password" id="togglePassword" title="显示/隐藏密码">
+                            <i class="ri-eye-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="rememberMe">
+                        <span>记住我</span>
+                    </label>
+                    <a href="#" class="forgot-password">忘记密码？</a>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="passwordLoginBtn">
+                    <i class="ri-login-box-line"></i>
+                    <span>登录</span>
+                </button>
+            </form>
+
+            <!-- 验证码登录表单 -->
+            <form class="auth-form" id="codeLoginForm">
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-mail-line"></i>
+                        <input 
+                            type="email" 
+                            id="codeLoginEmail" 
+                            name="email"
+                            placeholder="请输入邮箱"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="code-input-container">
+                        <div class="input-with-icon">
+                            <i class="ri-shield-keyhole-line"></i>
+                            <input 
+                                type="text" 
+                                id="verificationCode" 
+                                name="verificationCode"
+                                placeholder="请输入6位验证码"
+                                maxlength="6"
+                                required
+                            >
+                        </div>
+                        <button type="button" class="send-code-btn" id="sendCodeBtn">
+                            <span id="codeTimer">获取验证码</span>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="codeLoginBtn">
+                    <i class="ri-login-box-line"></i>
+                    <span>登录</span>
+                </button>
+            </form>
+
+            <!-- 注册方式选择 -->
+            <div class="register-type-tabs" id="registerTypeTabs" style="display: none;">
+                <button class="register-type-tab active" data-register-type="email">
+                    <i class="ri-mail-line"></i>
+                    <span>邮箱注册</span>
+                </button>
+                <button class="register-type-tab" data-register-type="phone">
+                    <i class="ri-phone-line"></i>
+                    <span>手机号注册</span>
+                </button>
+            </div>
+
+            <!-- 邮箱注册表单 -->
+            <form class="auth-form" id="emailRegisterForm">
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-mail-line"></i>
+                        <input 
+                            type="email" 
+                            id="emailRegisterEmail" 
+                            name="email"
+                            placeholder="请输入邮箱"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-user-3-line"></i>
+                        <input 
+                            type="text" 
+                            id="emailRegisterNickname" 
+                            name="nickname"
+                            placeholder="请设置昵称（可选）"
+                            maxlength="20"
+                            autocomplete="nickname"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-key-line"></i>
+                        <input 
+                            type="password" 
+                            id="emailRegisterPassword" 
+                            name="password"
+                            placeholder="请设置密码（至少8位）"
+                            required
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <button type="button" class="toggle-password" id="toggleEmailRegisterPassword" title="显示/隐藏密码">
+                            <i class="ri-eye-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-key-2-line"></i>
+                        <input 
+                            type="password" 
+                            id="emailConfirmPassword" 
+                            name="confirmPassword"
+                            placeholder="请再次输入密码"
+                            required
+                            minlength="8"
+                            autocomplete="new-password"
+                        >
+                        <button type="button" class="toggle-password" id="toggleEmailConfirmPassword" title="显示/隐藏密码">
+                            <i class="ri-eye-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="agreement-section">
+                    <label class="agree-terms">
+                        <input type="checkbox" id="emailAgreeTerms" required>
+                        <span>我已阅读并同意</span>
+                    </label>
+                    <a href="#" class="terms-link">《用户协议》</a>和
+                    <a href="#" class="terms-link">《隐私政策》</a>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="emailRegisterBtn">
+                    <i class="ri-user-add-line"></i>
+                    <span>注册</span>
+                </button>
+            </form>
+
+            <!-- 手机号注册表单 -->
+            <form class="auth-form" id="phoneRegisterForm">
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-phone-line"></i>
+                        <input 
+                            type="tel" 
+                            id="phoneRegisterPhone" 
+                            name="phone"
+                            placeholder="请输入手机号"
+                            required
+                            pattern="[0-9]{11}"
+                            autocomplete="tel"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-with-icon">
+                        <i class="ri-user-3-line"></i>
+                        <input 
+                            type="text" 
+                            id="phoneRegisterNickname" 
+                            name="nickname"
+                            placeholder="请设置昵称（可选）"
+                            maxlength="20"
+                            autocomplete="nickname"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="code-input-container">
+                        <div class="input-with-icon">
+                            <i class="ri-shield-keyhole-line"></i>
+                            <input 
+                                type="text" 
+                                id="phoneVerificationCode" 
+                                name="verificationCode"
+                                placeholder="请输入6位验证码"
+                                maxlength="6"
+                                required
+                            >
+                        </div>
+                        <button type="button" class="send-code-btn" id="sendPhoneCodeBtn">
+                            <span id="phoneCodeTimer">获取验证码</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="agreement-section">
+                    <label class="agree-terms">
+                        <input type="checkbox" id="phoneAgreeTerms" required>
+                        <span>我已阅读并同意</span>
+                    </label>
+                    <a href="#" class="terms-link">《用户协议》</a>和
+                    <a href="#" class="terms-link">《隐私政策》</a>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="phoneRegisterBtn">
+                    <i class="ri-user-add-line"></i>
+                    <span>注册</span>
+                </button>
+            </form>
+
+            <!-- 底部链接 -->
+            <div class="auth-footer">
+                <div class="footer-links">
+                    <p id="loginFooterText">
+                        还没有账号？
+                        <a href="#" class="switch-link" data-mode="register">立即注册</a>
+                    </p>
+                    <p id="registerFooterText" style="display: none;">
+                        已有账号？
+                        <a href="#" class="switch-link" data-mode="login">立即登录</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <script src="../js/auth.js"></script>
+</body>
+</html>

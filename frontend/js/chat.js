@@ -36,7 +36,6 @@ const els = {
     reportOverlay: document.getElementById('reportOverlay'),
     traitsDetailOverlay: document.getElementById('traitsDetailOverlay'),
     confirmOverlay: document.getElementById('confirmOverlay'),
-    authOverlay: document.getElementById('authOverlay'),
     updateOverlay: document.getElementById('updateOverlay'),
     deleteConfirmOverlay: document.getElementById('deleteConfirmOverlay'),
     userMenuOverlay: document.getElementById('userMenuOverlay'),
@@ -72,14 +71,6 @@ const els = {
     reportTitle: document.getElementById('reportTitle'),
     reportContent: document.getElementById('reportContent'),
     traitsDetailContent: document.getElementById('traitsDetailContent'),
-    
-    // Auth
-    authTabs: document.querySelectorAll('.auth-tab'),
-    emailInput: document.getElementById('emailInput'),
-    passwordInput: document.getElementById('passwordInput'),
-    submitAuthBtn: document.getElementById('submitAuthBtn'),
-    authErrorMsg: document.getElementById('authErrorMsg'),
-    closeAuthBtn: document.getElementById('closeAuthBtn'),
     
     // Confirm
     confirmYes: document.getElementById('confirmYes'),
@@ -120,7 +111,6 @@ let state = {
     pendingDeleteIndex: null,
     isFirstMessage: false,
     streamController: null,
-    isAuthLoginMode: true,
     fullTraitReport: "",
     reportCheckInterval: null,
     allSessions: [],
@@ -202,21 +192,11 @@ function initEventListeners() {
     
     document.getElementById('closeReportButton')?.addEventListener('click', () => utils.hideModal(els.reportOverlay));
     document.getElementById('closeTraitsDetailButton')?.addEventListener('click', () => utils.hideModal(els.traitsDetailOverlay));
-    els.closeAuthBtn?.addEventListener('click', () => utils.hideModal(els.authOverlay));
 
-    // Auth
+    // Auth - 跳转到 auth.html
     els.authBtn.addEventListener('click', () => {
-        if (state.isLoggedIn) {
-            utils.showModal(els.userMenuOverlay);
-        } else {
-            utils.showModal(els.authOverlay);
-        }
+        window.location.href = 'auth.html';
     });
-    
-    els.authTabs.forEach(tab => {
-        tab.addEventListener('click', () => switchAuthMode(tab.dataset.mode === 'login'));
-    });
-    els.submitAuthBtn.addEventListener('click', handleAuthSubmit);
 
     // Confirm
     els.confirmYes.addEventListener('click', () => {
@@ -270,7 +250,7 @@ function initEventListeners() {
     
     els.logoutBtn?.addEventListener('click', () => {
         if (confirm('确定要退出登录吗？')) {
-            utils.logout();
+            handleLogout();
         }
     });
     
@@ -301,9 +281,39 @@ async function checkLoginStatus() {
     } catch (error) {
         if (error.status === 401) {
             state.isLoggedIn = false;
-            utils.showModal(els.authOverlay);
+            // 用户需要手动点击登录按钮跳转到 auth.html
         }
     }
+}
+
+async function handleLogout() {
+    try {
+        // 调用API登出
+        await fetch(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.AUTH_LOGOUT}`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+    } catch (error) {
+        console.warn('Logout API call failed:', error);
+    }
+    
+    // 清除本地状态
+    state.isLoggedIn = false;
+    state.userEmail = '';
+    
+    // 重置UI
+    els.authBtn.innerHTML = '<i class="ri-user-3-line"></i>';
+    els.authBtn.style.background = 'transparent';
+    
+    // 清除聊天数据
+    els.chatMessages.innerHTML = '';
+    els.welcomePlaceholder.style.display = 'block';
+    state.currentSessionId = null;
+    state.conversationHistory = [];
+    state.hasUnsavedChanges = false;
+    
+    // 重新加载页面
+    window.location.href = '/auth.html?logout=true';
 }
 
 function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {
@@ -359,7 +369,7 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
         els.chatInput.focus();
     }
     
-    // 🆕 更新历史记录列表（清除所有高亮，因为这是新对话）
+    // 更新历史记录列表
     loadSessions();
 }
 
@@ -606,7 +616,6 @@ function renderSessionList(sessions) {
     sessions.forEach((s, index) => {
         const li = document.createElement('li');
         li.className = 'session-item';
-        // 🆕 高亮当前正在查看的会话
         if (s.id === state.currentSessionId) {
             li.classList.add('active');
         }
@@ -687,7 +696,7 @@ async function loadSessionDetail(sessionId) {
             startReportPolling(sessionId);
         }
         
-        // 🆕 重新渲染列表以更新高亮状态
+        // 重新渲染列表以更新高亮状态
         loadSessions();
         
     } catch (e) {
@@ -723,56 +732,6 @@ async function loadGlobalTraits() {
     const data = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.TRAITS_GLOBAL}`);
     updateTraitsDisplay(data.summary);
     state.fullTraitReport = data.full_report;
-}
-
-// ==================== Auth ====================
-function switchAuthMode(isLogin) {
-    state.isAuthLoginMode = isLogin;
-    els.authTabs.forEach(t => t.classList.toggle('active', 
-        (t.dataset.mode === 'login') === isLogin
-    ));
-    document.getElementById('authTitle').textContent = isLogin ? '欢迎回来' : '创建账号';
-    els.submitAuthBtn.textContent = isLogin ? '登录' : '注册';
-    els.authErrorMsg.textContent = '';
-}
-
-async function handleAuthSubmit() {
-    const email = els.emailInput.value.trim();
-    const password = els.passwordInput.value.trim();
-    if (!email || !password) return;
-
-    const endpoint = state.isAuthLoginMode
-        ? utils.API_ENDPOINTS.AUTH_LOGIN
-        : utils.API_ENDPOINTS.AUTH_REGISTER;
-
-    try {
-        const response = await fetch(`${utils.API_BASE_URL}${endpoint}`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, password: password })
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || '操作失败');
-        }
-
-        if (state.isAuthLoginMode) {
-            state.isLoggedIn = true;
-            state.userEmail = email;
-            utils.hideModal(els.authOverlay);
-            await checkLoginStatus();
-        } else {
-            switchAuthMode(true);
-            els.authErrorMsg.style.color = 'var(--success-color)';
-            els.authErrorMsg.textContent = '注册成功，请登录';
-        }
-
-    } catch (error) {
-        els.authErrorMsg.style.color = 'var(--error-color)';
-        els.authErrorMsg.textContent = error.message;
-    }
 }
 
 // ==================== UI Helpers ====================
@@ -814,11 +773,21 @@ function showReport(content, topic) {
 }
 
 function updateAuthUI() {
-    els.authBtn.innerHTML = '<i class="ri-user-3-fill" style="font-size: 1.3rem;"></i>';
-    els.authBtn.style.background = 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))';
-    
-    if (els.userEmail) {
-        els.userEmail.textContent = state.userEmail || '已登录用户';
+    if (state.isLoggedIn) {
+        els.authBtn.innerHTML = '<i class="ri-user-3-fill" style="font-size: 1.3rem;"></i>';
+        els.authBtn.style.background = 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))';
+        
+        // 尝试从 localStorage 获取用户邮箱
+        const savedEmail = localStorage.getItem('metalks_user_email');
+        if (savedEmail && els.userEmail) {
+            state.userEmail = savedEmail;
+            els.userEmail.textContent = savedEmail;
+        } else if (els.userEmail) {
+            els.userEmail.textContent = '已登录用户';
+        }
+    } else {
+        els.authBtn.innerHTML = '<i class="ri-user-3-line"></i>';
+        els.authBtn.style.background = 'transparent';
     }
 }
 

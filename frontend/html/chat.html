@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Metalks - 认识你自己</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/chat.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/chat.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 </head>
 <body>
@@ -139,32 +139,6 @@
         </div>
     </div>
 
-    <!-- 认证模态框 -->
-    <div class="modal-overlay" id="authOverlay">
-        <div class="modal-glass auth-modal">
-            <div class="modal-header">
-                <h2 id="authTitle">欢迎回来</h2>
-                <button class="close-icon" id="closeAuthBtn"><i class="ri-close-line"></i></button>
-            </div>
-            
-            <div class="auth-tabs">
-                <div class="auth-tab active" data-mode="login">登录</div>
-                <div class="auth-tab" data-mode="register">注册</div>
-            </div>
-
-            <div class="auth-form">
-                <div class="form-group">
-                    <input type="email" id="emailInput" placeholder="邮箱地址" required>
-                </div>
-                <div class="form-group">
-                    <input type="password" id="passwordInput" placeholder="密码" required>
-                </div>
-                <div class="error-msg" id="authErrorMsg"></div>
-                <button class="btn-primary auth-btn" id="submitAuthBtn">登录</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 报告查看模态框 -->
     <div class="modal-overlay" id="reportOverlay">
         <div class="modal-glass report-modal">
@@ -266,7 +240,7 @@
         </div>
     </div>
 
-    <script src="/js/utils.js"></script>
-    <script src="/js/chat.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/chat.js"></script>
 </body>
 </html>
