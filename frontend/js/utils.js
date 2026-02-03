@@ -382,7 +382,7 @@ Object.assign(window.MetalksUtils, {
         
         // 刷新页面或跳转到登录页
         setTimeout(() => {
-            window.location.href = '/auth.html';
+            window.location.href = '/auth';
         }, 500);
     },
 
