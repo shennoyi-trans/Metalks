@@ -1,4 +1,4 @@
-// Metalks 认证页面主逻辑 - 修改版
+// Metalks 认证页面主逻辑 - 修复版
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Metalks Auth initialized');
     
@@ -41,7 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
             phoneRegister: document.getElementById('phoneRegisterForm')
         },
         
-        // 注册类型选择容器
+        // 标签容器
+        loginTypeTabsContainer: document.querySelector('.login-type-tabs'),
         registerTypeTabsContainer: document.getElementById('registerTypeTabs'),
         
         // 输入字段
@@ -93,6 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
         checkLoginStatus();
         initEventListeners();
         loadRememberedAccount();
+        
+        // 初始显示状态
+        updateFormDisplay();
     }
     
     function checkLoginStatus() {
@@ -225,6 +229,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function switchMode(mode) {
         if (mode !== state.currentMode) {
             state.currentMode = mode;
+            
+            // 切换到注册模式时，默认选择邮箱注册
+            if (mode === 'register') {
+                state.currentRegisterType = 'email';
+                updateRegisterTypeTabs();
+            }
+            // 切换到登录模式时，默认选择密码登录
+            else if (mode === 'login') {
+                state.currentType = 'password';
+                updateTypeTabs();
+            }
+            
             updateModeTabs();
             updateFormDisplay();
             updateFooterText();
@@ -272,11 +288,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateFormDisplay() {
-        // 显示/隐藏注册方式选择
-        if (state.currentMode === 'register') {
-            elements.registerTypeTabsContainer.style.display = 'flex';
+        // 显示/隐藏不同类型的标签
+        if (state.currentMode === 'login') {
+            // 登录模式：显示登录方式标签，隐藏注册方式标签
+            if (elements.loginTypeTabsContainer) {
+                elements.loginTypeTabsContainer.style.display = 'flex';
+            }
+            if (elements.registerTypeTabsContainer) {
+                elements.registerTypeTabsContainer.style.display = 'none';
+            }
         } else {
-            elements.registerTypeTabsContainer.style.display = 'none';
+            // 注册模式：隐藏登录方式标签，显示注册方式标签
+            if (elements.loginTypeTabsContainer) {
+                elements.loginTypeTabsContainer.style.display = 'none';
+            }
+            if (elements.registerTypeTabsContainer) {
+                elements.registerTypeTabsContainer.style.display = 'flex';
+            }
         }
         
         // 隐藏所有表单
@@ -443,34 +471,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function startCodeCountdown(type = 'email') {
-        const timerElement = type === 'email' ? document.getElementById('codeTimer') : document.getElementById('phoneCodeTimer');
-        const countdownVar = type === 'email' ? 'emailCodeCountdown' : 'phoneCodeCountdown';
-        const timerVar = type === 'email' ? 'emailCodeTimer' : 'phoneCodeTimer';
-        const sendingVar = type === 'email' ? 'isSendingEmailCode' : 'isSendingPhoneCode';
-        const sendBtn = type === 'email' ? elements.sendCodeBtn : elements.sendPhoneCodeBtn;
-        
-        if (!timerElement) return;
-        
-        state[countdownVar] = 60;
-        
-        if (state[timerVar]) clearInterval(state[timerVar]);
-        
-        state[timerVar] = setInterval(() => {
-            state[countdownVar]--;
-            timerElement.textContent = `${state[countdownVar]}秒后重试`;
-            timerElement.classList.add('countdown');
-            
-            if (state[countdownVar] <= 0) {
-                clearInterval(state[timerVar]);
-                timerElement.textContent = '获取验证码';
-                timerElement.classList.remove('countdown');
-                if (sendBtn) sendBtn.disabled = false;
-                state[sendingVar] = false;
-            }
-        }, 1000);
-    }
-    
     // 登录功能
     async function handlePasswordLogin() {
         const email = elements.passwordLoginEmail?.value.trim() || '';
@@ -572,28 +572,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setLoading(elements.emailRegisterBtn, true);
         
         try {
-            // 检查邮箱是否可用
-            const checkResponse = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`, {
-                credentials: 'include'
-            });
-            
-            const checkData = await checkResponse.json();
-            
-            if (!checkData.available) {
-                throw new Error('邮箱已被注册');
-            }
-            
-            // 注册请求
-            const registerData = {
-                email: email,
-                password: password
-            };
-            
-            // 添加可选昵称
-            if (nickname) {
-                registerData.nickname = nickname;
-            }
-            
             const result = await utils.register(email, password, nickname);
             
             if (result.success) {
