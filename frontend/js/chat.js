@@ -9,21 +9,25 @@ var utils = window.MetalksUtils;
 
 // ==================== 更新公告配置 ====================
 const UPDATE_CONFIG = {
-    version: "v1.2.0_20251229",
-    date: "2025/12/29 更新",
+    version: "v1.3.0_20260203",
+    date: "2026/2/3 更新",
     content: `
         <ul style="list-style: none; padding: 0;">
             <li style="margin-bottom: 10px;">
-                <strong style="color: var(--accent-primary);">✨ 全新"点解"功能</strong><br>
-                现可查看完整特质报告和历史观念报告集
+                <strong style="color: var(--accent-primary);">🔐 全新登录与注册流程</strong><br>
+                邮箱注册 + 密码登录，进入更加顺畅
             </li>
             <li style="margin-bottom: 10px;">
-                <strong style="color: var(--accent-secondary);">🎨 UI优化</strong><br>
-                优化删除确认弹窗、用户菜单和侧边栏动画
+                <strong style="color: var(--accent-secondary);">📱 手机号注册</strong><br>
+                新增手机号 + 验证码注册入口，多一种选择
+            </li>
+            <li style="margin-bottom: 10px;">
+                <strong style="color: var(--accent-glow);">💾 记住我</strong><br>
+                勾选后下次自动填充邮箱，省得每次都手动输入
             </li>
             <li>
-                <strong style="color: var(--accent-glow);">⚡ 体验改进</strong><br>
-                删除对话时保持侧边栏展开，方便连续操作
+                <strong style="color: var(--accent-primary);">🛡️ 密码输入优化</strong><br>
+                新增密码显示/隐藏切换，告别盲输
             </li>
         </ul>
     `
@@ -121,11 +125,13 @@ let state = {
 let availableTopics = [];
 
 // ==================== 初始化 ====================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('Metalks Chat initialized');
     initEventListeners();
-    checkLoginStatus();
-    checkUpdatePopup();
+    await checkLoginStatus();
+    if (state.isLoggedIn) {
+        checkUpdatePopup();
+    }   
 });
 
 function initEventListeners() {
@@ -195,7 +201,7 @@ function initEventListeners() {
 
     // Auth - 跳转到 auth.html
     els.authBtn.addEventListener('click', () => {
-        window.location.href = 'auth.html';
+        window.location.href = 'auth';
     });
 
     // Confirm
@@ -313,7 +319,7 @@ async function handleLogout() {
     state.hasUnsavedChanges = false;
     
     // 重新加载页面
-    window.location.href = '/auth.html?logout=true';
+    window.location.href = '/auth?logout=true';
 }
 
 function handleTopicChange(topicId, topicName, topicTag, isCasual = false) {

@@ -177,10 +177,10 @@ async def login_user(
         key="access_token",
         value=token,
         httponly=True,
-        secure=False,        # 如果使用HTTPS，改为True
+        secure=True,
         samesite="lax",
         path="/",
-        max_age=7*24*3600,   # 7天过期
+        max_age=30*24*3600,   # 30天过期
         domain=None
     )
     
