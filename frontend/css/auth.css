@@ -10,7 +10,7 @@
 
 .auth-glass {
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
     background: rgba(20, 20, 40, 0.85);
     backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
@@ -551,8 +551,6 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     animation: slideInRight 0.3s ease;
     max-width: 100%;
-    opacity: 1;
-    pointer-events: auto; 
 }
 
 @keyframes slideInRight {
@@ -663,73 +661,46 @@
 }
 
 /* ==================== 响应式设计 ==================== */
+
+/* 小屏幕 (768px 以下) - 垂直滚动支持 */
 @media (max-width: 768px) {
     .auth-container {
-        padding: 1rem;
+        padding: 0.75rem;
         align-items: flex-start;
-        padding-top: 2rem;
+        min-height: 100vh;
+        overflow-y: auto; /* 允许页面滚动 */
     }
     
     .auth-glass {
-        padding: 2rem 1.5rem;
+        padding: 1.75rem 1.25rem;
         border-radius: 20px;
         max-width: 100%;
-        margin-top: 1rem;
+        margin: 1rem auto;
+        min-height: auto;
+        max-height: none;
     }
     
-    .auth-logo {
-        font-size: 2.8rem;
-    }
-    
-    .auth-title {
-        font-size: 1.6rem;
-    }
-    
-    .mode-tab {
-        padding: 0.7rem 1rem;
-        font-size: 0.9rem;
-    }
-    
-    .type-tab {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
-    
-    .register-type-tab {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
-    
-    .code-input-container {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    
-    .send-code-btn {
-        width: 100%;
-        height: 44px;
-    }
-    
-    .toast-container {
-        top: 1rem;
-        right: 1rem;
-        left: 1rem;
-        max-width: none;
-    }
-    
-    .toast {
-        max-width: none;
+    /* 确保内容不会太拥挤 */
+    .auth-footer {
+        margin-top: 1.5rem;
+        padding-bottom: 0.5rem; /* 增加底部内边距 */
     }
 }
 
+/* 手机竖屏 (480px 以下) */
 @media (max-width: 480px) {
+    .auth-container {
+        padding: 0.5rem;
+    }
+    
     .auth-glass {
-        padding: 1.5rem 1.25rem;
+        padding: 1.5rem 1rem;
         border-radius: 16px;
+        margin: 0.5rem auto;
     }
     
     .auth-header {
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
     }
     
     .auth-logo {
@@ -785,4 +756,99 @@
     .agreement-section {
         font-size: 0.85rem;
     }
+    
+    /* 确保内容有足够空间 */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .auth-footer {
+        margin-top: 1.25rem;
+        padding-bottom: 0.25rem;
+    }
+}
+
+/* 超小手机 (375px 以下) */
+@media (max-width: 375px) {
+    .auth-container {
+        padding: 0.25rem;
+    }
+    
+    .auth-glass {
+        padding: 1.25rem 0.75rem;
+        margin: 0.25rem auto;
+    }
+    
+    /* 稍微减小元素间距但确保可用性 */
+    .form-group {
+        margin-bottom: 0.9rem;
+    }
+    
+    .auth-footer {
+        margin-top: 1rem;
+    }
+}
+
+/* 极低高度设备 (最大高度小于600px) */
+@media (max-height: 600px) {
+    .auth-container {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        align-items: flex-start; /* 从顶部开始对齐 */
+    }
+    
+    .auth-glass {
+        margin-top: 0.25rem;
+        margin-bottom: 0.25rem;
+        max-width: 100%; /* 确保充分利用空间 */
+    }
+    
+    /* 稍微压缩间距但不影响可用性 */
+    .auth-header {
+        margin-bottom: 1rem;
+    }
+    
+    .auth-mode-tabs {
+        margin-bottom: 1rem;
+    }
+    
+    .login-type-tabs,
+    .register-type-tabs {
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+    }
+    
+    .form-group {
+        margin-bottom: 0.9rem;
+    }
+    
+    .form-options {
+        margin-bottom: 1rem;
+    }
+    
+    .agreement-section {
+        margin: 1rem 0;
+    }
+    
+    .auth-footer {
+        margin-top: 1.25rem;
+    }
+}
+
+/* 滚动条美化 - 只在需要时显示 */
+.auth-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.auth-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.auth-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.auth-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
