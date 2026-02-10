@@ -89,9 +89,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化
     init();
     
-    function init() {
+    async function init() {
         // 检查是否已登录
-        checkLoginStatus();
+        await checkLoginStatus();
         initEventListeners();
         loadRememberedAccount();
         
@@ -99,14 +99,18 @@ document.addEventListener('DOMContentLoaded', function() {
         updateFormDisplay();
     }
     
-    function checkLoginStatus() {
-        // 如果有token，直接跳转到聊天页面
-        if (utils.isLoggedIn()) {
-            state.isLoggedIn = true;
-            // 延迟跳转，避免页面闪烁
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 100);
+    async function checkLoginStatus() {
+        try {
+            const loggedIn = await utils.checkAuth();
+            if (loggedIn) {
+                state.isLoggedIn = true;
+                // 延迟跳转，避免页面闪烁
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 100);
+            }
+        } catch (e) {
+            //未登录，正常显示登录页
         }
     }
     
