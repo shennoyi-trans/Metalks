@@ -166,7 +166,7 @@ function initEventListeners() {
         btn?.addEventListener('click', (e) => {
             e.stopPropagation();
             if(btn === els.refreshTopicsBtnHeader) utils.showModal(els.topicOverlay);
-            loadRandomTopics();
+            loadRecommendedTopics();
         });
     });
 
@@ -282,7 +282,7 @@ async function checkLoginStatus() {
         state.isLoggedIn = true;
         updateAuthUI();
         loadSessions();
-        loadRandomTopics();
+        loadRecommendedTopics();
         utils.showModal(els.topicOverlay);
     } catch (error) {
         if (error.status === 401) {
@@ -512,7 +512,7 @@ function handleUserWantQuit() {
     document.getElementById('quitSessionBtn').addEventListener('click', async () => {
         await completeSession();
         utils.showModal(els.topicOverlay);
-        loadRandomTopics();
+        loadRecommendedTopics();
     });
 }
 
@@ -710,9 +710,13 @@ async function loadSessionDetail(sessionId) {
     }
 }
 
-async function loadRandomTopics() {
+async function loadRecommendedTopics() {
     try {
-        const topics = await utils.fetchWithAuth(`${utils.API_BASE_URL}${utils.API_ENDPOINTS.TOPICS_RANDOM}?count=6`);
+        const res = await utils.fetchWithAuth(
+            `${utils.API_BASE_URL}${utils.API_ENDPOINTS.TOPICS_RANDOM}?limit=6`
+        );
+        // 从包装对象中取出数组
+        const topics = res.topics || [];
         topics.forEach(t => {
             if(!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
         });
@@ -830,7 +834,7 @@ async function executeDeleteSession(sessionId) {
         } else {
             if (state.currentSessionId === sessionId) {
                 utils.showModal(els.topicOverlay);
-                loadRandomTopics();
+                loadRecommendedTopics();
                 state.currentSessionId = null;
                 state.conversationHistory = [];
                 state.hasUnsavedChanges = false;

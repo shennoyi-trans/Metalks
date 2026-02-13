@@ -3,7 +3,7 @@ const API_BASE_URL = '/api';
 
 const API_ENDPOINTS = {
     CHAT_STREAM: '/chat/stream',
-    TOPICS_RANDOM: '/topics/random',
+    TOPICS_RECOMMENDED: '/topics/recommended',
     SESSION_LIST: '/sessions',
     SESSION_DETAIL: '/sessions',
     SESSION_COMPLETE: '/sessions',
