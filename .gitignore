@@ -1,0 +1,103 @@
+# 数据库维护控件
+alembic.ini
+alembic/
+
+
+# =========================
+# OS / 系统文件
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.pyo
+
+# Python build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environment
+venv/
+.env/
+.envrc
+.venv/
+
+# Python cache / test
+.pytest_cache/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+*.out
+*.err
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+*.env
+secrets.json
+config.local.*
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# =========================
+# Node / Frontend（通用）
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# =========================
+# Git
+# =========================
+.gitignore.bak
+
+# =========================
+# Database / runtime
+# =========================
+*.sqlite3
+*.db
+*.pid
+
+# =========================
+# Upload / cache / temp
+# =========================
+uploads/
+tmp/
+temp/
+cache/
+
+# =========================
+# System / misc
+# =========================
+*.bak
+*.old
+*.orig
