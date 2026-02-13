@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_, or_
 from backend.db.models import Topic, TopicAuthor, TopicTag, TopicLike, Tag, User
+from sqlalchemy.orm import selectinload
 
 
 # ============================================================
@@ -68,6 +69,14 @@ async def get_topic_by_id(
     topic_id: int,
     include_inactive: bool = False
 ) -> Optional[Topic]:
+    query = (
+        select(Topic)
+        .options(
+            selectinload(Topic.tags).selectinload(TopicTag.tag)  # ✅ 预加载
+        )
+        .where(Topic.id == topic_id)
+    )
+    
     """
     根据ID查询话题
     
@@ -78,7 +87,6 @@ async def get_topic_by_id(
     返回:
         话题对象（如果存在）
     """
-    query = select(Topic).where(Topic.id == topic_id)
     
     if not include_inactive:
         query = query.where(Topic.is_active == True)
