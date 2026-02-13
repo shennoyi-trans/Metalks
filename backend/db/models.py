@@ -427,13 +427,11 @@ class Session(Base):
     mode: Mapped[int] = mapped_column(Integer, nullable=False)
     topic_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
-    # 🆕 新增字段：话题提示词快照
-    topic_prompt: Mapped[Optional[str]] = mapped_column(
-        Text, 
-        nullable=True, 
-        default=None, 
-        comment="话题提示词快照（用于model1），即使话题删除也能继续对话"
-    )
+    # 话题快照
+    topic_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None, comment="话题提示词快照（用于model1），即使话题删除也能继续对话")
+    topic_title: Mapped[Optional[str]] = mapped_column(String(200), nullable=False, default=None)
+    topic_tags_snapshot: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default=None)
+    topic_version: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
     is_completed: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False

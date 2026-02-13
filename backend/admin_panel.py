@@ -79,9 +79,35 @@ class SessionAdmin(ModelView, model=Session):
     name = "会话"
     name_plural = "会话管理"
     icon = "fa-solid fa-comments"
-    
+
     column_searchable_list = ["id"]
     column_default_sort = ("created_at", True)
+
+    # 列表字段（便于排查话题快照/报告状态）
+    column_list = [
+        "id",
+        "user_id",
+        "mode",
+        "topic_id",
+        "topic_title",
+        "is_completed",
+        "report_ready",
+        "deleted_at",
+        "created_at",
+    ]
+
+    # 避免在后台误改关键快照/报告内容
+    form_excluded_columns = [
+        "topic_prompt",
+        "topic_title",
+        "topic_tags_snapshot",
+        "topic_version",
+        "opinion_report",
+        "created_at",
+        "updated_at",
+        "messages",
+        "user",
+    ]
 
 
 class MessageAdmin(ModelView, model=Message):
@@ -139,45 +165,48 @@ class TopicAdmin(ModelView, model=Topic):
     name = "话题"
     name_plural = "话题管理"
     icon = "fa-solid fa-lightbulb"
-    
+
     # 搜索配置
-    column_searchable_list = ["title", "prompt"]
+    column_searchable_list = ["title", "prompt", "content"]
     column_default_sort = ("created_at", True)
-    
-    # 列表显示的字段
+
+    # 列表显示的字段（与models保持一致）
     column_list = [
-        "id", 
-        "title", 
-        "creator_id",
-        "is_official", 
+        "id",
+        "title",
+        "is_official",
         "status",
         "is_active",
         "likes_count",
-        "created_at"
+        "electrolyte_received",
+        "created_at",
+        "updated_at",
     ]
-    
-    # 表单排除字段
+
+    # 表单排除字段（统计/时间戳/关系字段）
     form_excluded_columns = [
-        "created_at", 
-        "updated_at", 
+        "created_at",
+        "updated_at",
         "likes_count",
-        "sessions",      # 关系字段
-        "authors",       # 关系字段
-        "tags",          # 关系字段
-        "likes"          # 关系字段
+        "electrolyte_received",
+        "authors",
+        "tags",
+        "likes",
     ]
-    
+
     # 字段说明
     column_labels = {
         "id": "ID",
         "title": "标题",
+        "content": "内容",
         "prompt": "提示词",
-        "creator_id": "创建者ID",
         "is_official": "官方话题",
         "status": "审核状态",
         "is_active": "启用状态",
         "likes_count": "点赞数",
-        "created_at": "创建时间"
+        "electrolyte_received": "累计收到电解液",
+        "created_at": "创建时间",
+        "updated_at": "更新时间",
     }
 
 
@@ -186,21 +215,23 @@ class TagAdmin(ModelView, model=Tag):
     name = "标签"
     name_plural = "标签管理"
     icon = "fa-solid fa-tag"
-    
-    column_searchable_list = ["name"]
+
+    column_searchable_list = ["name", "slug"]
     column_default_sort = ("name", False)
-    
-    column_list = ["id", "name", "created_at"]
-    
+
+    column_list = ["id", "name", "slug", "description", "created_at"]
+
     form_excluded_columns = [
         "created_at",
-        "topics"  # 关系字段
+        "topics",  # 关系字段
     ]
-    
+
     column_labels = {
         "id": "ID",
         "name": "标签名",
-        "created_at": "创建时间"
+        "slug": "Slug",
+        "description": "描述",
+        "created_at": "创建时间",
     }
 
 
@@ -209,25 +240,27 @@ class TopicAuthorAdmin(ModelView, model=TopicAuthor):
     name = "话题作者"
     name_plural = "话题作者关联"
     icon = "fa-solid fa-user-pen"
-    
+
     column_default_sort = ("created_at", True)
-    
+
     column_list = [
         "id",
         "topic_id",
         "user_id",
+        "is_primary",
         "electrolyte_share",
-        "created_at"
+        "created_at",
     ]
-    
+
     form_excluded_columns = ["created_at"]
-    
+
     column_labels = {
         "id": "ID",
         "topic_id": "话题ID",
         "user_id": "用户ID",
+        "is_primary": "主要作者",
         "electrolyte_share": "电解液分成(%)",
-        "created_at": "添加时间"
+        "created_at": "添加时间",
     }
 
 
@@ -236,19 +269,23 @@ class TopicTagAdmin(ModelView, model=TopicTag):
     name = "话题标签"
     name_plural = "话题标签关联"
     icon = "fa-solid fa-tags"
-    
+
     column_default_sort = ("topic_id", False)
-    
+
     column_list = [
         "id",
         "topic_id",
-        "tag_id"
+        "tag_id",
+        "created_at",
     ]
-    
+
+    form_excluded_columns = ["created_at"]
+
     column_labels = {
         "id": "ID",
         "topic_id": "话题ID",
-        "tag_id": "标签ID"
+        "tag_id": "标签ID",
+        "created_at": "关联时间",
     }
 
 
