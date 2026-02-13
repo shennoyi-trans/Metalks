@@ -633,7 +633,7 @@ function renderSessionList(sessions) {
         if (title.length > 15) title = title.substring(0, 15) + "...";
         
         const topicObj = availableTopics.find(t => t.id === s.topic_id);
-        const topicLabel = s.mode === 1 ? (topicObj ? topicObj.topic : `话题${s.topic_id}`) : "漫游";
+        const topicLabel = s.mode === 1 ? (getTopicName(topicObj) || `话题${s.topic_id}`) : "漫游";
 
         let tagsHtml = '';
         if (s.status === 'completed') tagsHtml += `<span class="tag">已完成</span>`;
@@ -682,12 +682,12 @@ async function loadSessionDetail(sessionId) {
         state.currentTopicId = session.topic_id;
         
         const topicObj = availableTopics.find(t => t.id === session.topic_id);
-        state.currentTopicName = topicObj ? topicObj.topic : "历史话题";
-        state.currentTopicTag = topicObj ? topicObj.concept_tag : "";
-        
+        state.currentTopicName = getTopicName(topicObj) || "历史话题";
+        state.currentTopicTag = getTopicTag(topicObj);
+
         els.currentTopic.textContent = state.currentTopicName;
-        els.headerTag.textContent = state.currentMode === 'topic' ? state.currentTopicTag : '心流漫游';
-        els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag}` : '回顾：随心对话';
+        els.headerTag.textContent = state.currentMode === 'topic' ? (state.currentTopicTag || state.currentTopicName) : '心流漫游';
+        els.chatTitle.textContent = state.currentMode === 'topic' ? `回顾：${state.currentTopicTag || state.currentTopicName}` : '回顾：随心对话';
         
         els.chatMessages.innerHTML = '';
         els.welcomePlaceholder.style.display = 'none';
@@ -713,12 +713,11 @@ async function loadSessionDetail(sessionId) {
 async function loadRecommendedTopics() {
     try {
         const res = await utils.fetchWithAuth(
-            `${utils.API_BASE_URL}${utils.API_ENDPOINTS.TOPICS_RANDOM}?limit=6`
+            `${utils.API_BASE_URL}/topics/recommended?limit=6`
         );
-        // 从包装对象中取出数组
-        const topics = res.topics || [];
+        const topics = res.topics || res;
         topics.forEach(t => {
-            if(!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
+            if (!availableTopics.find(at => at.id === t.id)) availableTopics.push(t);
         });
         renderTopicsGrid(topics);
     } catch (e) { console.error(e); }
@@ -730,10 +729,10 @@ function renderTopicsGrid(topics) {
         const div = document.createElement('div');
         div.className = 'topic-card';
         div.innerHTML = `
-            <div class="topic-name">${topic.topic}</div>
-            <div class="topic-tag">${topic.concept_tag}</div>
+            <div class="topic-name">${getTopicName(topic)}</div>
+            <div class="topic-tag">${getTopicTag(topic)}</div>
         `;
-        div.addEventListener('click', () => handleTopicChange(topic.id, topic.topic, topic.concept_tag));
+        div.addEventListener('click', () => handleTopicChange(topic.id, getTopicName(topic), getTopicTag(topic)));
         els.topicsGrid.appendChild(div);
     });
 }
@@ -849,6 +848,17 @@ async function executeDeleteSession(sessionId) {
         console.error("[DELETE] Failed:", e);
         utils.showToast("删除失败: " + e.message);
     }
+}
+
+// ==================== Fetch Topics ====================
+function getTopicName(topicObj) {
+    if (!topicObj) return '未知话题';
+    return topicObj.title || '未知话题';
+}
+
+function getTopicTag(topicObj) {
+    if (!topicObj) return '';
+    return Array.isArray(topicObj.tags) ? topicObj.tags.join('、') : '';
 }
 
 // ==================== Update Popup ====================
