@@ -78,34 +78,22 @@ class ChatService:
         """
         # 1. 优先使用 Session 的快照
         if session.topic_prompt:
-            # 从快照中提取
-            if topic_id:
-                topic = await topic_crud.get_topic_by_id(db, topic_id)
-                if topic:
-                    tags_list = [tag.tag.name for tag in topic.tags]
-                    return (
-                        session.topic_prompt,
-                        topic.title,
-                        None,  # v1.4不再使用concept_tag
-                        tags_list
-                    )
-            # 如果没有topic_id或查询失败，只返回快照的prompt
-            return (session.topic_prompt, None, None, [])
-        
-        # 2. 从数据库查询话题
+            tags = json.loads(session.topic_tags_snapshot) if session.topic_tags_snapshot else []
+            return (session.topic_prompt, session.topic_title, None, tags)
+
+        # 2. 无快照（旧 session 或首次）→ 查数据库并写入快照
         if topic_id:
-            topic = await topic_crud.get_topic_by_id(db, topic_id)
+            topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
             if topic:
-                tags_list = [tag.tag.name for tag in topic.tags]
-                return (
-                    topic.prompt,
-                    topic.title,
-                    None,  # v1.4不再使用concept_tag
-                    tags_list
-                )
-        
-        # 3. ❌ 已删除旧版TOPICS字典降级逻辑
-        # 如果找不到话题，返回None
+                tags_list = [tt.tag.name for tt in topic.tags]
+                # 写快照
+                session.topic_prompt = topic.prompt
+                session.topic_title = topic.title
+                session.topic_tags_snapshot = json.dumps(tags_list, ensure_ascii=False)
+                session.topic_version = topic.updated_at
+                await db.commit()
+                return (topic.prompt, topic.title, None, tags_list)
+    
         return None, None, None, []
 
     # ------------------------------------------------------
@@ -206,12 +194,27 @@ class ChatService:
             topic_id=topic_id
         )
 
-        # 🆕 v1.4: 如果是新Session且有topic_id，快照prompt
-        if not session.topic_prompt and topic_id:
-            prompt, _, _, _ = await self._get_topic_prompt(db, session, topic_id)
-            if prompt:
-                session.topic_prompt = prompt
+        # 🆕 v1.4: 如果是新Session且有topic_id，进行完整快照
+        if session.topic_prompt is None and topic_id is not None:
+            topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=False)
+            if topic:
+                session.topic_prompt = topic.prompt
+                session.topic_title = topic.title
+                session.topic_tags_snapshot = json.dumps(
+                    [tt.tag.name for tt in topic.tags], ensure_ascii=False
+                )
+                session.topic_version = topic.updated_at
                 await db.commit()
+
+        """
+        此处检测话题是否已更新的功能待开发
+        # 可选：检查话题是否有更新
+        if session.topic_version and topic_id:
+            topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
+            if topic and topic.updated_at > session.topic_version:
+                yield {"type": "topic_updated", "content": "该话题已被作者更新，是否要使用新版本？"}
+                # 前端展示通知，用户确认后调用一个刷新快照的接口 
+        """
 
         # 当前用户长期特质
         trait_summary, trait_profile = await self._load_trait_context(db, user_id)
