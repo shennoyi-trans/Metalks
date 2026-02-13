@@ -62,3 +62,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     SessionLocal = get_sessionmaker()
     async with SessionLocal() as session:
         yield session
+
+
+engine = get_engine()
