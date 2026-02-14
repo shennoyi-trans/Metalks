@@ -52,10 +52,18 @@ async function fetchWithAuth(url, options = {}) {
         }
 
         if (url.includes('/chat/stream')) {
+            if (!response.ok) {
+                let errorText = response.statusText;
+                try {
+                    const errJson = await response.json();
+                    errorText = errJson.detail || JSON.stringify(errJson);
+                } catch (e) { /* ignore */ }
+                throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+            }
             return response;
         }
 
-        return response.json();
+        return response.json(); // 只在 200 时才返回原始 response
     } catch (err) {
         console.error("Fetch Error:", err);
         throw err;

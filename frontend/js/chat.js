@@ -454,6 +454,14 @@ async function sendMessageToAPI(message, isFirst = false) {
                 
                 try {
                     const event = JSON.parse(jsonStr);
+
+                    if (event.type === 'error') {
+                        hideThinking();
+                        const errorMsg = event.content || '未知错误';
+                        addMessage('ai', `⚠️ ${errorMsg}`);
+                        console.error('[SSE Error]', event.error_code, errorMsg);
+                        return;  // 终止流处理
+                    }
                     
                     if (event.type === 'user_want_quit') {
                         handleUserWantQuit();
@@ -479,6 +487,13 @@ async function sendMessageToAPI(message, isFirst = false) {
                 }
             }
         }
+
+        // 检测"空流"（后端崩溃但没发error事件的兜底）
+        if (!aiContent && !aiMsgDiv) {
+            hideThinking();
+            addMessage('ai', '⚠️ 连接异常，请重试。');
+        }
+
     } catch (error) {
         if (error.name === 'AbortError') return;
         console.error("Stream Error:", error);
