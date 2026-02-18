@@ -104,52 +104,8 @@ async def create_topic(
     
     return result
 
-
 # ============================================================
-# 2. 获取话题详情
-# ============================================================
-
-@router.get("/{topic_id}")
-async def get_topic(
-    topic_id: int,
-    db: AsyncSession = Depends(get_db),
-    user_id: Optional[int] = Depends(get_current_user)
-):
-    """
-    获取话题详情
-    
-    返回:
-        {
-            "id": 话题ID,
-            "title": 标题,
-            "content": 内容,
-            "prompt": 提示词,
-            "likes_count": 点赞数,
-            "electrolyte_received": 电解液收入,
-            "status": 审核状态,
-            "is_active": 是否启用,
-            "is_official": 是否官方,
-            "authors": [作者列表],
-            "tags": [标签列表],
-            "has_liked": 是否已点赞,
-            "created_at": 创建时间,
-            "updated_at": 更新时间
-        }
-    """
-    topic = await topic_service.get_topic_detail(
-        db=db,
-        topic_id=topic_id,
-        user_id=user_id
-    )
-    
-    if not topic:
-        raise HTTPException(status_code=404, detail="话题不存在")
-    
-    return topic
-
-
-# ============================================================
-# 3. 编辑话题
+# 2. 编辑话题
 # ============================================================
 
 @router.put("/{topic_id}")
@@ -196,7 +152,7 @@ async def update_topic(
 
 
 # ============================================================
-# 4. 获取话题列表（支持分页、筛选、排序）
+# 3. 获取话题列表（支持分页、筛选、排序）
 # ============================================================
 
 @router.get("")
@@ -272,7 +228,7 @@ async def list_topics(
 
 
 # ============================================================
-# 5. 获取我的话题
+# 4. 获取我的话题
 # ============================================================
 
 @router.get("/my/list")
@@ -318,7 +274,7 @@ async def get_my_topics(
 
 
 # ============================================================
-# 6. 搜索话题
+# 5. 搜索话题
 # ============================================================
 
 @router.get("/search")
@@ -368,7 +324,7 @@ async def search_topics(
 
 
 # ============================================================
-# 7. 获取推荐话题
+# 6. 获取推荐话题
 # ============================================================
 
 @router.get("/recommended")
@@ -400,7 +356,7 @@ async def get_recommended_topics(
 
 
 # ============================================================
-# 8. 获取所有标签
+# 7. 获取所有标签
 # ============================================================
 
 @router.get("/tags/all")
@@ -437,6 +393,49 @@ async def get_all_tags(
     return {
         "tags": tag_list
     }
+
+# ============================================================
+# 8. 获取话题详情
+# ============================================================
+
+@router.get("/{topic_id}")
+async def get_topic(
+    topic_id: int,
+    db: AsyncSession = Depends(get_db),
+    user_id: Optional[int] = Depends(get_current_user)
+):
+    """
+    获取话题详情
+    
+    返回:
+        {
+            "id": 话题ID,
+            "title": 标题,
+            "content": 内容,
+            "prompt": 提示词,
+            "likes_count": 点赞数,
+            "electrolyte_received": 电解液收入,
+            "status": 审核状态,
+            "is_active": 是否启用,
+            "is_official": 是否官方,
+            "authors": [作者列表],
+            "tags": [标签列表],
+            "has_liked": 是否已点赞,
+            "created_at": 创建时间,
+            "updated_at": 更新时间
+        }
+    """
+    topic = await topic_service.get_topic_detail(
+        db=db,
+        topic_id=topic_id,
+        user_id=user_id
+    )
+    
+    if not topic:
+        raise HTTPException(status_code=404, detail="话题不存在")
+    
+    return topic
+
 
 
 # ============================================================
