@@ -75,6 +75,14 @@ _COMMON_LABELS: dict[str, str] = {
 }
 
 
+def _user_nickname(model, attr) -> str:
+    """将 user 关系列格式化为昵称（无昵称时回退到 #ID）。"""
+    user = getattr(model, "user", None)
+    if user is None:
+        return f"#{getattr(model, 'user_id', '?')}"
+    return user.nickname or f"#{user.id}"
+
+
 def _labels(**extra: str) -> dict[str, str]:
     """合并公共标签与额外标签，减少重复代码。"""
     merged = {k: v for k, v in _COMMON_LABELS.items()}
@@ -106,9 +114,13 @@ class SessionAdmin(ModelView, model=Session):
     column_default_sort = ("created_at", True)
 
     column_list = [
-        "id", "user_id", "mode", "topic_id", "topic_title",
+        "id", "user", "mode", "topic_id", "topic_title",
         "is_completed", "report_ready", "deleted_at", "created_at",
     ]
+
+    column_formatters = {"user": _user_nickname}
+
+    column_labels = _labels(user="用户昵称")
 
     form_excluded_columns = [
         "topic_prompt", "topic_title", "topic_tags_snapshot",
@@ -134,6 +146,10 @@ class TraitProfileAdmin(ModelView, model=TraitProfile):
     column_searchable_list = ["summary"]
     column_default_sort = ("updated_at", True)
 
+    column_list = ["id", "user", "summary", "updated_at"]
+    column_formatters = {"user": _user_nickname}
+    column_labels = _labels(user="用户昵称", summary="摘要")
+
 
 # ============================================================
 # 辅助功能
@@ -156,6 +172,14 @@ class NicknameHistoryAdmin(ModelView, model=NicknameHistory):
 
     column_searchable_list = ["old_nickname", "new_nickname"]
     column_default_sort = ("created_at", True)
+
+    column_list = ["id", "user", "old_nickname", "new_nickname", "electrolyte_cost", "created_at"]
+    column_formatters = {"user": _user_nickname}
+    column_labels = _labels(
+        user="用户昵称", old_nickname="旧昵称", new_nickname="新昵称",
+        electrolyte_cost="消耗电解液",
+    )
+
     form_excluded_columns = ["created_at"]
     can_create = False
     can_edit = False
@@ -215,13 +239,16 @@ class TopicAuthorAdmin(ModelView, model=TopicAuthor):
     column_default_sort = ("created_at", True)
 
     column_list = [
-        "id", "topic_id", "user_id",
+        "id", "topic_id", "user",
         "is_primary", "electrolyte_share", "created_at",
     ]
+
+    column_formatters = {"user": _user_nickname}
 
     form_excluded_columns = ["created_at"]
 
     column_labels = _labels(
+        user="用户昵称",
         is_primary="主要作者",
         electrolyte_share="电解液分成(%)",
     )
@@ -247,13 +274,15 @@ class TopicLikeAdmin(ModelView, model=TopicLike):
 
     column_default_sort = ("created_at", True)
 
-    column_list = ["id", "topic_id", "user_id", "created_at"]
+    column_list = ["id", "topic_id", "user", "created_at"]
+    column_formatters = {"user": _user_nickname}
+
     form_excluded_columns = ["created_at"]
 
     can_create = False
     can_edit = False
 
-    column_labels = _labels()
+    column_labels = _labels(user="用户昵称")
 
 
 # ============================================================

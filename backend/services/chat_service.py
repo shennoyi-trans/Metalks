@@ -399,7 +399,7 @@ class ChatService:
                 # 告知 model1
                 advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
 
-            base_model1 = load_prompt("model1/base.txt")
+            base_model1 = load_prompt("model1/system.txt")
             system_prompt = base_model1
             mode2_intro = load_prompt("model1/mode2_intro.txt")
             system_prompt = system_prompt + "\n\n" + mode2_intro

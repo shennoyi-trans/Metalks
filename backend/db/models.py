@@ -95,6 +95,9 @@ class User(Base):
         comment="创建时间"
     )
 
+    def __str__(self) -> str:
+        return self.nickname or self.email or f"User#{self.id}"
+
     # 关系
     sessions: Mapped[List["Session"]] = relationship(
         "Session", back_populates="user", cascade="all, delete-orphan"
@@ -209,6 +212,9 @@ class Topic(Base):
         cascade="all, delete-orphan"
     )
 
+    def __str__(self) -> str:
+        return self.title or f"Topic#{self.id}"
+
     # 复合索引
     __table_args__ = (
         Index('idx_status_active', 'status', 'is_active'),
@@ -315,6 +321,9 @@ class Tag(Base):
         comment="创建时间"
     )
     
+    def __str__(self) -> str:
+        return self.name or f"Tag#{self.id}"
+
     # 关系
     topics: Mapped[List["TopicTag"]] = relationship(
         "TopicTag", 
