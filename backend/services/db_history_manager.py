@@ -45,7 +45,9 @@ class DatabaseHistoryManager:
 
         # 更新 session 时间
         await self.db.execute(
-            select(Session).where(Session.id == session_id)
+            update(Session)
+            .where(Session.id == session_id)
+            .values(updated_at=datetime.utcnow())
         )
         await self.db.commit()
 

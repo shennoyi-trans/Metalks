@@ -1,6 +1,7 @@
 # backend/services/chat_service.py
 
 import asyncio
+import json
 from typing import AsyncGenerator, Optional, List, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,14 +67,14 @@ class ChatService:
     ) -> tuple[Optional[str], Optional[str], Optional[str], Optional[List[str]]]:
         """
         获取话题的提示词、标题和标签
-        
+
         优先级:
         1. 从 session.topic_prompt 读取（快照）
         2. 从数据库查询话题（如果session中没有快照）
-        
+
         返回:
             (prompt, title, concept_tag, tags_list)
-            
+
         注意: 已删除旧版TOPICS字典降级逻辑
         """
         # 1. 优先使用 Session 的快照
@@ -93,73 +94,80 @@ class ChatService:
                 session.topic_version = topic.updated_at
                 await db.commit()
                 return (topic.prompt, topic.title, None, tags_list)
-    
+
         return None, None, None, []
 
     # ------------------------------------------------------
-    # 后台异步生成报告
+    # ✅ 修复：后台异步生成报告（使用独立 db session）
     # ------------------------------------------------------
     async def _generate_report_background(
         self,
         session_id: str,
         mode: int,
         topic_id: Optional[int],
-        db: AsyncSession,
+        # ✅ 不再接收外部 db，改为在方法内部创建独立 session
+        # 原因：asyncio.create_task 中使用请求级 db session 会导致
+        # 请求结束后 session 被关闭，后台任务静默失败，报告永远无法生成
         trait_summary: str,
         trait_profile: str,
     ):
         """
-        后台任务：生成观念报告并更新数据库
+        后台任务：生成观念报告并更新数据库。
+        使用独立的 db session，生命周期由本任务自己管理。
         """
-        try:
-            # 获取完整历史
-            result = await db.execute(
-                select(Session).where(Session.id == session_id)
-            )
-            session = result.scalar_one_or_none()
-            if not session:
-                return
+        from backend.db.database import get_sessionmaker
+        from backend.db.models import Message
 
-            # 如果报告已生成，避免重复
-            if session.report_ready:
-                return
+        SessionLocal = get_sessionmaker()
+        async with SessionLocal() as db:
+            try:
+                # 获取 session 记录
+                result = await db.execute(
+                    select(Session).where(Session.id == session_id)
+                )
+                session = result.scalar_one_or_none()
+                if not session:
+                    return
 
-            # 获取对话历史
-            from backend.db.models import Message
-            msg_result = await db.execute(
-                select(Message)
-                .where(Message.session_id == session_id)
-                .order_by(Message.created_at.asc())
-            )
-            messages = msg_result.scalars().all()
-            full_history = [
-                {"role": m.role, "content": m.content} for m in messages
-            ]
+                # 如果报告已生成，避免重复
+                if session.report_ready:
+                    return
 
-            # 🆕 v1.4: 获取话题信息（用于报告生成）
-            _, topic_title, _, topic_tags = await self._get_topic_prompt(
-                db, session, topic_id
-            )
+                # 获取对话历史
+                msg_result = await db.execute(
+                    select(Message)
+                    .where(Message.session_id == session_id)
+                    .order_by(Message.created_at.asc())
+                )
+                messages = msg_result.scalars().all()
+                full_history = [
+                    {"role": m.role, "content": m.content} for m in messages
+                ]
 
-            # 调用 model2 生成报告
-            report = await self.model2.final_report(
-                full_history=full_history,
-                mode=mode,
-                topic_id=topic_id,
-                topic_title=topic_title,      # 🆕 v1.4
-                topic_tags=topic_tags or [],  # 🆕 v1.4
-                trait_summary=trait_summary,
-                trait_profile=trait_profile,
-            )
+                # 🆕 v1.4: 获取话题信息（用于报告生成）
+                _, topic_title, _, topic_tags = await self._get_topic_prompt(
+                    db, session, topic_id
+                )
 
-            # 更新数据库
-            session.report_ready = True
-            session.opinion_report = report
-            await db.commit()
+                # 调用 model2 生成报告
+                report = await self.model2.final_report(
+                    full_history=full_history,
+                    mode=mode,
+                    topic_id=topic_id,
+                    topic_title=topic_title,
+                    topic_tags=topic_tags or [],
+                    trait_summary=trait_summary,
+                    trait_profile=trait_profile,
+                )
 
-        except Exception as e:
-            print(f"[ERROR] 后台报告生成失败: {e}")
-            await db.rollback()
+                # 更新数据库
+                session.report_ready = True
+                session.opinion_report = report
+                await db.commit()
+
+            except Exception as e:
+                print(f"[ERROR] 后台报告生成失败: {e}")
+                await db.rollback()
 
     # ------------------------------------------------------
     # 主流式入口
@@ -189,8 +197,8 @@ class ChatService:
         # 基于当前用户构造 DB 历史管理器
         history_mgr = DatabaseHistoryManager(db=db, user_id=user_id)
         session = await history_mgr.ensure_session(
-            session_id=session_id, 
-            mode=mode, 
+            session_id=session_id,
+            mode=mode,
             topic_id=topic_id
         )
 
@@ -213,7 +221,7 @@ class ChatService:
             topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
             if topic and topic.updated_at > session.topic_version:
                 yield {"type": "topic_updated", "content": "该话题已被作者更新，是否要使用新版本？"}
-                # 前端展示通知，用户确认后调用一个刷新快照的接口 
+                # 前端展示通知，用户确认后调用一个刷新快照的接口
         """
 
         # 当前用户长期特质
@@ -265,7 +273,7 @@ class ChatService:
                     + "\n\n请根据话题，生成你的第一句话。"
                 )
 
-                # 🆕 先收集完整输出
+                # 先收集完整输出
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
@@ -273,9 +281,9 @@ class ChatService:
                 ):
                     assistant_text += chunk
 
-                # 🆕 清洗后再流式输出
+                # 清洗后再流式输出
                 visible_text = strip_control_markers(assistant_text)
-                
+
                 # 逐字符流式输出
                 for char in visible_text:
                     yield {"type": "token", "content": char}
@@ -301,8 +309,8 @@ class ChatService:
                     user_input=user_input,
                     mode=1,
                     topic_id=topic_id,
-                    topic_title=topic_title,      # 🆕 v1.4
-                    topic_tags=topic_tags or [],  # 🆕 v1.4
+                    topic_title=topic_title,
+                    topic_tags=topic_tags or [],
                     trait_summary=trait_summary,
                     trait_profile=trait_profile,
                 )
@@ -311,12 +319,12 @@ class ChatService:
 
                 # 如果报告就绪，触发后台生成任务
                 if report_ready:
+                    # ✅ 修复：去掉 db=db，改由 _generate_report_background 自建 session
                     asyncio.create_task(
                         self._generate_report_background(
                             session_id=session_id,
                             mode=mode,
                             topic_id=topic_id,
-                            db=db,
                             trait_summary=trait_summary,
                             trait_profile=trait_profile,
                         )
@@ -331,7 +339,7 @@ class ChatService:
                     + user_input
                 )
 
-                # 🆕 先收集完整输出
+                # 先收集完整输出
                 async for chunk in self.llm.chat_stream(
                     system_prompt=system_prompt,
                     user_prompt=final_prompt,
@@ -339,9 +347,9 @@ class ChatService:
                 ):
                     assistant_text += chunk
 
-                # 🆕 清洗后再流式输出
+                # 清洗后再流式输出
                 visible_text = strip_control_markers(assistant_text)
-                
+
                 # 逐字符流式输出
                 for char in visible_text:
                     yield {"type": "token", "content": char}
@@ -368,8 +376,8 @@ class ChatService:
                 user_input=user_input,
                 mode=2,
                 topic_id=None,
-                topic_title=None,      # 🆕 v1.4
-                topic_tags=[],         # 🆕 v1.4
+                topic_title=None,
+                topic_tags=[],
                 trait_summary=trait_summary,
                 trait_profile=trait_profile,
             )
@@ -378,12 +386,12 @@ class ChatService:
 
             # 如果报告就绪，触发后台生成任务
             if report_ready:
+                # ✅ 修复：去掉 db=db，改由 _generate_report_background 自建 session
                 asyncio.create_task(
                     self._generate_report_background(
                         session_id=session_id,
                         mode=mode,
                         topic_id=None,
-                        db=db,
                         trait_summary=trait_summary,
                         trait_profile=trait_profile,
                     )
@@ -404,7 +412,7 @@ class ChatService:
             )
 
             assistant_text = ""
-            # 🆕 先收集完整输出
+            # 先收集完整输出
             async for chunk in self.llm.chat_stream(
                 system_prompt=system_prompt,
                 user_prompt=final_prompt,
@@ -412,9 +420,9 @@ class ChatService:
             ):
                 assistant_text += chunk
 
-            # 🆕 清洗后再流式输出
+            # 清洗后再流式输出
             visible_text = strip_control_markers(assistant_text)
-            
+
             # 逐字符流式输出
             for char in visible_text:
                 yield {"type": "token", "content": char}
@@ -441,7 +449,7 @@ class ChatService:
         return "\n".join(lines).strip()
 
     # =======================================================
-    # 收尾逻辑：summary + traits（不再生成 report）
+    # 收尾逻辑：summary + traits
     # =======================================================
     async def _handle_final_outputs(
         self,
@@ -498,7 +506,7 @@ class ChatService:
             profile.full_report = new_full_report
 
         await db.commit()
-        
+
         # 5. 标记 session 完成
         session = await db.execute(select(Session).where(Session.id == session_id))
         session = session.scalar_one_or_none()

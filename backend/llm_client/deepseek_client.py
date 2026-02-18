@@ -60,8 +60,8 @@ class DeepSeekClient(LLMClient):
                     decoded = line.decode("utf-8")
 
                     if decoded.strip().startswith("data: "):
-                        data = decoded[6:]
-                        if data == "[DONE]":
+                        data = decoded.strip()[6:]
+                        if data.strip() == "[DONE]":
                             break
 
                         try:

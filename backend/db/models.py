@@ -429,8 +429,8 @@ class Session(Base):
     
     # 话题快照
     topic_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None, comment="话题提示词快照（用于model1），即使话题删除也能继续对话")
-    topic_title: Mapped[Optional[str]] = mapped_column(String(200), nullable=False, default=None)
-    topic_tags_snapshot: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default=None)
+    topic_title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, default=None)
+    topic_tags_snapshot: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     topic_version: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
     is_completed: Mapped[bool] = mapped_column(
