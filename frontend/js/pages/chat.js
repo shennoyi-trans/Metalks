@@ -167,8 +167,14 @@ function initEventListeners() {
         });
     });
 
-    els.topicSelectorMini.addEventListener('click', () => showModal(els.topicOverlay));
-    els.newChatBtn.addEventListener('click', () => showModal(els.topicOverlay));
+    els.topicSelectorMini.addEventListener('click', () => {
+        showModal(els.topicOverlay);
+        loadRecommendedTopics();
+    });
+    els.newChatBtn.addEventListener('click', () => {
+        showModal(els.topicOverlay));
+        loadRecommendedTopics();
+    });
     els.casualChatBtn.addEventListener('click', () => handleTopicChange(null, null, null, true));
 
     // 聊天交互
@@ -311,8 +317,6 @@ async function executeTopicChange(topicId, topicName, topicTag, isCasual = false
     hideModal(els.topicOverlay);
     els.chatInput.value = '';
 
-    startReportPolling(state.currentSessionId);
-
     if (!isCasual) {
         showThinking();
         try {
@@ -395,12 +399,15 @@ async function sendMessageToAPI(message, isFirst = false) {
                     addMessage('ai', `⚠️ ${msg}`);
                     console.error('[SSE Error]', code, msg);
                 },
-                onQuit() {
-                    handleUserWantQuit();
-                },
                 onEmptyStream() {
                     hideThinking();
                     addMessage('ai', '⚠️ 连接异常，请重试。');
+                },
+                onQuit() {
+                    handleUserWantQuit();
+                },
+                onReportGenerating() {
+                    startReportPolling(state.currentSessionId);
                 },
             },
             state.streamController.signal

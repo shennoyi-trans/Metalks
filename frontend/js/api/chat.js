@@ -40,6 +40,7 @@ export async function stream(payload, callbacks, signal) {
         onError = () => {},
         onQuit = () => {},
         onEmptyStream = () => {},
+        onReportGenerating = () => {}, 
     } = callbacks;
 
     // 1. 发起请求，拿到原始 Response
@@ -94,6 +95,11 @@ export async function stream(payload, callbacks, signal) {
 
                 if (event.type === 'user_want_quit') {
                     onQuit();
+                    continue;
+                }
+
+                if (event.type === 'report_generating') {
+                    onReportGenerating();
                     continue;
                 }
 
