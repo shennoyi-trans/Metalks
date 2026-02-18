@@ -257,7 +257,7 @@ class ChatService:
                 raise ValueError(f"话题 ID {topic_id} 不存在或未找到提示词")
 
             # 加载 model1 基础 prompt
-            base_model1 = load_prompt("model1/base.txt")
+            base_model1 = load_prompt("model1/system.txt")
             system_prompt = base_model1 + "\n\n" + topic_prompt
 
             assistant_text = ""
@@ -266,7 +266,7 @@ class ChatService:
             # 首轮：机器人先主动说话
             # --------------------------
             if is_first:
-                first_prompt = load_prompt("model1/mode1_first.txt")
+                first_prompt = load_prompt("model1/mode1_intro.txt")
                 final_prompt = (
                     "# 内部提示（用户不可见）：\n"
                     + first_prompt

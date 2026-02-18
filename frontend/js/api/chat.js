@@ -85,6 +85,9 @@ export async function stream(payload, callbacks, signal) {
                 // ---- 按 event.type 分发 ----
 
                 if (event.type === 'error') {
+                    if (event.error_id) {
+                        console.error('[SSE Error ID]', event.error_id, '← 用这个在后台日志里搜');
+                    }
                     onError(event.error_code || 'UNKNOWN', event.content || '未知错误');
                     return fullContent;
                 }

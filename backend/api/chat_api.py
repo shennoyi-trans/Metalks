@@ -3,6 +3,7 @@
 import json
 import logging
 import traceback
+import uuid
 
 from fastapi import APIRouter, Depends, Body
 from fastapi.responses import StreamingResponse
@@ -78,14 +79,17 @@ def create_chat_router(chat_service: ChatService):
 
             except Exception as e:
                 # 未预期的服务器错误
+                error_id = str(uuid.uuid4())[:8]   # 短 ID，方便查日志
                 traceback.print_exc()
                 logger.error(
-                    "SSE stream failed",
+                    "SSE stream failed [error_id=%s]",
+                    error_id,
                     extra={
                         "session_id": session_id,
                         "user_id": user_id,
                         "mode": mode,
                         "topic_id": topic_id,
+                        "error_id": error_id,
                         "error_type": type(e).__name__,
                         "error_msg": str(e),
                     },
@@ -94,6 +98,7 @@ def create_chat_router(chat_service: ChatService):
                 error_event = {
                     "type": "error",
                     "error_code": "SERVER_ERROR",
+                    "error_id": error_id,          # 新增，前端可打印出来
                     "content": "服务器内部错误，请稍后重试",
                 }
                 yield "data: " + json.dumps(error_event, ensure_ascii=False) + "\n\n"
