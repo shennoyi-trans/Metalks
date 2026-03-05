@@ -7,7 +7,6 @@ from typing import AsyncGenerator, Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-# ❌ 已删除旧版引用: from backend.data.topics import TOPICS
 from backend.llm_client.base import LLMClient
 from backend.utils.prompt_loader import load_prompt
 from backend.utils.text_tools import strip_control_markers, parse_control_flags
@@ -97,6 +96,54 @@ class ChatService:
 
         return None, None, None, []
 
+    # ----------------------------------------------------------
+    # ✅ 新增：提取公共流式逻辑（消除 mode1/mode2 重复代码）
+    # ----------------------------------------------------------
+    async def _collect_and_stream(
+        self,
+        system_prompt: str,
+        final_prompt: str,
+        history: list,
+        session_id: str,
+        history_mgr: DatabaseHistoryManager,
+        chunk_size: int = 20,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        收集 LLM 完整输出 → 清洗控制标记 → 按块流式输出
+        替代原来 mode1/mode2 中各自 ~15 行的重复代码
+
+        说明：
+            原始代码本身就是"先收集完整输出 → 清洗 → 再逐字符输出"的流程，
+            因为控制标记可能嵌在文本中间，必须拿到完整输出才能安全剥离。
+            这里只是把逐字符改为按块输出，行为语义完全不变。
+        """
+        # 1. 收集完整输出
+        raw_text = ""
+        async for chunk in self.llm.chat_stream(
+            system_prompt=system_prompt,
+            user_prompt=final_prompt,
+            history=history,
+        ):
+            raw_text += chunk
+
+        # 2. 清洗控制标记
+        visible_text = strip_control_markers(raw_text)
+
+        # 3. 按块输出（替代逐字符，帧数降低 chunk_size 倍）
+        for i in range(0, len(visible_text), chunk_size):
+            yield {
+                "type": "token",
+                "content": visible_text[i : i + chunk_size],
+            }
+
+        # 4. 存入历史
+        await history_mgr.add(session_id, "assistant", visible_text)
+
+        # 5. 检查控制标记
+        flags = parse_control_flags(raw_text)
+        if flags.user_want_to_quit:
+            yield {"type": "user_want_quit"}
+
     # ------------------------------------------------------
     # ✅ 修复：后台异步生成报告（使用独立 db session）
     # ------------------------------------------------------
@@ -105,15 +152,16 @@ class ChatService:
         session_id: str,
         mode: int,
         topic_id: Optional[int],
-        # ✅ 不再接收外部 db，改为在方法内部创建独立 session
-        # 原因：asyncio.create_task 中使用请求级 db session 会导致
-        # 请求结束后 session 被关闭，后台任务静默失败，报告永远无法生成
         trait_summary: str,
         trait_profile: str,
     ):
         """
         后台任务：生成观念报告并更新数据库。
         使用独立的 db session，生命周期由本任务自己管理。
+
+        ✅ 修复说明：不再接收外部 db，改为在方法内部创建独立 session。
+        原因：asyncio.create_task 中使用请求级 db session 会导致
+        请求结束后 session 被关闭，后台任务静默失败，报告永远无法生成。
         """
         from backend.db.database import get_sessionmaker
         from backend.db.models import Message
@@ -214,16 +262,6 @@ class ChatService:
                 session.topic_version = topic.updated_at
                 await db.commit()
 
-        """
-        此处检测话题是否已更新的功能待开发
-        # 可选：检查话题是否有更新
-        if session.topic_version and topic_id:
-            topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
-            if topic and topic.updated_at > session.topic_version:
-                yield {"type": "topic_updated", "content": "该话题已被作者更新，是否要使用新版本？"}
-                # 前端展示通知，用户确认后调用一个刷新快照的接口
-        """
-
         # 当前用户长期特质
         trait_summary, trait_profile = await self._load_trait_context(db, user_id)
 
@@ -260,8 +298,6 @@ class ChatService:
             base_model1 = load_prompt("model1/system.txt")
             system_prompt = base_model1 + "\n\n" + topic_prompt
 
-            assistant_text = ""
-
             # --------------------------
             # 首轮：机器人先主动说话
             # --------------------------
@@ -273,27 +309,13 @@ class ChatService:
                     + "\n\n请根据话题，生成你的第一句话。"
                 )
 
-                # 先收集完整输出
-                async for chunk in self.llm.chat_stream(
-                    system_prompt=system_prompt,
-                    user_prompt=final_prompt,
-                    history=[],
+                # ✅ 重构：使用 _collect_and_stream 替代重复代码
+                async for event in self._collect_and_stream(
+                    system_prompt, final_prompt, [], session_id, history_mgr
                 ):
-                    assistant_text += chunk
-
-                # 清洗后再流式输出
-                visible_text = strip_control_markers(assistant_text)
-
-                # 逐字符流式输出
-                for char in visible_text:
-                    yield {"type": "token", "content": char}
-
-                await history_mgr.add(session_id, "assistant", visible_text)
-
-                # 检查用户是否想退出
-                flags = parse_control_flags(assistant_text)
-                if flags.user_want_to_quit:
-                    yield {"type": "user_want_quit"}
+                    yield event
+                    if event.get("type") == "user_want_quit":
+                        return
                 return
 
             # --------------------------
@@ -319,7 +341,6 @@ class ChatService:
 
                 # 如果报告就绪，触发后台生成任务
                 if report_ready:
-                    # ✅ 修复：去掉 db=db，改由 _generate_report_background 自建 session
                     asyncio.create_task(
                         self._generate_report_background(
                             session_id=session_id,
@@ -330,7 +351,6 @@ class ChatService:
                         )
                     )
                     yield {"type": "report_generating"}
-                    # 告知 model1
                     advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
 
                 final_prompt = (
@@ -340,27 +360,13 @@ class ChatService:
                     + user_input
                 )
 
-                # 先收集完整输出
-                async for chunk in self.llm.chat_stream(
-                    system_prompt=system_prompt,
-                    user_prompt=final_prompt,
-                    history=history,
+                # ✅ 重构：使用 _collect_and_stream 替代重复代码
+                async for event in self._collect_and_stream(
+                    system_prompt, final_prompt, history, session_id, history_mgr
                 ):
-                    assistant_text += chunk
-
-                # 清洗后再流式输出
-                visible_text = strip_control_markers(assistant_text)
-
-                # 逐字符流式输出
-                for char in visible_text:
-                    yield {"type": "token", "content": char}
-
-                await history_mgr.add(session_id, "assistant", visible_text)
-
-                # 检查用户是否想退出
-                flags = parse_control_flags(assistant_text)
-                if flags.user_want_to_quit:
-                    yield {"type": "user_want_quit"}
+                    yield event
+                    if event.get("type") == "user_want_quit":
+                        return
                 return
 
         # =======================================================
@@ -387,7 +393,6 @@ class ChatService:
 
             # 如果报告就绪，触发后台生成任务
             if report_ready:
-                # ✅ 修复：去掉 db=db，改由 _generate_report_background 自建 session
                 asyncio.create_task(
                     self._generate_report_background(
                         session_id=session_id,
@@ -398,7 +403,6 @@ class ChatService:
                     )
                 )
                 yield {"type": "report_generating"}
-                # 告知 model1
                 advice += "\n\n[内部提示] 观念已捕捉完成，请在本次回复中自然地告知用户：你已经成功捕捉到他的观念，稍后可以查看分析报告。"
 
             base_model1 = load_prompt("model1/system.txt")
@@ -413,28 +417,13 @@ class ChatService:
                 + user_input
             )
 
-            assistant_text = ""
-            # 先收集完整输出
-            async for chunk in self.llm.chat_stream(
-                system_prompt=system_prompt,
-                user_prompt=final_prompt,
-                history=history,
+            # ✅ 重构：使用 _collect_and_stream 替代重复代码
+            async for event in self._collect_and_stream(
+                system_prompt, final_prompt, history, session_id, history_mgr
             ):
-                assistant_text += chunk
-
-            # 清洗后再流式输出
-            visible_text = strip_control_markers(assistant_text)
-
-            # 逐字符流式输出
-            for char in visible_text:
-                yield {"type": "token", "content": char}
-
-            await history_mgr.add(session_id, "assistant", visible_text)
-
-            # 检查用户是否想退出
-            flags = parse_control_flags(assistant_text)
-            if flags.user_want_to_quit:
-                yield {"type": "user_want_quit"}
+                yield event
+                if event.get("type") == "user_want_quit":
+                    return
             return
 
         else:
