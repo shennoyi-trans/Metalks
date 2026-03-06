@@ -58,7 +58,13 @@ export const SessionsPage = {
     const deleteTarget = ref(null);
 
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
-    function goSession(s) { const id = s.session_id || s.id; router.push(`/chat/${id}`); }
+    function goSession(s) {
+      const id = s.session_id || s.id;
+      const query = {};
+      if (s.mode) query.mode = s.mode;
+      if (s.topic_title) query.topicName = s.topic_title;
+      router.push({ path: `/chat/${id}`, query });
+    }
     function confirmDelete(s) { deleteTarget.value = s; showDeleteConfirm.value = true; }
 
     async function doDelete() {

@@ -62,13 +62,15 @@ export const ReportPage = {
         } else {
           loading.value = false;
           pollTimer = setInterval(async () => {
-            const s = await api.sessions.reportStatus(sid);
-            if (s.ready) {
-              clearInterval(pollTimer);
-              const r = await api.sessions.report(sid);
-              reportContent.value = r.report;
-              ready.value = true;
-            }
+            try {
+              const s = await api.sessions.reportStatus(sid);
+              if (s.ready) {
+                clearInterval(pollTimer);
+                const r = await api.sessions.report(sid);
+                reportContent.value = r.report;
+                ready.value = true;
+              }
+            } catch (e) {}
           }, 3000);
         }
       } catch (e) { loading.value = false; }

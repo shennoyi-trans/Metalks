@@ -40,7 +40,9 @@ export const ProfilePage = {
           <p style="font-size:12px;color:var(--orange);margin-bottom:16px">修改昵称将消耗电解液</p>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-ghost" @click="showNickname=false">取消</button>
-            <button class="btn btn-primary" @click="doChangeNickname" :disabled="!nickAvail">确认修改</button>
+            <button class="btn btn-primary" @click="doChangeNickname" :disabled="!nickAvail || nickLoading">
+              {{ nickLoading ? '修改中...' : '确认修改' }}
+            </button>
           </div>
         </div>
       </div>
@@ -59,18 +61,20 @@ export const ProfilePage = {
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-ghost" @click="showPassword=false">取消</button>
-            <button class="btn btn-primary" @click="doChangePw">确认修改</button>
+            <button class="btn btn-primary" @click="doChangePw" :disabled="pwLoading || !oldPw || !newPw || newPw.length<6">
+              {{ pwLoading ? '修改中...' : '确认修改' }}
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- 退出确认 Modal -->
+      <!-- 退出登录确认 Modal -->
       <div v-if="showLogout" class="modal-overlay" @click.self="showLogout=false">
         <div class="modal-card" style="text-align:center">
           <h3 class="modal-title">确认退出登录？</h3>
-          <div style="display:flex;gap:8px;justify-content:center">
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
             <button class="btn btn-ghost" @click="showLogout=false">取消</button>
-            <button class="btn btn-primary" style="background:var(--error)" @click="api.auth.logout()">确认退出</button>
+            <button class="btn btn-primary" style="background:var(--error)" @click="doLogout">确认退出</button>
           </div>
         </div>
       </div>
@@ -78,59 +82,84 @@ export const ProfilePage = {
   `,
 
   setup() {
-    const user = useUser();
     const toast = useToast();
+    const user = useUser();
 
     const showNickname = ref(false);
     const showPassword = ref(false);
     const showLogout = ref(false);
+
+    // 昵称相关
     const newNickname = ref('');
-    const nickAvail = ref(false);
     const nickMsg = ref('');
-    const oldPw = ref('');
-    const newPw = ref('');
+    const nickAvail = ref(false);
+    const nickLoading = ref(false);
     let nickTimer = null;
 
     function checkNick() {
-      clearTimeout(nickTimer);
       nickMsg.value = '';
       nickAvail.value = false;
-      if (!newNickname.value) return;
+      clearTimeout(nickTimer);
+      if (!newNickname.value.trim()) return;
       nickTimer = setTimeout(async () => {
         try {
-          const r = await api.user.checkNickname(newNickname.value);
-          nickAvail.value = r.available;
-          nickMsg.value = r.message;
-        } catch (e) { nickMsg.value = '检查失败'; }
+          const res = await api.user.checkNickname(newNickname.value.trim());
+          nickAvail.value = res.available;
+          nickMsg.value = res.message || (res.available ? '昵称可用' : '昵称不可用');
+        } catch (e) {
+          nickMsg.value = '检查失败';
+        }
       }, 500);
     }
 
     async function doChangeNickname() {
+      if (!nickAvail.value) return;
+      nickLoading.value = true;
       try {
-        await api.user.changeNickname(newNickname.value);
+        await api.user.changeNickname(newNickname.value.trim());
         toast.success('昵称修改成功');
         showNickname.value = false;
-        user.fetchProfile();
-      } catch (e) { toast.error(e.message); }
+        newNickname.value = '';
+        nickMsg.value = '';
+        await user.fetchProfile();
+      } catch (e) {
+        toast.error(e.message || '修改失败');
+      }
+      nickLoading.value = false;
     }
 
+    // 密码相关
+    const oldPw = ref('');
+    const newPw = ref('');
+    const pwLoading = ref(false);
+
     async function doChangePw() {
-      if (newPw.value.length < 6) { toast.error('新密码至少6位'); return; }
+      if (!oldPw.value || !newPw.value || newPw.value.length < 6) return;
+      pwLoading.value = true;
       try {
         await api.user.changePassword(oldPw.value, newPw.value);
         toast.success('密码修改成功');
         showPassword.value = false;
         oldPw.value = '';
         newPw.value = '';
-      } catch (e) { toast.error(e.message); }
+      } catch (e) {
+        toast.error(e.message || '修改失败');
+      }
+      pwLoading.value = false;
     }
 
-    onMounted(() => { user.fetchProfile(); });
+    function doLogout() {
+      api.auth.logout();
+    }
+
+    onMounted(() => {
+      user.fetchProfile();
+    });
 
     return {
-      user, api, showNickname, showPassword, showLogout,
-      newNickname, nickAvail, nickMsg, oldPw, newPw,
-      checkNick, doChangeNickname, doChangePw,
+      user, showNickname, showPassword, showLogout,
+      newNickname, nickMsg, nickAvail, nickLoading, checkNick, doChangeNickname,
+      oldPw, newPw, pwLoading, doChangePw, doLogout,
     };
   }
 };

@@ -77,48 +77,76 @@ export const AuthPage = {
     const regLoading = ref(false);
     const emailError = ref('');
 
-    async function checkEmailAvail() {
-      if (!regForm.email) return;
-      try {
-        const res = await api.auth.checkEmail(regForm.email);
-        emailError.value = res.available ? '' : res.message;
-      } catch (e) { emailError.value = ''; }
-    }
-
     async function handleLogin() {
-      if (!loginForm.email || !loginForm.password) { toast.error('请填写邮箱和密码'); return; }
-      loginLoading.value = true;
-      const res = await api.auth.login(loginForm.email, loginForm.password);
-      loginLoading.value = false;
-      if (res.success) {
-        await user.fetchProfile();
-        if (res.data?.checkin && !res.data.checkin.already_checked) {
-          toast.success('每日签到 +1⚡');
-        }
-        router.push('/');
-      } else {
-        toast.error(res.error);
+      if (!loginForm.email || !loginForm.password) {
+        toast.error('请填写邮箱和密码');
+        return;
       }
+      loginLoading.value = true;
+      try {
+        const res = await api.auth.login(loginForm.email, loginForm.password);
+        if (res.success) {
+          // 签到提示
+          if (res.data?.checkin && !res.data.checkin.already_checked) {
+            toast.success('每日签到 +1⚡');
+          }
+          await user.fetchProfile();
+          router.push('/');
+        } else {
+          toast.error(res.error || '登录失败');
+        }
+      } catch (e) {
+        toast.error('登录失败：' + e.message);
+      }
+      loginLoading.value = false;
     }
 
     async function handleRegister() {
-      if (!regForm.email || !regForm.password) { toast.error('请填写邮箱和密码'); return; }
-      if (regForm.password.length < 6) { toast.error('密码至少6位'); return; }
+      if (!regForm.email || !regForm.password) {
+        toast.error('请填写邮箱和密码');
+        return;
+      }
+      if (regForm.password.length < 6) {
+        toast.error('密码至少需要6位');
+        return;
+      }
+      if (emailError.value) {
+        toast.error('请使用可用的邮箱');
+        return;
+      }
       regLoading.value = true;
-      const res = await api.auth.register(regForm.email, regForm.password, regForm.nickname || undefined);
+      try {
+        const res = await api.auth.register(regForm.email, regForm.password, regForm.nickname || undefined);
+        if (res.success) {
+          toast.success('注册成功，请登录');
+          tab.value = 'login';
+          loginForm.email = regForm.email;
+          loginForm.password = '';
+          regForm.email = '';
+          regForm.password = '';
+          regForm.nickname = '';
+        } else {
+          toast.error(res.error || '注册失败');
+        }
+      } catch (e) {
+        toast.error('注册失败：' + e.message);
+      }
       regLoading.value = false;
-      if (res.success) {
-        toast.success('注册成功，请登录');
-        tab.value = 'login';
-        loginForm.email = regForm.email;
-      } else {
-        toast.error(res.error);
+    }
+
+    async function checkEmailAvail() {
+      if (!regForm.email) { emailError.value = ''; return; }
+      try {
+        const res = await api.auth.checkEmail(regForm.email);
+        emailError.value = res.available ? '' : (res.message || '该邮箱已被注册');
+      } catch (e) {
+        emailError.value = '';
       }
     }
 
     return {
-      tab, loginForm, regForm, loginLoading, regLoading,
-      emailError, checkEmailAvail, handleLogin, handleRegister,
+      tab, loginForm, regForm, loginLoading, regLoading, emailError,
+      handleLogin, handleRegister, checkEmailAvail,
     };
   }
 };

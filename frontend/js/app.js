@@ -1,10 +1,5 @@
 /**
  * Metalks — 应用主入口
- *
- * 职责：
- *  1. 导入所有页面组件
- *  2. 配置 Vue Router + 路由守卫
- *  3. 创建并挂载 Vue 应用
  */
 
 import api from './api/index.js';

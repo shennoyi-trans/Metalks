@@ -6,7 +6,6 @@ import api from '../api/index.js';
 
 const { reactive } = Vue;
 
-/** 响应式用户状态 */
 const state = reactive({
   isLoggedIn: false,
   userId: null,
@@ -16,7 +15,6 @@ const state = reactive({
   isPlus: false,
 });
 
-/** 用户操作方法 */
 const actions = {
   async fetchProfile() {
     try {
@@ -36,7 +34,7 @@ const actions = {
     try {
       const d = await api.user.getElectrolyte();
       state.electrolyteBalance = d.balance;
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   },
 
   clear() {
@@ -49,10 +47,6 @@ const actions = {
   },
 };
 
-/**
- * Composable hook — 返回 reactive state + actions
- * 模板中直接用 user.nickname, user.fetchProfile() 等
- */
 export function useUser() {
   return Object.assign(state, actions);
 }

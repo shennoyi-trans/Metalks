@@ -32,7 +32,7 @@ export const AppLayout = {
               <button class="dropdown-item" @click="go('/topic/mine')">我的话题</button>
               <button class="dropdown-item" @click="go('/sessions')">我的对话</button>
               <button class="dropdown-item" @click="go('/traits')">特质画像</button>
-              <button class="dropdown-item danger" @click="api.auth.logout()">退出登录</button>
+              <button class="dropdown-item danger" @click="doLogout">退出登录</button>
             </div>
           </div>
         </div>
@@ -73,6 +73,14 @@ export const AppLayout = {
     function endChatFromNav() {
       window.dispatchEvent(new CustomEvent('force-end-chat'));
     }
+    function doLogout() {
+      showMenu.value = false;
+      api.auth.logout();
+    }
+
+    // 监听对话完成状态
+    function onChatCompleted() { chatCompleted.value = true; }
+    function onChatStarted() { chatCompleted.value = false; }
 
     // 点击外部关闭菜单
     function closeMenu() {
@@ -81,13 +89,19 @@ export const AppLayout = {
 
     onMounted(() => {
       document.addEventListener('click', closeMenu);
+      window.addEventListener('chat-completed', onChatCompleted);
+      window.addEventListener('chat-started', onChatStarted);
       user.fetchProfile();
     });
-    onUnmounted(() => document.removeEventListener('click', closeMenu));
+    onUnmounted(() => {
+      document.removeEventListener('click', closeMenu);
+      window.removeEventListener('chat-completed', onChatCompleted);
+      window.removeEventListener('chat-started', onChatStarted);
+    });
 
     return {
       user, api, showNavbar, isChatPage, chatTitle, chatCompleted,
-      showMenu, go, startFreeChat, endChatFromNav,
+      showMenu, go, startFreeChat, endChatFromNav, doLogout,
     };
   }
 };

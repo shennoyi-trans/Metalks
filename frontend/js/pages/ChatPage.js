@@ -13,9 +13,9 @@ const { useRoute, useRouter } = VueRouter;
 export const ChatPage = {
   template: `
     <div class="chat-container">
-      <div class="chat-messages" ref="messagesEl">
+      <div class="chat-messages" ref="messagesEl" @scroll="handleScroll">
         <!-- Mode2 空状态 -->
-        <div v-if="!messages.length && mode==2" class="empty-state" style="padding:40px 0">
+        <div v-if="!messages.length && mode==2 && !isStreaming" class="empty-state" style="padding:40px 0">
           <div class="empty-icon">💬</div>
           <p>随便聊点什么吧...</p>
         </div>
@@ -24,13 +24,11 @@ export const ChatPage = {
           <div :class="['msg-row', m.role]">
             <div class="msg-bubble">
               <!-- 流式输出中：纯文本 -->
-              <div v-if="m.role==='assistant' && m===currentAiMsg && isStreaming" v-text="m.content"></div>
+              <div v-if="m.role==='assistant' && m===currentAiMsg && isStreaming" style="white-space:pre-wrap">{{ m.content }}<span v-if="!m.content" class="typing-dots"><span></span><span></span><span></span></span></div>
               <!-- 已完成：Markdown渲染 -->
               <div v-else-if="m.role!=='system'" class="markdown-body" v-html="renderMd(m.content)"></div>
               <!-- 系统消息 -->
               <div v-else>{{ m.content }}</div>
-              <!-- 打字动画 -->
-              <div v-if="m===currentAiMsg && isStreaming && !m.content" class="typing-dots"><span></span><span></span><span></span></div>
             </div>
           </div>
           <!-- 退出确认条 -->
@@ -55,7 +53,10 @@ export const ChatPage = {
         <div class="chat-input-wrap">
           <textarea v-model="inputText" rows="1" placeholder="输入你的想法..."
             @keydown="handleKeydown" ref="inputEl" :disabled="isCompleted"></textarea>
-          <button class="chat-send-btn" @click="sendMessage" :disabled="!canSend">
+          <button v-if="isStreaming" class="chat-send-btn stop-btn" @click="stopGeneration" title="停止生成">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button v-else class="chat-send-btn" @click="sendMessage" :disabled="!canSend">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
           </button>
         </div>
@@ -84,7 +85,10 @@ export const ChatPage = {
     const messagesEl = ref(null);
     const inputEl = ref(null);
     const abortController = ref(null);
-    const topicName = ref(mode.value === 2 ? '随便聊聊' : '话题对话');
+    const topicName = ref(route.query.topicName || (mode.value === 2 ? '随便聊聊' : '话题对话'));
+
+    // 自动滚动控制
+    let userScrolledUp = false;
 
     // ---------- 伪逐字输出 ----------
     let outputQueue = [];
@@ -100,7 +104,7 @@ export const ChatPage = {
         }
         const chars = outputQueue.splice(0, 3).join('');
         msgObj.content += chars;
-        scrollToBottom();
+        autoScroll();
       }, 40);
     }
 
@@ -109,10 +113,25 @@ export const ChatPage = {
       if (outputQueue.length) { msgObj.content += outputQueue.join(''); outputQueue = []; }
     }
 
-    function scrollToBottom() {
+    function autoScroll() {
+      if (userScrolledUp) return;
       nextTick(() => {
         if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight;
       });
+    }
+
+    function scrollToBottom() {
+      userScrolledUp = false;
+      nextTick(() => {
+        if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight;
+      });
+    }
+
+    function handleScroll() {
+      if (!messagesEl.value) return;
+      const el = messagesEl.value;
+      const threshold = 100;
+      userScrolledUp = (el.scrollHeight - el.scrollTop - el.clientHeight) > threshold;
     }
 
     function renderMd(text) { return renderMarkdown(text); }
@@ -126,7 +145,11 @@ export const ChatPage = {
       inputText.value = '';
       messages.value.push({ role: 'user', content: text });
       scrollToBottom();
-      await doStream(text, false);
+
+      // 判断是否是首轮消息（mode2 第一次发送）
+      const isFirstMsg = isFirst.value && messages.value.filter(m => m.role === 'user').length === 1;
+      await doStream(text, isFirstMsg);
+      isFirst.value = false;
     }
 
     // ---------- 流式请求 ----------
@@ -136,7 +159,7 @@ export const ChatPage = {
       messages.value.push(aiMsg);
       currentAiMsg.value = aiMsg;
       outputQueue = [];
-      scrollToBottom();
+      autoScroll();
 
       abortController.value = new AbortController();
       const payload = { mode: mode.value, session_id: sessionId, message: message || '', is_first: first };
@@ -156,6 +179,7 @@ export const ChatPage = {
             summary.value = event.summary || '';
             if (event.report_ready) reportReady.value = true;
             else startReportPolling();
+            window.dispatchEvent(new CustomEvent('chat-completed'));
           },
           onError(code, msg) {
             flushTypewriter(aiMsg);
@@ -180,11 +204,20 @@ export const ChatPage = {
         currentAiMsg.value = null;
       }
 
+      // 确保流结束后清理状态
       if (!isCompleted.value) {
         flushTypewriter(aiMsg);
         isStreaming.value = false;
         currentAiMsg.value = null;
       }
+    }
+
+    // ---------- 停止生成 ----------
+    function stopGeneration() {
+      if (abortController.value) abortController.value.abort();
+      if (currentAiMsg.value) flushTypewriter(currentAiMsg.value);
+      isStreaming.value = false;
+      currentAiMsg.value = null;
     }
 
     // ---------- 报告轮询 ----------
@@ -226,6 +259,7 @@ export const ChatPage = {
             summary.value = event.summary || '';
             if (event.report_ready) reportReady.value = true;
             else startReportPolling();
+            window.dispatchEvent(new CustomEvent('chat-completed'));
           },
           onError(code, msg) { flushTypewriter(aiMsg); isStreaming.value = false; currentAiMsg.value = null; toast.error(msg); },
           onQuit() {},
@@ -249,13 +283,14 @@ export const ChatPage = {
     // ---------- 初始化 ----------
     onMounted(async () => {
       window.addEventListener('force-end-chat', onForceEndEvent);
+      window.dispatchEvent(new CustomEvent('chat-started'));
 
       // 加载话题名
-      if (topicId.value) {
+      if (topicId.value && !route.query.topicName) {
         try { const t = await api.topics.detail(topicId.value); topicName.value = t.title; } catch (e) {}
       }
 
-      // 从历史进入
+      // 从历史进入（非首次）
       if (!isFirst.value && !route.query.first) {
         try {
           const detail = await api.sessions.detail(sessionId);
@@ -265,6 +300,7 @@ export const ChatPage = {
           if (detail.is_completed) {
             isCompleted.value = true;
             summary.value = detail.summary || '';
+            window.dispatchEvent(new CustomEvent('chat-completed'));
             try {
               const r = await api.sessions.reportStatus(sessionId);
               reportReady.value = r.ready;
@@ -296,6 +332,7 @@ export const ChatPage = {
       summary, reportReady, reportPolling, currentAiMsg, canSend,
       messagesEl, inputEl, topicName,
       renderMd, sendMessage, handleKeydown, forceEnd, scrollToBottom,
+      stopGeneration, handleScroll,
     };
   }
 };

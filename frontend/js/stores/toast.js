@@ -4,10 +4,8 @@
 
 const { reactive } = Vue;
 
-/** 响应式状态（直接暴露给组件使用） */
 export const toastState = reactive({ items: [] });
 
-/** Toast 操作方法 */
 export const toastActions = {
   show(msg, type = 'info') {
     const id = Date.now() + Math.random();
@@ -21,7 +19,4 @@ export const toastActions = {
   info(msg)    { this.show(msg, 'info'); },
 };
 
-/** Composable hook — 返回 actions（用于页面调用） */
-export function useToast() {
-  return toastActions;
-}
+export function useToast() { return toastActions; }

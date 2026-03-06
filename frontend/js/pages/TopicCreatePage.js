@@ -43,6 +43,9 @@ export const TopicCreatePage = {
           </div>
           <button class="btn btn-ghost btn-sm" @click="form.coauthors.push({user_id:'',share:0})">+ 添加共同作者</button>
         </div>
+        <div v-if="isEdit" style="margin-bottom:16px">
+          <p class="form-hint" style="color:var(--orange)">⚠️ 修改后话题将重新进入审核状态</p>
+        </div>
         <div style="display:flex;gap:12px;margin-top:24px">
           <button class="btn btn-primary btn-lg" @click="handleSubmit" :disabled="submitting">
             {{ submitting ? '提交中...' : (isEdit ? '保存修改' : '提交话题') }}
@@ -59,9 +62,18 @@ export const TopicCreatePage = {
     const toast = useToast();
 
     const isEdit = computed(() => !!route.query.edit);
+    const editId = computed(() => route.query.edit ? parseInt(route.query.edit) : null);
+
     const allTags = ref([]);
     const submitting = ref(false);
-    const form = reactive({ title: '', content: '', prompt: '', tag_ids: [], coauthors: [] });
+
+    const form = reactive({
+      title: '',
+      content: '',
+      prompt: '',
+      tag_ids: [],
+      coauthors: [],
+    });
 
     function toggleTag(id) {
       const idx = form.tag_ids.indexOf(id);
@@ -70,35 +82,66 @@ export const TopicCreatePage = {
     }
 
     async function handleSubmit() {
-      if (!form.title || !form.content || !form.prompt) { toast.error('请填写标题、内容和提示词'); return; }
+      if (!form.title.trim()) { toast.error('请填写标题'); return; }
+      if (!form.content.trim()) { toast.error('请填写内容'); return; }
+      if (!form.prompt.trim()) { toast.error('请填写提示词'); return; }
+
       submitting.value = true;
-      const data = { title: form.title, content: form.content, prompt: form.prompt, tag_ids: form.tag_ids };
-      if (form.coauthors.length) {
-        data.coauthors = form.coauthors.filter(c => c.user_id).map(c => ({ user_id: parseInt(c.user_id), share: c.share }));
+      const data = {
+        title: form.title.trim(),
+        content: form.content.trim(),
+        prompt: form.prompt.trim(),
+        tag_ids: form.tag_ids,
+      };
+
+      // 处理共同作者
+      const validCoauthors = form.coauthors.filter(c => c.user_id && c.share > 0);
+      if (validCoauthors.length) {
+        data.coauthors = validCoauthors.map(c => ({
+          user_id: parseInt(c.user_id),
+          share: c.share,
+        }));
       }
+
       try {
         if (isEdit.value) {
-          await api.topics.update(route.query.edit, data);
-          toast.success('修改已保存，需重新审核');
+          await api.topics.update(editId.value, data);
+          toast.success('修改成功，话题将重新审核');
         } else {
           await api.topics.create(data);
           toast.success('话题已提交，等待审核');
         }
         router.push('/topic/mine');
-      } catch (e) { toast.error(e.message); }
+      } catch (e) {
+        toast.error(e.message || '提交失败');
+      }
       submitting.value = false;
     }
 
     onMounted(async () => {
-      try { const r = await api.topics.allTags(); allTags.value = r.tags || []; } catch (e) {}
-      if (isEdit.value) {
+      // 加载标签
+      try {
+        const res = await api.topics.allTags();
+        allTags.value = res.tags || res || [];
+      } catch (e) {}
+
+      // 编辑模式：加载话题数据
+      if (isEdit.value && editId.value) {
         try {
-          const t = await api.topics.detail(route.query.edit);
-          form.title = t.title;
-          form.content = t.content;
-          form.prompt = t.prompt;
-          form.tag_ids = (t.tags || []).map(x => x.id);
-        } catch (e) {}
+          const t = await api.topics.detail(editId.value);
+          form.title = t.title || '';
+          form.content = t.content || '';
+          form.prompt = t.prompt || '';
+          form.tag_ids = (t.tags || []).map(tag => tag.id).filter(Boolean);
+          // coauthors如果有的话
+          if (t.authors) {
+            form.coauthors = t.authors
+              .filter(a => !a.is_primary)
+              .map(a => ({ user_id: a.user_id || '', share: a.share || 0 }));
+          }
+        } catch (e) {
+          toast.error('加载话题数据失败');
+        }
       }
     });
 

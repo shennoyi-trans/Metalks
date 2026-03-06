@@ -4,6 +4,7 @@
 
 import api from '../api/index.js';
 import { useToast } from '../stores/toast.js';
+import { useUser } from '../stores/user.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import { uuid } from '../utils/uuid.js';
 
@@ -40,6 +41,11 @@ export const TopicDetailPage = {
             <button class="btn btn-primary btn-lg" @click="startChat">🗣️ 开始对话</button>
           </div>
         </template>
+        <div v-else class="empty-state">
+          <div class="empty-icon">😶</div>
+          <p>话题不存在或已下架</p>
+          <button class="btn btn-primary" @click="$router.push('/')">返回广场</button>
+        </div>
       </div>
 
       <!-- 投喂 Modal -->
@@ -50,9 +56,14 @@ export const TopicDetailPage = {
             <label class="form-label">投喂数量</label>
             <input class="form-input" v-model.number="donateAmount" type="number" min="1" placeholder="输入数量">
           </div>
+          <div v-if="donateResult" style="margin-bottom:16px;padding:12px;background:var(--bg-warm);border-radius:var(--radius-md);font-size:13px">
+            <div v-for="(d,i) in donateResult" :key="i">{{ d.nickname || ('作者'+(i+1)) }} 获得 {{ d.amount }}⚡</div>
+          </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-ghost" @click="showDonate=false">取消</button>
-            <button class="btn btn-orange" @click="handleDonate" :disabled="donating">{{ donating ? '投喂中...' : '确认投喂' }}</button>
+            <button class="btn btn-ghost" @click="closeDonate">{{ donateResult ? '关闭' : '取消' }}</button>
+            <button v-if="!donateResult" class="btn btn-orange" @click="handleDonate" :disabled="donating || !donateAmount || donateAmount<1">
+              {{ donating ? '投喂中...' : '确认投喂' }}
+            </button>
           </div>
         </div>
       </div>
@@ -63,60 +74,67 @@ export const TopicDetailPage = {
     const route = useRoute();
     const router = useRouter();
     const toast = useToast();
+    const user = useUser();
+    const topicId = parseInt(route.params.id);
 
     const loading = ref(true);
     const topic = ref(null);
     const showDonate = ref(false);
-    const donateAmount = ref(1);
+    const donateAmount = ref(null);
     const donating = ref(false);
+    const donateResult = ref(null);
 
-    function formatTime(t) {
-      if (!t) return '';
-      return new Date(t).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-    }
     function renderMd(text) { return renderMarkdown(text); }
-
-    async function loadTopic() {
-      loading.value = true;
-      try { topic.value = await api.topics.detail(route.params.id); }
-      catch (e) { toast.error('话题不存在'); router.push('/'); }
-      loading.value = false;
-    }
+    function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
     async function toggleLike() {
       try {
-        const res = await api.topics.toggleLike(route.params.id);
+        const res = await api.topics.toggleLike(topicId);
         topic.value.has_liked = res.liked;
         topic.value.likes_count = res.likes_count;
-      } catch (e) { toast.error('操作失败'); }
+      } catch (e) {
+        toast.error(e.message || '操作失败');
+      }
     }
 
     async function handleDonate() {
-      if (!donateAmount.value || donateAmount.value < 1) { toast.error('请输入有效数量'); return; }
+      if (!donateAmount.value || donateAmount.value < 1) return;
       donating.value = true;
       try {
-        const res = await api.topics.donate(route.params.id, donateAmount.value);
+        const res = await api.topics.donate(topicId, donateAmount.value);
         toast.success('投喂成功！');
-        showDonate.value = false;
-        if (res.distribution) {
-          const detail = res.distribution.map(d => `${d.nickname}获得${d.amount}⚡`).join('，');
-          toast.info(detail);
-        }
-        topic.value.electrolyte_received = res.electrolyte_received || topic.value.electrolyte_received + donateAmount.value;
-      } catch (e) { toast.error(e.message || '投喂失败'); }
+        topic.value.electrolyte_received = res.electrolyte_received || (topic.value.electrolyte_received + donateAmount.value);
+        donateResult.value = res.distribution || null;
+        user.refreshElectrolyte();
+      } catch (e) {
+        toast.error(e.message || '投喂失败');
+      }
       donating.value = false;
+    }
+
+    function closeDonate() {
+      showDonate.value = false;
+      donateAmount.value = null;
+      donateResult.value = null;
     }
 
     function startChat() {
       const sessionId = uuid();
-      router.push({ path: `/chat/${sessionId}`, query: { mode: '1', topicId: route.params.id, first: 'true' } });
+      router.push(`/chat/${sessionId}?mode=1&topicId=${topicId}&topicName=${encodeURIComponent(topic.value.title)}&first=true`);
     }
 
-    onMounted(loadTopic);
+    onMounted(async () => {
+      try {
+        topic.value = await api.topics.detail(topicId);
+      } catch (e) {
+        toast.error('加载话题失败');
+      }
+      loading.value = false;
+    });
 
     return {
-      loading, topic, showDonate, donateAmount, donating,
-      formatTime, renderMd, toggleLike, handleDonate, startChat,
+      loading, topic, showDonate, donateAmount, donating, donateResult,
+      renderMd, formatTime, toggleLike, handleDonate, closeDonate, startChat,
     };
   }
 };
