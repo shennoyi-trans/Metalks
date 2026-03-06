@@ -16,6 +16,7 @@ export const ProfilePage = {
           <div class="avatar-lg">{{ (user.nickname||'U')[0] }}</div>
           <h2>{{ user.nickname }}</h2>
           <p>{{ user.email }}</p>
+          <p v-if="user.createdAt" style="font-size:12px;color:var(--text-muted);margin-top:4px">注册于 {{ formatTime(user.createdAt) }}</p>
           <div class="elec-big">⚡ {{ user.electrolyteBalance }}</div>
         </div>
         <div class="settings-list">
@@ -89,6 +90,12 @@ export const ProfilePage = {
     const showPassword = ref(false);
     const showLogout = ref(false);
 
+    // ← 新增：格式化时间
+    function formatTime(t) {
+      if (!t) return '';
+      return new Date(t).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
     // 昵称相关
     const newNickname = ref('');
     const nickMsg = ref('');
@@ -157,7 +164,7 @@ export const ProfilePage = {
     });
 
     return {
-      user, showNickname, showPassword, showLogout,
+      user, showNickname, showPassword, showLogout, formatTime,
       newNickname, nickMsg, nickAvail, nickLoading, checkNick, doChangeNickname,
       oldPw, newPw, pwLoading, doChangePw, doLogout,
     };

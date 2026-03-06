@@ -12,10 +12,20 @@ export const ReportPage = {
   template: `
     <div class="page-content">
       <div class="page-narrow">
+        <!-- 面包屑导航 -->
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
           <span style="cursor:pointer" @click="$router.push('/sessions')">我的对话</span> &gt;
-          <span>观念报告</span>
+          <span v-if="topicTitle" style="cursor:pointer" @click="$router.push('/chat/'+sid)">{{ topicTitle }}</span>
+          <span v-else style="cursor:pointer" @click="$router.push('/chat/'+sid)">本次对话</span>
+          &gt; <span>观念报告</span>
         </div>
+
+        <!-- ← 新增：话题名称和对话时间 -->
+        <div v-if="topicTitle || sessionTime" style="margin-bottom:20px">
+          <h2 v-if="topicTitle" style="font-size:20px;font-weight:700;margin-bottom:4px">{{ topicTitle }}</h2>
+          <p v-if="sessionTime" style="font-size:13px;color:var(--text-muted)">对话时间：{{ sessionTime }}</p>
+        </div>
+
         <div v-if="loading" class="page-loading"><div class="page-spinner"></div></div>
         <div v-else-if="!ready" class="empty-state">
           <div class="page-spinner" style="margin:0 auto 16px"></div>
@@ -47,9 +57,17 @@ export const ReportPage = {
     const ready = ref(false);
     const reportContent = ref('');
     const dialogMessages = ref([]);
+    const topicTitle = ref('');    // ← 新增
+    const sessionTime = ref('');   // ← 新增
     let pollTimer = null;
 
     function renderMd(text) { return renderMarkdown(text); }
+
+    // ← 新增：格式化时间
+    function formatTime(t) {
+      if (!t) return '';
+      return new Date(t).toLocaleString('zh-CN');
+    }
 
     async function loadReport() {
       try {
@@ -58,9 +76,22 @@ export const ReportPage = {
           ready.value = true;
           reportContent.value = res.report;
           loading.value = false;
-          try { const d = await api.sessions.detail(sid); dialogMessages.value = d.messages || []; } catch (e) {}
+          // 加载会话详情（对话内容 + 话题名称 + 时间）
+          try {
+            const d = await api.sessions.detail(sid);
+            dialogMessages.value = d.messages || [];
+            topicTitle.value = d.topic_title || (d.mode === 2 ? '随便聊聊' : '');  // ← 新增
+            sessionTime.value = formatTime(d.created_at);  // ← 新增
+          } catch (e) {}
         } else {
           loading.value = false;
+          // ← 新增：即使报告未就绪，也先加载会话信息以显示标题和时间
+          try {
+            const d = await api.sessions.detail(sid);
+            topicTitle.value = d.topic_title || (d.mode === 2 ? '随便聊聊' : '');
+            sessionTime.value = formatTime(d.created_at);
+            dialogMessages.value = d.messages || [];
+          } catch (e) {}
           pollTimer = setInterval(async () => {
             try {
               const s = await api.sessions.reportStatus(sid);
@@ -79,6 +110,6 @@ export const ReportPage = {
     onMounted(loadReport);
     onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
-    return { loading, ready, reportContent, dialogMessages, renderMd };
+    return { sid, loading, ready, reportContent, dialogMessages, topicTitle, sessionTime, renderMd };
   }
 };
