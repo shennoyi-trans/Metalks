@@ -2,7 +2,7 @@
  * 话题 API
  * 对应后端：backend/api/topic_api.py
  *
- * 完整覆盖 13 个接口：
+ * 完整覆盖 15 个接口：
  *  1. create          - 创建话题
  *  2. detail          - 获取话题详情
  *  3. update          - 编辑话题
@@ -11,6 +11,8 @@
  *  6. search          - 搜索话题
  *  7. recommended     - 获取推荐话题
  *  8. allTags         - 获取所有标签
+ * 8a. searchTags      - 🆕 搜索标签
+ * 8b. createTag       - 🆕 创建标签
  *  9. review          - 审核话题（管理员）
  * 10. deactivate      - 下架话题
  * 11. remove          - 删除话题（硬删除）
@@ -149,6 +151,38 @@ export async function recommended(limit = 6) {
  */
 export async function allTags() {
     return request('/topics/tags/all');
+}
+
+// ============================================================
+// 8a. 🆕 搜索标签
+// ============================================================
+
+/**
+ * 搜索标签（按名称模糊匹配）
+ * @param {string} keyword - 搜索关键词
+ * @param {number} [limit=20]
+ * @returns {Promise<{tags: Array<{id: number, name: string, slug: string, description: string}>, query: string}>}
+ */
+export async function searchTags(keyword, limit = 20) {
+    return request(`/topics/tags/search?q=${encodeURIComponent(keyword)}&limit=${limit}`);
+}
+
+// ============================================================
+// 8b. 🆕 创建标签
+// ============================================================
+
+/**
+ * 创建新标签
+ * @param {object} data
+ * @param {string} data.name        - 标签名称
+ * @param {string} [data.description] - 标签描述
+ * @returns {Promise<{success: boolean, message: string, tag: {id: number, name: string, slug: string, description: string}}>}
+ */
+export async function createTag(data) {
+    return request('/topics/tags', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
 }
 
 // ============================================================

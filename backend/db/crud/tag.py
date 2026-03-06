@@ -2,6 +2,7 @@
 """
 标签 CRUD 操作
 - 标签创建、查询、更新、删除
+- 标签搜索
 - 标签统计
 """
 
@@ -112,6 +113,34 @@ async def get_tags_by_ids(
     """
     result = await db.execute(
         select(Tag).where(Tag.id.in_(tag_ids))
+    )
+    return list(result.scalars().all())
+
+
+# ============================================================
+# 🆕 标签搜索
+# ============================================================
+
+async def search_tags(
+    db: AsyncSession,
+    keyword: str,
+    limit: int = 20
+) -> List[Tag]:
+    """
+    按关键词搜索标签（模糊匹配名称）
+    
+    参数:
+        keyword: 搜索关键词
+        limit: 返回数量上限
+    
+    返回:
+        匹配的标签列表
+    """
+    result = await db.execute(
+        select(Tag)
+        .where(Tag.name.ilike(f"%{keyword}%"))
+        .order_by(Tag.created_at.asc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 

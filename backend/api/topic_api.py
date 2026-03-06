@@ -1,7 +1,7 @@
-# backend/api/topic_api.py - v1.4 完全重写版
+# backend/api/topic_api.py - v1.5
 """
-话题 API 接口（完全重写）
-支持13个接口：
+话题 API 接口
+支持15个接口：
 1. 创建话题
 2. 获取话题详情
 3. 编辑话题
@@ -10,6 +10,8 @@
 6. 搜索话题
 7. 获取推荐话题
 8. 获取所有标签
+8a. 🆕 搜索标签
+8b. 🆕 创建标签
 9. 审核话题（管理员）
 10. 下架话题
 11. 删除话题
@@ -21,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import List, Optional
+import re
 
 from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
@@ -57,6 +60,12 @@ class ReviewTopicPayload(BaseModel):
 class DonatePayload(BaseModel):
     """投喂电解液请求体"""
     amount: float
+
+
+class CreateTagPayload(BaseModel):
+    """🆕 创建标签请求体"""
+    name: str
+    description: Optional[str] = None
 
 
 router = APIRouter(prefix="/topics", tags=["topics"])
@@ -104,55 +113,9 @@ async def create_topic(
     
     return result
 
-# ============================================================
-# 2. 编辑话题
-# ============================================================
-
-@router.put("/{topic_id}")
-async def update_topic(
-    topic_id: int,
-    payload: UpdateTopicPayload,
-    db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user)
-):
-    """
-    编辑话题
-    
-    请求体:
-        - title: 新标题（可选）
-        - content: 新内容（可选）
-        - prompt: 新提示词（可选）
-        - tag_ids: 新标签列表（可选）
-    
-    返回:
-        {
-            "success": true,
-            "message": "话题已更新，等待重新审核",
-            "topic": {...}
-        }
-    
-    说明:
-        - 只有作者可以编辑
-        - 编辑后status变为pending
-    """
-    result = await topic_service.update_topic(
-        db=db,
-        user_id=user_id,
-        topic_id=topic_id,
-        title=payload.title,
-        content=payload.content,
-        prompt=payload.prompt,
-        tag_ids=payload.tag_ids
-    )
-    
-    if not result["success"]:
-        raise HTTPException(status_code=403, detail=result["message"])
-    
-    return result
-
 
 # ============================================================
-# 3. 获取话题列表（支持分页、筛选、排序）
+# 2. 获取话题列表（支持分页、筛选、排序）
 # ============================================================
 
 @router.get("")
@@ -170,25 +133,6 @@ async def list_topics(
 ):
     """
     获取话题列表
-    
-    参数:
-        - skip: 跳过记录数（分页）
-        - limit: 返回记录数（分页）
-        - status: 筛选状态（pending/approved/rejected）
-        - is_active: 筛选是否启用
-        - is_official: 筛选是否官方
-        - tag_id: 筛选标签ID
-        - search: 搜索关键词（标题）
-        - sort_by: 排序字段（created_at/likes_count/electrolyte_received）
-        - order: 排序方向（asc/desc）
-    
-    返回:
-        {
-            "topics": [话题列表],
-            "total": 总数,
-            "skip": 跳过数,
-            "limit": 限制数
-        }
     """
     from backend.db.crud import topic as topic_crud
     
@@ -205,7 +149,6 @@ async def list_topics(
         order=order
     )
     
-    # 简化返回格式
     topic_list = []
     for topic in topics:
         topic_list.append({
@@ -228,6 +171,36 @@ async def list_topics(
 
 
 # ============================================================
+# 3. 编辑话题
+# ============================================================
+
+@router.put("/{topic_id}")
+async def update_topic(
+    topic_id: int,
+    payload: UpdateTopicPayload,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    """
+    编辑话题（编辑后 status 重置为 pending）
+    """
+    result = await topic_service.update_topic(
+        db=db,
+        user_id=user_id,
+        topic_id=topic_id,
+        title=payload.title,
+        content=payload.content,
+        prompt=payload.prompt,
+        tag_ids=payload.tag_ids
+    )
+    
+    if not result["success"]:
+        raise HTTPException(status_code=403, detail=result["message"])
+    
+    return result
+
+
+# ============================================================
 # 4. 获取我的话题
 # ============================================================
 
@@ -240,12 +213,6 @@ async def get_my_topics(
 ):
     """
     获取我创建/参与的话题
-    
-    返回:
-        {
-            "topics": [话题列表],
-            "total": 总数
-        }
     """
     from backend.db.crud import topic as topic_crud
     
@@ -285,16 +252,6 @@ async def search_topics(
 ):
     """
     搜索话题（只返回已审核且启用的）
-    
-    参数:
-        - q: 搜索关键词
-        - limit: 返回数量
-    
-    返回:
-        {
-            "topics": [话题列表],
-            "query": 搜索词
-        }
     """
     from backend.db.crud import topic as topic_crud
     
@@ -335,14 +292,6 @@ async def get_recommended_topics(
 ):
     """
     获取推荐话题（综合算法）
-    
-    参数:
-        - limit: 返回数量
-    
-    返回:
-        {
-            "topics": [推荐话题列表]
-        }
     """
     topics = await topic_service.get_recommended_topics(
         db=db,
@@ -394,6 +343,151 @@ async def get_all_tags(
         "tags": tag_list
     }
 
+
+# ============================================================
+# 7a. 🆕 搜索标签
+# ============================================================
+
+@router.get("/tags/search")
+async def search_tags(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    搜索标签（按名称模糊匹配）
+    
+    参数:
+        - q: 搜索关键词
+        - limit: 返回数量
+    
+    返回:
+        {
+            "tags": [标签列表],
+            "query": 搜索词
+        }
+    """
+    tags = await tag_crud.search_tags(db, keyword=q, limit=limit)
+    
+    tag_list = []
+    for tag in tags:
+        tag_list.append({
+            "id": tag.id,
+            "name": tag.name,
+            "slug": tag.slug,
+            "description": tag.description
+        })
+    
+    return {
+        "tags": tag_list,
+        "query": q
+    }
+
+
+# ============================================================
+# 7b. 🆕 创建标签
+# ============================================================
+
+@router.post("/tags")
+async def create_tag(
+    payload: CreateTagPayload,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    """
+    创建新标签
+    
+    请求体:
+        - name: 标签名称
+        - description: 标签描述（可选）
+    
+    返回:
+        {
+            "success": true,
+            "tag": {
+                "id": 标签ID,
+                "name": 标签名称,
+                "slug": URL友好名称,
+                "description": 描述
+            }
+        }
+    
+    说明:
+        - slug 由后端根据 name 自动生成（中文用拼音）
+        - 如果同名标签已存在，返回已有标签
+    """
+    name = payload.name.strip()
+    
+    if not name:
+        raise HTTPException(status_code=400, detail="标签名称不能为空")
+    
+    if len(name) > 50:
+        raise HTTPException(status_code=400, detail="标签名称不能超过50个字符")
+    
+    # 检查是否已存在同名标签
+    existing = await tag_crud.get_tag_by_name(db, name)
+    if existing:
+        return {
+            "success": True,
+            "message": "标签已存在",
+            "tag": {
+                "id": existing.id,
+                "name": existing.name,
+                "slug": existing.slug,
+                "description": existing.description
+            }
+        }
+    
+    # 生成 slug：中文转拼音，英文转小写横杠
+    slug = _generate_slug(name)
+    
+    # 确保 slug 唯一
+    existing_slug = await tag_crud.get_tag_by_slug(db, slug)
+    if existing_slug:
+        import time
+        slug = f"{slug}-{int(time.time()) % 10000}"
+    
+    tag = await tag_crud.create_tag(
+        db=db,
+        name=name,
+        slug=slug,
+        description=payload.description
+    )
+    
+    return {
+        "success": True,
+        "message": "标签创建成功",
+        "tag": {
+            "id": tag.id,
+            "name": tag.name,
+            "slug": tag.slug,
+            "description": tag.description
+        }
+    }
+
+
+def _generate_slug(name: str) -> str:
+    """
+    根据标签名称生成 slug
+    - 英文：转小写，空格转横杠
+    - 中文：直接使用（如果有 pypinyin 则转拼音，否则用原文）
+    - 移除特殊字符
+    """
+    # 先尝试用 pypinyin 转换中文
+    try:
+        from pypinyin import lazy_pinyin
+        slug = "-".join(lazy_pinyin(name))
+    except ImportError:
+        # 没有 pypinyin，直接用原名
+        slug = name.lower()
+    
+    # 清理：只保留字母、数字、中文、横杠
+    slug = re.sub(r'[^\w\u4e00-\u9fff-]', '-', slug)
+    slug = re.sub(r'-+', '-', slug).strip('-')
+    
+    return slug or "tag"
+
+
 # ============================================================
 # 8. 获取话题详情
 # ============================================================
@@ -406,24 +500,6 @@ async def get_topic(
 ):
     """
     获取话题详情
-    
-    返回:
-        {
-            "id": 话题ID,
-            "title": 标题,
-            "content": 内容,
-            "prompt": 提示词,
-            "likes_count": 点赞数,
-            "electrolyte_received": 电解液收入,
-            "status": 审核状态,
-            "is_active": 是否启用,
-            "is_official": 是否官方,
-            "authors": [作者列表],
-            "tags": [标签列表],
-            "has_liked": 是否已点赞,
-            "created_at": 创建时间,
-            "updated_at": 更新时间
-        }
     """
     topic = await topic_service.get_topic_detail(
         db=db,
@@ -435,7 +511,6 @@ async def get_topic(
         raise HTTPException(status_code=404, detail="话题不存在")
     
     return topic
-
 
 
 # ============================================================
@@ -451,18 +526,7 @@ async def review_topic(
 ):
     """
     审核话题（管理员功能）
-    
-    请求体:
-        - action: "approve" 或 "reject"
-    
-    返回:
-        {
-            "success": true,
-            "message": "话题已通过审核",
-            "topic": {...}
-        }
     """
-    # 检查管理员权限
     from backend.db.crud import user as user_crud
     user = await user_crud.get_user_by_id(db, user_id)
     
@@ -493,16 +557,6 @@ async def deactivate_topic(
 ):
     """
     下架话题（软删除）
-    
-    返回:
-        {
-            "success": true,
-            "message": "话题已下架"
-        }
-    
-    说明:
-        - 只有主要作者可以下架
-        - 下架后话题不可见，但数据保留
     """
     result = await topic_service.deactivate_topic(
         db=db,
@@ -528,16 +582,6 @@ async def delete_topic(
 ):
     """
     删除话题（永久删除）
-    
-    返回:
-        {
-            "success": true,
-            "message": "话题已永久删除"
-        }
-    
-    说明:
-        - 只有主要作者可以删除
-        - 删除后数据永久丢失，无法恢复
     """
     result = await topic_service.delete_topic(
         db=db,
@@ -563,13 +607,6 @@ async def toggle_like(
 ):
     """
     点赞/取消点赞
-    
-    返回:
-        {
-            "success": true,
-            "liked": true,          # true表示点赞，false表示取消点赞
-            "likes_count": 点赞数
-        }
     """
     result = await topic_service.toggle_like(
         db=db,
@@ -592,27 +629,11 @@ async def donate_electrolyte(
     user_id: int = Depends(get_current_user)
 ):
     """
-    投喂电解液
-    
-    请求体:
-        - amount: 投喂数量
-    
-    返回:
-        {
-            "success": true,
-            "message": "成功投喂 5.0 电解液",
-            "electrolyte_received": 话题总收入,
-            "user_balance": 用户剩余余额,
-            "distribution": [
-                {
-                    "user_id": 作者ID,
-                    "nickname": 昵称,
-                    "amount": 分配数量
-                },
-                ...
-            ]
-        }
+    投喂电解液给话题
     """
+    if payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="投喂金额必须大于0")
+    
     result = await topic_service.donate_electrolyte(
         db=db,
         user_id=user_id,
