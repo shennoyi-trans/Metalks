@@ -1,11 +1,12 @@
 /**
  * HomePage — 话题广场 / 首页
+ * v2: 搜索展开居中、创建话题改为+号入口
  */
 
 import api from '../api/index.js';
 import { useToast } from '../stores/toast.js';
 
-const { ref, watch, onMounted } = Vue;
+const { ref, watch, onMounted, onUnmounted } = Vue;
 const { useRouter } = VueRouter;
 
 export const HomePage = {
@@ -34,9 +35,9 @@ export const HomePage = {
             </span>
           </div>
           <div class="filter-right">
-            <div class="search-box">
+            <div class="search-box" @click="openSearch">
               <span>🔍</span>
-              <input v-model="searchQuery" placeholder="搜索话题..." @input="debounceSearch">
+              <span style="font-size:13px;color:var(--text-muted)">搜索话题...</span>
             </div>
             <select class="sort-select" v-model="sortBy" @change="loadTopics">
               <option value="created_at">最新</option>
@@ -78,6 +79,36 @@ export const HomePage = {
           </button>
         </div>
       </div>
+
+      <!-- 创建话题浮动按钮 -->
+      <button class="fab-create-topic" @click="$router.push('/topic/create')" title="创建话题">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+
+      <!-- 搜索弹窗 -->
+      <div v-if="searchOpen" class="search-overlay" @click.self="closeSearch">
+        <div class="search-modal">
+          <div class="search-modal-input">
+            <span style="font-size:18px">🔍</span>
+            <input ref="searchInputEl" v-model="searchQuery" placeholder="搜索话题..." @input="debounceSearch" @keydown.esc="closeSearch" autofocus>
+            <button class="search-close-btn" @click="closeSearch">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div v-if="searchResults.length" class="search-results">
+            <div v-for="r in searchResults" :key="r.id" class="search-result-item" @click="goTopic(r.id); closeSearch()">
+              <span class="search-result-title">{{ r.title }}</span>
+              <span class="search-result-likes">❤️ {{ r.likes_count || 0 }}</span>
+            </div>
+          </div>
+          <div v-else-if="searchQuery.trim() && !searchLoading" class="search-no-results">
+            没有找到相关话题
+          </div>
+          <div v-else-if="searchLoading" class="search-no-results">
+            <div class="page-spinner" style="width:24px;height:24px;border-width:2px"></div>
+          </div>
+        </div>
+      </div>
     </div>
   `,
 
@@ -91,47 +122,75 @@ export const HomePage = {
     const loading = ref(true);
     const loadingMore = ref(false);
     const selectedTag = ref(null);
-    const searchQuery = ref('');
     const sortBy = ref('created_at');
     const skip = ref(0);
     const hasMore = ref(false);
     const limit = 18;
 
+    // 搜索相关
+    const searchOpen = ref(false);
+    const searchQuery = ref('');
+    const searchResults = ref([]);
+    const searchLoading = ref(false);
+    const searchInputEl = ref(null);
     let searchTimer = null;
 
     function goTopic(id) { router.push(`/topic/${id}`); }
 
+    function openSearch() {
+      searchOpen.value = true;
+      searchQuery.value = '';
+      searchResults.value = [];
+      Vue.nextTick(() => {
+        if (searchInputEl.value) searchInputEl.value.focus();
+      });
+    }
+    function closeSearch() {
+      searchOpen.value = false;
+      searchQuery.value = '';
+      searchResults.value = [];
+    }
+
     function debounceSearch() {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        loadTopics();
-      }, 400);
+      if (!searchQuery.value.trim()) {
+        searchResults.value = [];
+        return;
+      }
+      searchLoading.value = true;
+      searchTimer = setTimeout(async () => {
+        try {
+          const res = await api.topics.search(searchQuery.value.trim(), 20);
+          searchResults.value = res.topics || [];
+        } catch (e) {
+          searchResults.value = [];
+        }
+        searchLoading.value = false;
+      }, 300);
+    }
+
+    // 键盘快捷关闭
+    function onEsc(e) {
+      if (e.key === 'Escape' && searchOpen.value) closeSearch();
     }
 
     async function loadTopics() {
       loading.value = true;
       skip.value = 0;
       try {
-        // 如果有搜索关键词，走搜索接口
-        if (searchQuery.value.trim()) {
-          const res = await api.topics.search(searchQuery.value.trim(), 50);
-          topics.value = res.topics || [];
-          hasMore.value = false;
-        } else {
-          const params = {
-            skip: 0,
-            limit,
-            sort_by: sortBy.value,
-            order: 'desc',
-            status: 'approved',
-            is_active: true,
-          };
-          if (selectedTag.value) params.tag_id = selectedTag.value;
+        const params = {
+          skip: 0,
+          limit,
+          sort_by: sortBy.value,
+          order: 'desc',
+          status: 'approved',
+          is_active: true,
+        };
+        if (selectedTag.value) params.tag_id = selectedTag.value;
 
-          const res = await api.topics.list(params);
-          topics.value = res.topics || [];
-          hasMore.value = topics.value.length >= limit;
-        }
+        const res = await api.topics.list(params);
+        topics.value = res.topics || [];
+        hasMore.value = topics.value.length >= limit;
       } catch (e) {
         toast.error('加载话题失败');
       }
@@ -163,11 +222,10 @@ export const HomePage = {
     }
 
     // 标签筛选切换时重新加载
-    watch(selectedTag, () => {
-      if (!searchQuery.value.trim()) loadTopics();
-    });
+    watch(selectedTag, () => { loadTopics(); });
 
     onMounted(async () => {
+      document.addEventListener('keydown', onEsc);
       // 并行加载推荐话题、标签、话题列表
       try {
         const [recRes, tagRes] = await Promise.allSettled([
@@ -180,10 +238,15 @@ export const HomePage = {
       await loadTopics();
     });
 
+    onUnmounted(() => {
+      document.removeEventListener('keydown', onEsc);
+    });
+
     return {
       recommended, tags, topics, loading, loadingMore,
-      selectedTag, searchQuery, sortBy, hasMore,
-      goTopic, debounceSearch, loadTopics, loadMore,
+      selectedTag, sortBy, hasMore,
+      searchOpen, searchQuery, searchResults, searchLoading, searchInputEl,
+      goTopic, openSearch, closeSearch, debounceSearch, loadTopics, loadMore,
     };
   }
 };

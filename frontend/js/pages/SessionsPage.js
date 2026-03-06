@@ -1,5 +1,6 @@
 /**
  * SessionsPage — 我的对话（历史会话列表）
+ * v2: 正确检测会话完成状态
  */
 
 import api from '../api/index.js';
@@ -22,12 +23,12 @@ export const SessionsPage = {
         <div v-else style="display:flex;flex-direction:column;gap:8px">
           <div v-for="s in sessions" :key="s.session_id||s.id" class="card card-hover session-card" @click="goSession(s)">
             <div class="session-info">
-              <div class="session-title">{{ s.topic_title || (s.mode===2 ? '随便聊聊' : '话题对话') }}</div>
+              <div class="session-title">{{ sessionTitle(s) }}</div>
               <div class="session-time">{{ formatTime(s.created_at) }}</div>
             </div>
             <div class="session-right">
-              <span :class="['status-badge', s.is_completed?'completed':'active']">{{ s.is_completed ? '✅ 已完成' : '🟢 进行中' }}</span>
-              <button v-if="s.is_completed" class="btn btn-sm btn-secondary" @click.stop="$router.push('/session/'+(s.session_id||s.id)+'/report')">查看报告</button>
+              <span :class="['status-badge', isSessionCompleted(s)?'completed':'active']">{{ isSessionCompleted(s) ? '✅ 已完成' : '🟢 进行中' }}</span>
+              <button v-if="isSessionCompleted(s) && (s.report_ready)" class="btn btn-sm btn-secondary" @click.stop="$router.push('/session/'+(s.session_id||s.id)+'/report')">查看报告</button>
               <button class="btn btn-sm btn-ghost" @click.stop="confirmDelete(s)" style="color:var(--error)">删除</button>
             </div>
           </div>
@@ -58,13 +59,28 @@ export const SessionsPage = {
     const deleteTarget = ref(null);
 
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
+
+    function sessionTitle(s) {
+      return s.topic_title || (s.mode === 2 ? '随便聊聊' : '话题对话');
+    }
+
+    // 正确检测会话完成状态
+    function isSessionCompleted(s) {
+      if (s.is_completed === true) return true;
+      if (s.status === 'completed') return true;
+      return false;
+    }
+
     function goSession(s) {
       const id = s.session_id || s.id;
       const query = {};
       if (s.mode) query.mode = s.mode;
       if (s.topic_title) query.topicName = s.topic_title;
+      if (s.topic_id) query.topicId = s.topic_id;
+      // 不传 first=true，让 ChatPage 走"从历史进入"逻辑
       router.push({ path: `/chat/${id}`, query });
     }
+
     function confirmDelete(s) { deleteTarget.value = s; showDeleteConfirm.value = true; }
 
     async function doDelete() {
@@ -85,6 +101,9 @@ export const SessionsPage = {
       loading.value = false;
     });
 
-    return { loading, sessions, showDeleteConfirm, formatTime, goSession, confirmDelete, doDelete };
+    return {
+      loading, sessions, showDeleteConfirm, formatTime,
+      sessionTitle, isSessionCompleted, goSession, confirmDelete, doDelete,
+    };
   }
 };

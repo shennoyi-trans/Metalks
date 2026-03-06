@@ -76,6 +76,7 @@ async def get_user_profile(
         "phone_number": user.phone_number,
         "electrolyte_balance": user.electrolyte_number,
         "is_plus": user.is_plus,
+        "is_admin": user.is_admin, 
         "created_at": user.created_at.isoformat()
     }
 

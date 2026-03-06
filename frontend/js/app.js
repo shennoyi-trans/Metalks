@@ -22,6 +22,7 @@ import { ProfilePage }      from './pages/ProfilePage.js';
 import { SessionsPage }     from './pages/SessionsPage.js';
 import { TopicCreatePage }  from './pages/TopicCreatePage.js';
 import { MyTopicsPage }     from './pages/MyTopicsPage.js';
+import { TopicReviewPage }  from './pages/TopicReviewPage.js';
 
 // ============================================================
 // Vue Router
@@ -34,6 +35,7 @@ const routes = [
   { path: '/',                    component: HomePage },
   { path: '/topic/create',       component: TopicCreatePage },
   { path: '/topic/mine',         component: MyTopicsPage },
+  { path: '/topic/review',       component: TopicReviewPage },
   { path: '/topic/:id',          component: TopicDetailPage },
   { path: '/chat/:sessionId',    component: ChatPage },
   { path: '/session/:id/report', component: ReportPage },
