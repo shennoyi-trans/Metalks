@@ -282,22 +282,22 @@ async def review_topic(
 
 
 # ============================================================
-# 话题查询（含详情） — ✅ N+1 修复
+# 话题查询（含详情）
 # ============================================================
 
 async def get_topic_detail(
     db: AsyncSession,
     topic_id: int,
-    user_id: Optional[int] = None
+    user_id: Optional[int] = None,
+    include_inactive: bool = False
 ) -> Optional[dict]:
     """
     获取话题详情
 
-    ✅ 修复：
-    - 标签利用 selectinload 预加载（替代逐个查询）
-    - 作者批量 WHERE IN（替代逐个 get_user_by_id 的 N+1）
+    参数:
+        include_inactive: 管理员审核时传 True，允许查看未激活话题
     """
-    topic = await topic_crud.get_topic_by_id(db, topic_id)
+    topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=include_inactive)
     if not topic:
         return None
 

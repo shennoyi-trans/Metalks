@@ -500,18 +500,28 @@ async def get_topic(
 ):
     """
     获取话题详情
+    - 管理员可查看未激活（pending/rejected）的话题
+    - 普通用户只能查看已激活的话题
     """
+    # 检查是否为管理员
+    include_inactive = False
+    if user_id:
+        from backend.db.crud import user as user_crud
+        user = await user_crud.get_user_by_id(db, user_id)
+        if user and user.is_admin:
+            include_inactive = True
+
     topic = await topic_service.get_topic_detail(
         db=db,
         topic_id=topic_id,
-        user_id=user_id
+        user_id=user_id,
+        include_inactive=include_inactive
     )
     
     if not topic:
         raise HTTPException(status_code=404, detail="话题不存在")
     
     return topic
-
 
 # ============================================================
 # 9. 审核话题（管理员）
