@@ -2,22 +2,24 @@
  * 话题 API
  * 对应后端：backend/api/topic_api.py
  *
- * 完整覆盖 15 个接口：
- *  1. create          - 创建话题
- *  2. detail          - 获取话题详情
- *  3. update          - 编辑话题
- *  4. list            - 获取话题列表（分页/筛选/排序）
- *  5. myList          - 获取我的话题
- *  6. search          - 搜索话题
- *  7. recommended     - 获取推荐话题
- *  8. allTags         - 获取所有标签
- * 8a. searchTags      - 🆕 搜索标签
- * 8b. createTag       - 🆕 创建标签
- *  9. review          - 审核话题（管理员）
- * 10. deactivate      - 下架话题
- * 11. remove          - 删除话题（硬删除）
- * 12. toggleLike      - 点赞/取消点赞
- * 13. donate          - 投喂电解液
+ * 完整覆盖接口：
+ *  1.  create          - 创建话题
+ *  2.  detail          - 获取话题详情
+ *  3.  update          - 编辑话题
+ *  4.  list            - 获取话题列表（分页/筛选/排序）
+ *  5.  myList          - 获取我的话题
+ *  6.  search          - 搜索话题
+ *  7.  recommended     - 获取推荐话题
+ *  8.  allTags         - 获取所有标签
+ *  8a. searchTags      - 搜索标签
+ *  8b. createTag       - 创建标签
+ *  9.  review          - 审核话题（管理员）
+ *  10. deactivate      - 下架话题
+ *  11. remove          - 删除话题（硬删除）
+ *  12. toggleLike      - 点赞/取消点赞
+ *  13. donate          - 投喂电解液
+ *  14. ✅ checkSensitive - 敏感词预检
+ *  15. ✅ getNotifications - 话题状态通知
  */
 
 import { request } from './client.js';
@@ -154,7 +156,7 @@ export async function allTags() {
 }
 
 // ============================================================
-// 8a. 🆕 搜索标签
+// 8a. 搜索标签
 // ============================================================
 
 /**
@@ -168,7 +170,7 @@ export async function searchTags(keyword, limit = 20) {
 }
 
 // ============================================================
-// 8b. 🆕 创建标签
+// 8b. 创建标签
 // ============================================================
 
 /**
@@ -262,6 +264,37 @@ export async function donate(topicId, amount) {
         method: 'POST',
         body: JSON.stringify({ amount }),
     });
+}
+
+// ============================================================
+// 14. ✅ v1.6 敏感词预检
+// ============================================================
+
+/**
+ * 检查文本是否包含敏感词（创建/编辑话题前调用）
+ * @param {object} data
+ * @param {string} data.title
+ * @param {string} data.content
+ * @param {string} data.prompt
+ * @returns {Promise<{has_sensitive: boolean, matches: Array<{word: string, field: string, positions: Array}>}>}
+ */
+export async function checkSensitive(data) {
+    return request('/topics/check-sensitive', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+// ============================================================
+// 15. ✅ v1.6 话题状态通知
+// ============================================================
+
+/**
+ * 获取当前用户话题的状态通知
+ * @returns {Promise<{has_updates: boolean, notifications: Array}>}
+ */
+export async function getNotifications() {
+    return request('/topics/my/notifications');
 }
 
 // ============================================================

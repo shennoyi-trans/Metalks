@@ -1,6 +1,6 @@
 /**
  * AppLayout — 全局布局（含导航栏 + router-view）
- * v2: 压缩导航栏、丝滑过渡、审核入口、特质画像图标
+ * v1.6: 特质图标更新、话题管理入口、通知红点、导航居中
  */
 
 import api from '../api/index.js';
@@ -16,10 +16,14 @@ export const AppLayout = {
       <!-- 主导航栏 -->
       <nav v-if="showNavbar" class="navbar" :class="{ 'navbar--slide-up': navHidden }">
         <a class="brand" href="https://www.metalks.me" @click.prevent="goHome">Metalks</a>
-        <div class="nav-links">
+        <div class="nav-links" :style="user.isAdmin ? 'flex:1;justify-content:center' : ''">
           <router-link v-if="user.isAdmin" to="/topic/review" class="nav-link nav-link--review" active-class="active">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             话题审核
+          </router-link>
+          <router-link v-if="user.isAdmin" to="/topic/manage" class="nav-link nav-link--manage" active-class="active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            话题管理
           </router-link>
           <router-link to="/" class="nav-link" active-class="active" exact>话题广场</router-link>
           <a class="nav-link" @click="startFreeChat" style="cursor:pointer">开始探索</a>
@@ -29,14 +33,18 @@ export const AppLayout = {
           <span class="electrolyte-badge">⚡ {{ user.electrolyteBalance }}</span>
           <button class="traits-shortcut" @click="go('/traits')" title="特质画像">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20"/>
-              <path d="M2 12h20"/>
+              <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.2 4.3-2.5 5.5-.8.8-1.5 1.8-1.5 3v.5h-6V17.5c0-1.2-.7-2.2-1.5-3C6.2 13.3 5 11.5 5 9a7 7 0 0 1 7-7z"/>
+              <line x1="9" y1="21" x2="15" y2="21"/>
+              <line x1="10" y1="24" x2="14" y2="24"/>
+              <path d="M12 2v4"/>
+              <path d="M8.5 6.5l1.5 2"/>
+              <path d="M15.5 6.5l-1.5 2"/>
             </svg>
           </button>
           <div style="position:relative">
             <button class="user-menu-trigger" @click.stop="showMenu=!showMenu">
               <span class="user-avatar">{{ (user.nickname||'U')[0] }}</span>
+              <span v-if="user.hasTopicUpdates" class="notification-dot notification-dot--avatar"></span>
             </button>
             <div v-if="showMenu" class="dropdown-menu">
               <div class="dropdown-user-info">
@@ -45,7 +53,10 @@ export const AppLayout = {
               </div>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item" @click="go('/me')">个人中心</button>
-              <button class="dropdown-item" @click="go('/topic/mine')">我的话题</button>
+              <button class="dropdown-item" @click="goMyTopics" style="position:relative">
+                我的话题
+                <span v-if="user.hasTopicUpdates" class="notification-dot notification-dot--menu"></span>
+              </button>
               <button class="dropdown-item" @click="go('/sessions')">我的对话</button>
               <button class="dropdown-item danger" @click="doLogout">退出登录</button>
             </div>
@@ -81,66 +92,80 @@ export const AppLayout = {
       return true;
     });
     const isChatPage = computed(() => route.path.startsWith('/chat/'));
-    const chatTitle = computed(() => {
-      const name = route.query.topicName;
-      if (name) return decodeURIComponent(name);
-      return '';
-    });
+
+    const chatTitle = ref('');
     const chatCompleted = ref(false);
 
-    // Watch route changes to trigger navbar animation
-    watch(() => route.path, (newPath, oldPath) => {
-      if (newPath.startsWith('/chat/')) {
-        // Small delay so the page mounts first, then animate
-        nextTick(() => {
-          setTimeout(() => { navHidden.value = true; }, 50);
-        });
-      } else {
-        navHidden.value = false;
-      }
-      chatCompleted.value = false;
-    }, { immediate: true });
-
+    function goHome() { router.push('/'); }
     function go(path) { showMenu.value = false; router.push(path); }
-    function goHome() {
-      window.location.href = 'https://www.metalks.me';
+    function goMyTopics() {
+      showMenu.value = false;
+      user.markNotificationsRead();
+      router.push('/topic/mine');
     }
+
+    async function doLogout() {
+      showMenu.value = false;
+      try { await api.auth.logout(); } catch (e) {}
+      user.clear();
+      router.push('/auth');
+    }
+
     function startFreeChat() {
-      const id = uuid();
-      router.push(`/chat/${id}?mode=2`);
+      const sessionId = uuid();
+      router.push(`/chat/${sessionId}?mode=2&first=true`);
     }
+
     function endChatFromNav() {
       window.dispatchEvent(new CustomEvent('force-end-chat'));
     }
-    function doLogout() {
-      showMenu.value = false;
-      api.auth.logout();
-    }
 
-    // 监听对话完成状态
-    function onChatCompleted() { chatCompleted.value = true; }
+    // 监听对话状态
     function onChatStarted() { chatCompleted.value = false; }
+    function onChatCompleted() { chatCompleted.value = true; }
+
+    // 监听路由变化来更新 chatTitle
+    watch(() => route.query, (q) => {
+      if (q.topicName) chatTitle.value = decodeURIComponent(q.topicName);
+      else if (q.mode === '2') chatTitle.value = '随便聊聊';
+      else chatTitle.value = '';
+    }, { immediate: true });
+
+    // 导航栏隐藏逻辑（对话页滚动时）
+    let lastScrollY = 0;
+    function onScroll() {
+      if (!isChatPage.value) return;
+      const y = window.scrollY;
+      navHidden.value = y > 60;
+      lastScrollY = y;
+    }
 
     // 点击外部关闭菜单
-    function closeMenu() {
-      if (showMenu.value) showMenu.value = false;
+    function onClickOutside(e) {
+      if (showMenu.value && !e.target.closest('.user-menu-trigger') && !e.target.closest('.dropdown-menu')) {
+        showMenu.value = false;
+      }
     }
 
-    onMounted(() => {
-      document.addEventListener('click', closeMenu);
-      window.addEventListener('chat-completed', onChatCompleted);
+    onMounted(async () => {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      document.addEventListener('click', onClickOutside);
       window.addEventListener('chat-started', onChatStarted);
-      user.fetchProfile();
+      window.addEventListener('chat-completed', onChatCompleted);
+      await user.fetchProfile();
     });
+
     onUnmounted(() => {
-      document.removeEventListener('click', closeMenu);
-      window.removeEventListener('chat-completed', onChatCompleted);
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('click', onClickOutside);
       window.removeEventListener('chat-started', onChatStarted);
+      window.removeEventListener('chat-completed', onChatCompleted);
     });
 
     return {
-      user, api, showNavbar, isChatPage, chatTitle, chatCompleted,
-      showMenu, navHidden, go, goHome, startFreeChat, endChatFromNav, doLogout,
+      user, showMenu, navHidden, showNavbar, isChatPage,
+      chatTitle, chatCompleted,
+      goHome, go, goMyTopics, doLogout, startFreeChat, endChatFromNav,
     };
   }
 };

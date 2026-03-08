@@ -1,5 +1,6 @@
 /**
  * ProfilePage — 个人中心
+ * v1.6: 话题状态通知红点
  */
 
 import api from '../api/index.js';
@@ -13,7 +14,10 @@ export const ProfilePage = {
     <div class="page-content">
       <div class="page-narrow">
         <div class="profile-hero">
-          <div class="avatar-lg">{{ (user.nickname||'U')[0] }}</div>
+          <div class="avatar-lg" style="position:relative">
+            {{ (user.nickname||'U')[0] }}
+            <span v-if="user.hasTopicUpdates" class="notification-dot notification-dot--profile-avatar"></span>
+          </div>
           <h2>{{ user.nickname }}</h2>
           <p>{{ user.email }}</p>
           <p v-if="user.createdAt" style="font-size:12px;color:var(--text-muted);margin-top:4px">注册于 {{ formatTime(user.createdAt) }}</p>
@@ -22,7 +26,11 @@ export const ProfilePage = {
         <div class="settings-list">
           <div class="settings-item" @click="$router.push('/sessions')">我的对话 <span class="arrow">→</span></div>
           <div class="settings-item" @click="$router.push('/traits')">我的特质 <span class="arrow">→</span></div>
-          <div class="settings-item" @click="$router.push('/topic/mine')">我的话题 <span class="arrow">→</span></div>
+          <div class="settings-item" @click="goMyTopics" style="position:relative">
+            我的话题
+            <span v-if="user.hasTopicUpdates" class="notification-dot notification-dot--settings"></span>
+            <span class="arrow">→</span>
+          </div>
           <div class="settings-item" @click="showNickname=true">修改昵称 <span class="arrow">→</span></div>
           <div class="settings-item" @click="showPassword=true">修改密码 <span class="arrow">→</span></div>
           <div class="settings-item" style="color:var(--error)" @click="showLogout=true">退出登录 <span class="arrow">→</span></div>
@@ -54,28 +62,28 @@ export const ProfilePage = {
           <h3 class="modal-title">修改密码</h3>
           <div class="form-group">
             <label class="form-label">旧密码</label>
-            <input class="form-input" v-model="oldPw" type="password">
+            <input class="form-input" v-model="pwForm.old" type="password" placeholder="输入旧密码">
           </div>
           <div class="form-group">
-            <label class="form-label">新密码（最少6位）</label>
-            <input class="form-input" v-model="newPw" type="password">
+            <label class="form-label">新密码</label>
+            <input class="form-input" v-model="pwForm.new" type="password" placeholder="最少6位">
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-ghost" @click="showPassword=false">取消</button>
-            <button class="btn btn-primary" @click="doChangePw" :disabled="pwLoading || !oldPw || !newPw || newPw.length<6">
+            <button class="btn btn-primary" @click="doChangePassword" :disabled="pwLoading">
               {{ pwLoading ? '修改中...' : '确认修改' }}
             </button>
           </div>
         </div>
       </div>
 
-      <!-- 退出登录确认 Modal -->
+      <!-- 退出登录确认 -->
       <div v-if="showLogout" class="modal-overlay" @click.self="showLogout=false">
         <div class="modal-card" style="text-align:center">
-          <h3 class="modal-title">确认退出登录？</h3>
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+          <h3 class="modal-title">确认退出？</h3>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:20px">
             <button class="btn btn-ghost" @click="showLogout=false">取消</button>
-            <button class="btn btn-primary" style="background:var(--error)" @click="doLogout">确认退出</button>
+            <button class="btn btn-primary" style="background:var(--error)" @click="doLogout">退出登录</button>
           </div>
         </div>
       </div>
@@ -90,13 +98,7 @@ export const ProfilePage = {
     const showPassword = ref(false);
     const showLogout = ref(false);
 
-    // ← 新增：格式化时间
-    function formatTime(t) {
-      if (!t) return '';
-      return new Date(t).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-    }
-
-    // 昵称相关
+    // 昵称修改
     const newNickname = ref('');
     const nickMsg = ref('');
     const nickAvail = ref(false);
@@ -104,69 +106,76 @@ export const ProfilePage = {
     let nickTimer = null;
 
     function checkNick() {
-      nickMsg.value = '';
-      nickAvail.value = false;
-      clearTimeout(nickTimer);
-      if (!newNickname.value.trim()) return;
+      if (nickTimer) clearTimeout(nickTimer);
+      const n = newNickname.value.trim();
+      if (!n) { nickMsg.value = ''; nickAvail.value = false; return; }
       nickTimer = setTimeout(async () => {
         try {
-          const res = await api.user.checkNickname(newNickname.value.trim());
+          const res = await api.user.checkNickname(n);
           nickAvail.value = res.available;
-          nickMsg.value = res.message || (res.available ? '昵称可用' : '昵称不可用');
+          nickMsg.value = res.message;
         } catch (e) {
+          nickAvail.value = false;
           nickMsg.value = '检查失败';
         }
-      }, 500);
+      }, 400);
     }
 
     async function doChangeNickname() {
-      if (!nickAvail.value) return;
       nickLoading.value = true;
       try {
-        await api.user.changeNickname(newNickname.value.trim());
-        toast.success('昵称修改成功');
-        showNickname.value = false;
-        newNickname.value = '';
-        nickMsg.value = '';
-        await user.fetchProfile();
-      } catch (e) {
-        toast.error(e.message || '修改失败');
-      }
+        const res = await api.user.changeNickname(newNickname.value.trim());
+        if (res.success) {
+          toast.success(res.message);
+          user.nickname = res.new_nickname;
+          user.electrolyteBalance = res.balance;
+          showNickname.value = false;
+          newNickname.value = '';
+        } else {
+          toast.error(res.message);
+        }
+      } catch (e) { toast.error(e.message || '修改失败'); }
       nickLoading.value = false;
     }
 
-    // 密码相关
-    const oldPw = ref('');
-    const newPw = ref('');
+    // 密码修改
+    const pwForm = ref({ old: '', new: '' });
     const pwLoading = ref(false);
 
-    async function doChangePw() {
-      if (!oldPw.value || !newPw.value || newPw.value.length < 6) return;
+    async function doChangePassword() {
+      if (!pwForm.value.old || !pwForm.value.new) { toast.error('请填写完整'); return; }
+      if (pwForm.value.new.length < 6) { toast.error('新密码至少6位'); return; }
       pwLoading.value = true;
       try {
-        await api.user.changePassword(oldPw.value, newPw.value);
+        await api.user.changePassword(pwForm.value.old, pwForm.value.new);
         toast.success('密码修改成功');
         showPassword.value = false;
-        oldPw.value = '';
-        newPw.value = '';
-      } catch (e) {
-        toast.error(e.message || '修改失败');
-      }
+        pwForm.value = { old: '', new: '' };
+      } catch (e) { toast.error(e.message || '修改失败'); }
       pwLoading.value = false;
     }
 
-    function doLogout() {
-      api.auth.logout();
+    // 退出登录
+    async function doLogout() {
+      try { await api.auth.logout(); } catch (e) {}
+      user.clear();
+      window.location.href = '/auth';
     }
 
-    onMounted(() => {
-      user.fetchProfile();
-    });
+    function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
+
+    // ✅ v1.6：跳转我的话题并标记已读
+    function goMyTopics() {
+      user.markNotificationsRead();
+      const router = VueRouter.useRouter();
+      router.push('/topic/mine');
+    }
 
     return {
-      user, showNickname, showPassword, showLogout, formatTime,
+      user, showNickname, showPassword, showLogout,
       newNickname, nickMsg, nickAvail, nickLoading, checkNick, doChangeNickname,
-      oldPw, newPw, pwLoading, doChangePw, doLogout,
+      pwForm, pwLoading, doChangePassword,
+      doLogout, formatTime, goMyTopics,
     };
   }
 };

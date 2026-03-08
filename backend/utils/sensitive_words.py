@@ -5,6 +5,7 @@
 - 敏感词管理（增删）
 - 匹配规则：包含匹配
 - ✅ 新增：进程内 TTL 缓存（5 分钟），避免每次全表扫描
+- ✅ v1.6：新增 check_sensitive_words_detailed，返回所有匹配及位置
 """
 
 import time
@@ -45,6 +46,7 @@ def invalidate_cache():
 async def check_sensitive_word(db: AsyncSession, text: str) -> Tuple[bool, str]:
     """
     检查文本是否包含敏感词（不区分大小写）
+    返回 (是否包含, 第一个匹配的敏感词)
     """
     if not text:
         return False, ""
@@ -54,6 +56,45 @@ async def check_sensitive_word(db: AsyncSession, text: str) -> Tuple[bool, str]:
         if word.lower() in text_lower:
             return True, word
     return False, ""
+
+
+# ============================================================
+# ✅ v1.6：详细敏感词检查（返回所有匹配及位置）
+# ============================================================
+
+async def check_sensitive_words_detailed(
+    db: AsyncSession,
+    text: str
+) -> Tuple[bool, List[dict]]:
+    """
+    详细检查文本中的敏感词，返回所有匹配及位置信息
+
+    返回:
+        (是否包含敏感词, 匹配列表)
+        匹配列表格式: [{"word": "敏感词", "positions": [{"start": 0, "end": 3}]}]
+    """
+    if not text:
+        return False, []
+
+    text_lower = text.lower()
+    sensitive_words = await _get_words_cached(db)
+    matches = []
+
+    for word in sensitive_words:
+        word_lower = word.lower()
+        positions = []
+        start = 0
+        while True:
+            idx = text_lower.find(word_lower, start)
+            if idx == -1:
+                break
+            positions.append({"start": idx, "end": idx + len(word)})
+            start = idx + 1
+
+        if positions:
+            matches.append({"word": word, "positions": positions})
+
+    return bool(matches), matches
 
 
 async def get_all_sensitive_words(db: AsyncSession) -> List[str]:
