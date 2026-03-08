@@ -79,3 +79,13 @@ export async function nicknameHistory(limit = 10, offset = 0) {
 export async function getElectrolyte() {
     return request('/user/electrolyte');
 }
+
+/**
+ * 搜索用户（按 ID 或昵称）
+ * @param {string} query - 搜索关键词（ID 或昵称）
+ * @param {number} [limit=5] - 最大返回数量
+ * @returns {Promise<{users: Array<{id: number, nickname: string}>, query: string}>}
+ */
+export async function searchUser(query, limit = 5) {
+    return request(`/user/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+}

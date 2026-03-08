@@ -1,6 +1,6 @@
 /**
  * ProfilePage — 个人中心
- * v1.6: 话题状态通知红点
+ * ✅ v1.7：显示用户ID、修复通知红点方法名
  */
 
 import api from '../api/index.js';
@@ -19,6 +19,7 @@ export const ProfilePage = {
             <span v-if="user.hasTopicUpdates" class="notification-dot notification-dot--profile-avatar"></span>
           </div>
           <h2>{{ user.nickname }}</h2>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:2px">ID: {{ user.userId }}</p>
           <p>{{ user.email }}</p>
           <p v-if="user.createdAt" style="font-size:12px;color:var(--text-muted);margin-top:4px">注册于 {{ formatTime(user.createdAt) }}</p>
           <div class="elec-big">⚡ {{ user.electrolyteBalance }}</div>
@@ -61,12 +62,12 @@ export const ProfilePage = {
         <div class="modal-card">
           <h3 class="modal-title">修改密码</h3>
           <div class="form-group">
-            <label class="form-label">旧密码</label>
-            <input class="form-input" v-model="pwForm.old" type="password" placeholder="输入旧密码">
+            <label class="form-label">当前密码</label>
+            <input class="form-input" type="password" v-model="pwForm.old" placeholder="输入当前密码">
           </div>
           <div class="form-group">
             <label class="form-label">新密码</label>
-            <input class="form-input" v-model="pwForm.new" type="password" placeholder="最少6位">
+            <input class="form-input" type="password" v-model="pwForm.new" placeholder="输入新密码（至少6位）">
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-ghost" @click="showPassword=false">取消</button>
@@ -77,13 +78,14 @@ export const ProfilePage = {
         </div>
       </div>
 
-      <!-- 退出登录确认 -->
+      <!-- 退出登录确认 Modal -->
       <div v-if="showLogout" class="modal-overlay" @click.self="showLogout=false">
-        <div class="modal-card" style="text-align:center">
-          <h3 class="modal-title">确认退出？</h3>
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:20px">
+        <div class="modal-card">
+          <h3 class="modal-title">退出登录</h3>
+          <p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px">确定要退出登录吗？</p>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-ghost" @click="showLogout=false">取消</button>
-            <button class="btn btn-primary" style="background:var(--error)" @click="doLogout">退出登录</button>
+            <button class="btn btn-primary" style="background:var(--error)" @click="doLogout">退出</button>
           </div>
         </div>
       </div>
@@ -164,9 +166,9 @@ export const ProfilePage = {
 
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
-    // ✅ v1.6：跳转我的话题并标记已读
+    // ✅ v1.7：跳转我的话题并标记已读
     function goMyTopics() {
-      user.markNotificationsRead();
+      user.markTopicNotificationsRead();
       const router = VueRouter.useRouter();
       router.push('/topic/mine');
     }

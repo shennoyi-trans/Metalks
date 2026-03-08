@@ -1,6 +1,9 @@
 /**
  * TopicManagePage — 话题管理（管理员）
- * v1.6: 按话题信息或作者查询，查看详情，下架操作
+ * ✅ v1.7:
+ *  - 作者搜索改为下拉选择 + 标签 chips（支持多作者）
+ *  - 使用后端 author_ids 参数高效筛选
+ *  - 搜索多作者时不要求顺序与主要/合作作者一致
  */
 
 import api from '../api/index.js';
@@ -33,10 +36,36 @@ export const TopicManagePage = {
               @click="searchMode='author'">按作者</button>
           </div>
           <div class="manage-search-row">
-            <input class="form-input" style="flex:1"
-              v-model="searchQuery"
-              :placeholder="searchMode === 'topic' ? '搜索标题/内容/提示词...' : '输入作者ID或昵称...'"
-              @input="onSearchInput" @keydown.enter="doSearch">
+            <!-- 话题信息搜索模式 -->
+            <template v-if="searchMode === 'topic'">
+              <input class="form-input" style="flex:1"
+                v-model="searchQuery"
+                placeholder="搜索标题/内容/提示词..."
+                @keydown.enter="doSearch">
+            </template>
+            <!-- 作者搜索模式 -->
+            <template v-else>
+              <div class="author-search-box" style="flex:1;position:relative">
+                <div class="author-tags-input">
+                  <span v-for="a in selectedAuthors" :key="a.id" class="author-tag-chip">
+                    {{ a.nickname }} <span style="font-size:10px;opacity:0.7">#{{ a.id }}</span>
+                    <button class="author-tag-remove" @click="removeAuthorTag(a.id)">✕</button>
+                  </span>
+                  <input class="author-search-input" v-model="authorQuery"
+                    placeholder="输入作者ID或昵称搜索..."
+                    @input="onAuthorSearchInput" @focus="showAuthorDropdown=true"
+                    @keydown.enter.prevent="doSearch">
+                </div>
+                <!-- 搜索下拉 -->
+                <div v-if="showAuthorDropdown && authorSearchResults.length" class="manage-author-dropdown">
+                  <div v-for="u in authorSearchResults" :key="u.id" class="coauthor-dropdown-item"
+                    @mousedown.prevent="addAuthorTag(u)">
+                    <span style="font-weight:500">{{ u.nickname }}</span>
+                    <span style="font-size:11px;color:var(--text-muted)">#{{ u.id }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
             <select class="sort-select" v-model="statusFilter" @change="doSearch" style="width:120px">
               <option value="">全部状态</option>
               <option value="pending">待审核</option>
@@ -46,18 +75,6 @@ export const TopicManagePage = {
             <button class="btn btn-primary btn-sm" @click="doSearch" :disabled="searching">
               {{ searching ? '搜索中...' : '搜索' }}
             </button>
-          </div>
-          <!-- 作者模式下的用户搜索下拉 -->
-          <div v-if="searchMode === 'author' && authorSearchResults.length" class="manage-author-dropdown">
-            <div v-for="u in authorSearchResults" :key="u.id" class="coauthor-dropdown-item"
-              @click="selectAuthorFilter(u)">
-              <span style="font-weight:500">{{ u.nickname }}</span>
-              <span style="font-size:11px;color:var(--text-muted)">#{{ u.id }}</span>
-            </div>
-          </div>
-          <div v-if="selectedAuthor" style="margin-top:6px;font-size:12px;color:var(--purple)">
-            当前筛选作者：{{ selectedAuthor.nickname }} (#{{ selectedAuthor.id }})
-            <button class="btn btn-ghost btn-sm" @click="clearAuthorFilter" style="font-size:11px;padding:2px 6px">清除</button>
           </div>
         </div>
 
@@ -72,72 +89,58 @@ export const TopicManagePage = {
         <!-- 空状态 -->
         <div v-else-if="!topics.length" class="empty-state">
           <div class="empty-icon">📋</div>
-          <p>{{ searched ? '没有找到匹配的话题' : '输入关键词搜索话题' }}</p>
+          <p>{{ searched ? '没有找到匹配的话题' : '输入关键词开始搜索' }}</p>
         </div>
 
         <!-- 话题列表 -->
         <div v-else class="manage-list">
-          <div v-for="t in topics" :key="t.id" class="manage-card" :class="{ expanded: expandedId === t.id }">
+          <div v-for="t in topics" :key="t.id" :class="['manage-card', { expanded: expandedId === t.id }]">
             <div class="manage-card-header" @click="toggleExpand(t.id)">
               <div class="manage-card-info">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-                  <h3>{{ t.title }}</h3>
-                  <span v-if="t.is_official" class="official-badge" style="font-size:10px">⭐ 官方</span>
-                </div>
+                <h3>{{ t.title }}</h3>
                 <div class="manage-card-meta">
                   <span :class="['status-badge', statusClass(t)]">{{ statusLabel(t) }}</span>
-                  <span class="review-time">#{{ t.id }}</span>
-                  <span class="review-time">{{ formatTime(t.created_at) }}</span>
-                  <span class="review-time">❤️ {{ t.likes_count || 0 }}</span>
-                  <span class="review-time">⚡ {{ t.electrolyte_received || 0 }}</span>
+                  <span style="font-size:11px;color:var(--text-muted)">❤️ {{ t.likes_count || 0 }}</span>
+                  <span style="font-size:11px;color:var(--text-muted)">⚡ {{ t.electrolyte_received || 0 }}</span>
                 </div>
               </div>
-              <div class="manage-card-actions" @click.stop>
-                <button v-if="t.is_active" class="btn btn-sm" style="color:#fff;background:var(--error);border-radius:var(--radius-pill)"
-                  @click="handleDeactivate(t)" :disabled="t._loading">
-                  {{ t._loading ? '处理中...' : '下架' }}
-                </button>
-                <span v-else-if="t.status === 'approved'" style="font-size:12px;color:var(--text-muted)">已下架</span>
-                <button class="btn btn-sm btn-ghost" @click="viewDetail(t.id)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  查看
-                </button>
+              <div class="manage-card-actions">
+                <button class="btn btn-ghost btn-sm" @click.stop="viewDetail(t.id)" style="font-size:12px">查看</button>
+                <button v-if="t.is_active" class="btn btn-ghost btn-sm" @click.stop="handleDeactivate(t)"
+                  :disabled="t._loading" style="font-size:12px;color:var(--error)">下架</button>
               </div>
             </div>
-
             <!-- 展开详情 -->
-            <div v-if="expandedId === t.id" class="review-card-body">
-              <div v-if="t._detail" style="padding-top:4px">
+            <div v-if="expandedId === t.id" class="manage-card-body">
+              <div v-if="!t._detail" class="page-loading" style="padding:20px"><div class="page-spinner" style="width:24px;height:24px;border-width:2px"></div></div>
+              <template v-else>
                 <div class="review-section">
                   <label>作者</label>
-                  <div style="font-size:13px;color:var(--text)">
-                    <span v-for="(a,i) in (t._detail.authors||[])" :key="i">
-                      {{ a.nickname || '未知' }}<span v-if="a.is_primary" style="color:var(--purple);font-weight:600"> (主创)</span><span v-if="i<t._detail.authors.length-1">、</span>
+                  <div style="font-size:13px">
+                    <span v-for="(a,i) in t._detail.authors" :key="i">
+                      {{ a.nickname }}<span v-if="a.is_primary" style="color:var(--purple)"> (主创)</span><span v-if="i<t._detail.authors.length-1">、</span>
                     </span>
                   </div>
                 </div>
                 <div class="review-section">
-                  <label>内容描述</label>
-                  <div class="markdown-body" v-html="renderMd(t._detail.content || '（无内容）')"></div>
+                  <label>内容</label>
+                  <div class="review-prompt markdown-body" v-html="renderMd(t._detail.content)"></div>
                 </div>
                 <div class="review-section">
-                  <label>AI 提示词</label>
-                  <div class="review-prompt">{{ t._detail.prompt || '（无提示词）' }}</div>
+                  <label>提示词</label>
+                  <div class="review-prompt">{{ t._detail.prompt }}</div>
                 </div>
-                <div v-if="t._detail.tags && t._detail.tags.length" class="review-section">
-                  <label>标签</label>
-                  <div style="display:flex;gap:4px;flex-wrap:wrap">
-                    <span v-for="(tag,i) in t._detail.tags" :key="i" :class="['tag-pill','tag-pill-sm','tag-colors-'+i%7]">{{ tag.name || tag }}</span>
-                  </div>
+                <div class="review-section">
+                  <label>创建时间</label>
+                  <div style="font-size:12px;color:var(--text-muted)">{{ formatTime(t._detail.created_at) }}</div>
                 </div>
-              </div>
-              <div v-else class="page-loading" style="padding:20px 0"><div class="page-spinner" style="width:24px;height:24px;border-width:2px"></div></div>
+              </template>
             </div>
           </div>
         </div>
 
         <!-- 加载更多 -->
-        <div v-if="topics.length && topics.length < totalCount" style="text-align:center;margin-top:16px">
+        <div v-if="!loading && topics.length && topics.length < totalCount" style="text-align:center;margin-top:16px">
           <button class="btn btn-ghost" @click="loadMore" :disabled="loadingMore">
             {{ loadingMore ? '加载中...' : '加载更多' }}
           </button>
@@ -164,9 +167,11 @@ export const TopicManagePage = {
     const currentSkip = ref(0);
     const PAGE_SIZE = 20;
 
-    // 作者搜索
+    // ✅ v1.7：多作者搜索
+    const authorQuery = ref('');
     const authorSearchResults = ref([]);
-    const selectedAuthor = ref(null);
+    const selectedAuthors = ref([]);
+    const showAuthorDropdown = ref(false);
     let authorSearchTimer = null;
 
     function renderMd(text) { return renderMarkdown(text); }
@@ -187,43 +192,50 @@ export const TopicManagePage = {
     }
 
     // ============================
-    // 搜索逻辑
+    // ✅ v1.7：作者搜索（下拉 + 标签）
     // ============================
-    function onSearchInput() {
-      if (searchMode.value === 'author') {
-        // 作者模式：触发用户搜索
-        selectedAuthor.value = null;
-        if (authorSearchTimer) clearTimeout(authorSearchTimer);
-        const q = searchQuery.value.trim();
-        if (!q) {
-          authorSearchResults.value = [];
-          return;
-        }
-        authorSearchTimer = setTimeout(async () => {
-          authorSearchResults.value = await searchUsers(q, 8);
-        }, 300);
-      } else {
+    function onAuthorSearchInput() {
+      if (authorSearchTimer) clearTimeout(authorSearchTimer);
+      const q = authorQuery.value.trim();
+      if (!q) {
         authorSearchResults.value = [];
+        return;
       }
+      authorSearchTimer = setTimeout(async () => {
+        const results = await searchUsers(q, 8);
+        // 排除已选中的作者
+        const selectedIds = new Set(selectedAuthors.value.map(a => a.id));
+        authorSearchResults.value = results.filter(u => !selectedIds.has(u.id));
+      }, 300);
     }
 
-    function selectAuthorFilter(u) {
-      selectedAuthor.value = u;
-      searchQuery.value = u.nickname;
+    function addAuthorTag(u) {
+      if (selectedAuthors.value.some(a => a.id === u.id)) return;
+      selectedAuthors.value.push({ id: u.id, nickname: u.nickname });
+      authorQuery.value = '';
       authorSearchResults.value = [];
+      showAuthorDropdown.value = false;
       doSearch();
     }
 
-    function clearAuthorFilter() {
-      selectedAuthor.value = null;
-      searchQuery.value = '';
-      topics.value = [];
-      totalCount.value = 0;
-      searched.value = false;
+    function removeAuthorTag(userId) {
+      selectedAuthors.value = selectedAuthors.value.filter(a => a.id !== userId);
+      if (selectedAuthors.value.length) {
+        doSearch();
+      } else {
+        // 清空结果
+        topics.value = [];
+        totalCount.value = 0;
+        searched.value = false;
+      }
     }
 
+    // ============================
+    // 搜索逻辑
+    // ============================
     async function doSearch() {
       authorSearchResults.value = [];
+      showAuthorDropdown.value = false;
       currentSkip.value = 0;
       topics.value = [];
       loading.value = true;
@@ -238,49 +250,18 @@ export const TopicManagePage = {
         if (statusFilter.value) params.status = statusFilter.value;
 
         if (searchMode.value === 'topic') {
-          // 按话题信息搜索（标题/内容/提示词）
           if (searchQuery.value.trim()) {
             params.search = searchQuery.value.trim();
           }
-        } else if (searchMode.value === 'author' && selectedAuthor.value) {
-          // 按作者筛选 - 通过 search 参数（后端支持）
-          // 注意：这里我们通过 list + 后续过滤实现
-          // 更好的做法是后端增加 author_id 参数
+        } else if (searchMode.value === 'author' && selectedAuthors.value.length) {
+          // ✅ v1.7：使用后端 author_ids 参数（逗号分隔）
+          params.author_ids = selectedAuthors.value.map(a => a.id).join(',');
         }
 
         const res = await api.topics.list(params);
-        let topicList = (res.topics || []).map(t => ({ ...t, _loading: false, _detail: null }));
-
-        // 如果是按作者筛选，前端过滤
-        // 注意：更优方案是后端支持 author_id 参数
-        if (searchMode.value === 'author' && selectedAuthor.value) {
-          // 获取所有话题然后筛选作者
-          const allRes = await api.topics.list({ ...params, limit: 200 });
-          const allTopics = (allRes.topics || []).map(t => ({ ...t, _loading: false, _detail: null }));
-
-          // 需要检查每个话题的作者 - 批量获取详情
-          const filtered = [];
-          for (const t of allTopics) {
-            try {
-              const detail = await api.topics.detail(t.id);
-              if (detail.authors && detail.authors.some(a =>
-                a.user_id === selectedAuthor.value.id ||
-                a.nickname === selectedAuthor.value.nickname
-              )) {
-                t._detail = detail;
-                filtered.push(t);
-              }
-            } catch (e) {
-              // 忽略无权限的话题
-            }
-          }
-          topicList = filtered;
-          totalCount.value = filtered.length;
-        } else {
-          totalCount.value = res.total || topicList.length;
-        }
-
+        const topicList = (res.topics || []).map(t => ({ ...t, _loading: false, _detail: null }));
         topics.value = topicList;
+        totalCount.value = res.total || topicList.length;
       } catch (e) {
         toast.error('搜索失败');
       }
@@ -298,6 +279,9 @@ export const TopicManagePage = {
         if (statusFilter.value) params.status = statusFilter.value;
         if (searchMode.value === 'topic' && searchQuery.value.trim()) {
           params.search = searchQuery.value.trim();
+        }
+        if (searchMode.value === 'author' && selectedAuthors.value.length) {
+          params.author_ids = selectedAuthors.value.map(a => a.id).join(',');
         }
         const res = await api.topics.list(params);
         const more = (res.topics || []).map(t => ({ ...t, _loading: false, _detail: null }));
@@ -349,9 +333,17 @@ export const TopicManagePage = {
     // 切换搜索模式时清空
     watch(searchMode, () => {
       searchQuery.value = '';
-      selectedAuthor.value = null;
+      authorQuery.value = '';
+      selectedAuthors.value = [];
       authorSearchResults.value = [];
     });
+
+    // 点击外部关闭下拉
+    function onClickOutsideDropdown(e) {
+      if (!e.target.closest('.author-search-box')) {
+        showAuthorDropdown.value = false;
+      }
+    }
 
     onMounted(() => {
       if (!user.isAdmin) {
@@ -359,17 +351,25 @@ export const TopicManagePage = {
         router.push('/');
         return;
       }
+      document.addEventListener('click', onClickOutsideDropdown);
       // 默认加载所有话题
       doSearch();
+    });
+
+    // 清理
+    Vue.onUnmounted(() => {
+      document.removeEventListener('click', onClickOutsideDropdown);
+      if (authorSearchTimer) clearTimeout(authorSearchTimer);
     });
 
     return {
       searchMode, searchQuery, statusFilter,
       searching, loading, loadingMore, searched,
       topics, totalCount, expandedId,
-      authorSearchResults, selectedAuthor,
+      // ✅ v1.7：多作者搜索
+      authorQuery, authorSearchResults, selectedAuthors, showAuthorDropdown,
+      onAuthorSearchInput, addAuthorTag, removeAuthorTag,
       renderMd, formatTime, statusLabel, statusClass,
-      onSearchInput, selectAuthorFilter, clearAuthorFilter,
       doSearch, loadMore, toggleExpand, viewDetail, handleDeactivate,
     };
   }

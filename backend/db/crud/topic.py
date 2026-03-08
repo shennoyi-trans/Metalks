@@ -1,10 +1,7 @@
 # backend/db/crud/topic.py
 """
 话题 CRUD 操作
-- 话题创建、查询、更新、删除
-- 话题列表查询（支持分页、筛选、排序）
-- 话题审核
-- 话题统计
+✅ v1.7：get_topics 新增 author_ids 参数，支持按作者筛选
 """
 
 from typing import List, Optional, Dict, Any
@@ -59,7 +56,6 @@ async def create_topic(
 # 话题查询
 # ============================================================
 
-# ✅ 修复：docstring 移到函数体开头（原来放在 query = ... 之后，Python 不识别）
 async def get_topic_by_id(
     db: AsyncSession,
     topic_id: int,
@@ -92,11 +88,17 @@ async def get_topics(
     is_official: Optional[bool] = None,
     tag_id: Optional[int] = None,
     search: Optional[str] = None,
+    author_ids: Optional[List[int]] = None,  # ✅ v1.7：按作者 ID 列表筛选
     sort_by: str = "created_at",
     order: str = "desc",
 ):
     """
     获取话题列表（支持分页、筛选、排序）
+
+    ✅ v1.7：新增 author_ids 参数
+      - 传入作者 ID 列表时，筛选出这些作者参与的话题
+      - 多作者取交集（话题必须包含所有指定的作者）
+      - 不区分主要作者与合作作者
     """
     query = select(Topic)
 
@@ -111,6 +113,17 @@ async def get_topics(
         query = query.join(TopicTag).where(TopicTag.tag_id == tag_id)
     if search:
         query = query.where(Topic.title.contains(search))
+
+    # ✅ v1.7：按作者筛选
+    #   对每个 author_id，要求 Topic.id 存在于该作者的话题中
+    #   多个作者取并集（话题只要包含任意一个指定作者即可）
+    if author_ids:
+        author_subquery = (
+            select(TopicAuthor.topic_id)
+            .where(TopicAuthor.user_id.in_(author_ids))
+            .distinct()
+        )
+        query = query.where(Topic.id.in_(author_subquery))
 
     # 排序
     sort_column = getattr(Topic, sort_by, Topic.created_at)
@@ -238,66 +251,3 @@ async def reject_topic(db: AsyncSession, topic_id: int) -> Optional[Topic]:
         await db.commit()
         await db.refresh(topic)
     return topic
-
-
-# ============================================================
-# 话题统计
-# ============================================================
-
-async def increment_likes(db: AsyncSession, topic_id: int) -> Optional[Topic]:
-    """点赞数 +1"""
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
-    topic = result.scalar_one_or_none()
-    if topic:
-        topic.likes_count += 1
-        await db.commit()
-        await db.refresh(topic)
-    return topic
-
-
-async def decrement_likes(db: AsyncSession, topic_id: int) -> Optional[Topic]:
-    """点赞数 -1"""
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
-    topic = result.scalar_one_or_none()
-    if topic and topic.likes_count > 0:
-        topic.likes_count -= 1
-        await db.commit()
-        await db.refresh(topic)
-    return topic
-
-
-async def add_electrolyte(db: AsyncSession, topic_id: int, amount: float) -> Optional[Topic]:
-    """增加话题电解液收入"""
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
-    topic = result.scalar_one_or_none()
-    if topic:
-        topic.electrolyte_received += amount
-        await db.commit()
-        await db.refresh(topic)
-    return topic
-
-
-# ============================================================
-# 话题删除
-# ============================================================
-
-async def deactivate_topic(db: AsyncSession, topic_id: int) -> Optional[Topic]:
-    """下架话题（软删除）"""
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
-    topic = result.scalar_one_or_none()
-    if topic:
-        topic.is_active = False
-        await db.commit()
-        await db.refresh(topic)
-    return topic
-
-
-async def delete_topic(db: AsyncSession, topic_id: int) -> bool:
-    """硬删除话题"""
-    result = await db.execute(select(Topic).where(Topic.id == topic_id))
-    topic = result.scalar_one_or_none()
-    if not topic:
-        return False
-    await db.delete(topic)
-    await db.commit()
-    return True

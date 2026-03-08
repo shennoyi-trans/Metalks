@@ -1,24 +1,6 @@
-# backend/api/topic_api.py - v1.6
+# backend/api/topic_api.py
 """
 话题 API 接口
-支持接口：
-1.  创建话题（✅ 官方账号自动成为官方话题）
-2.  获取话题详情（✅ 作者可查看自己 pending 状态的话题）
-3.  编辑话题
-4.  获取话题列表
-4a. 获取我的话题
-5.  搜索话题
-6.  获取推荐话题
-7.  获取所有标签
-8a. 搜索标签
-8b. 创建标签
-9.  审核话题（管理员）
-10. 下架话题
-11. 删除话题
-12. 点赞/取消点赞
-13. 投喂电解液
-14. ✅ v1.6 敏感词预检
-15. ✅ v1.6 话题状态通知
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -73,7 +55,7 @@ class CreateTagPayload(BaseModel):
 
 
 class SensitiveCheckPayload(BaseModel):
-    """✅ v1.6 敏感词预检请求体"""
+    """敏感词预检请求体"""
     title: str = ""
     content: str = ""
     prompt: str = ""
@@ -94,10 +76,8 @@ async def create_topic(
 ):
     """
     创建话题
-
     - ✅ 官方账号（is_admin）创建的话题自动标记为官方话题
     """
-    # ✅ v1.6：检查是否为管理员，自动设为官方话题
     from backend.db.crud import user as user_crud
     user = await user_crud.get_user_by_id(db, user_id)
     is_official = bool(user and user.is_admin)
@@ -132,7 +112,7 @@ async def get_topic(
     """
     获取话题详情
     - 管理员可查看未激活（pending/rejected）的话题
-    - ✅ v1.6：话题作者也可查看自己 pending/rejected 的话题
+    - 话题作者也可查看自己 pending/rejected 的话题
     - 普通用户只能查看已激活的话题
     """
     include_inactive = False
@@ -141,11 +121,9 @@ async def get_topic(
         from backend.db.crud import user as user_crud
         user = await user_crud.get_user_by_id(db, user_id)
 
-        # 管理员可查看所有话题
         if user and user.is_admin:
             include_inactive = True
         else:
-            # ✅ v1.6：检查是否为话题作者
             is_author = await author_crud.is_author(db, topic_id, user_id)
             if is_author:
                 include_inactive = True
@@ -164,7 +142,7 @@ async def get_topic(
 
 
 # ============================================================
-# 3. 编辑话题（✅ 仅允许编辑 pending 状态的话题）
+# 3. 编辑话题（所有状态均可编辑）
 # ============================================================
 
 @router.put("/{topic_id}")
@@ -176,15 +154,12 @@ async def update_topic(
 ):
     """
     编辑话题
-    - ✅ v1.6：仅允许编辑 pending 状态的话题
+    - 编辑后 status 重置为 pending（需要重新审核）
     """
-    # ✅ v1.6：检查话题状态
     from backend.db.crud import topic as topic_crud_mod
     topic_obj = await topic_crud_mod.get_topic_by_id(db, topic_id, include_inactive=True)
     if not topic_obj:
         raise HTTPException(status_code=404, detail="话题不存在")
-    if topic_obj.status != "pending":
-        raise HTTPException(status_code=400, detail="只能编辑待审核状态的话题")
 
     result = await topic_service.update_topic(
         db=db,
@@ -215,12 +190,24 @@ async def get_topics(
     is_official: Optional[bool] = None,
     tag_id: Optional[int] = None,
     search: Optional[str] = None,
+    author_ids: Optional[str] = None,  # 逗号分隔的作者 ID
     sort_by: str = "created_at",
     order: str = "desc",
     db: AsyncSession = Depends(get_db)
 ):
-    """获取话题列表（支持分页/筛选/排序）"""
+    """
+    获取话题列表（支持分页/筛选/排序）
+    author_ids 参数，支持按作者筛选（逗号分隔）
+    """
     from backend.db.crud import topic as topic_crud
+
+    # 解析 author_ids
+    parsed_author_ids = None
+    if author_ids:
+        try:
+            parsed_author_ids = [int(x.strip()) for x in author_ids.split(',') if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="author_ids 格式错误")
 
     topics, total = await topic_crud.get_topics(
         db=db,
@@ -231,6 +218,7 @@ async def get_topics(
         is_official=is_official,
         tag_id=tag_id,
         search=search,
+        author_ids=parsed_author_ids,
         sort_by=sort_by,
         order=order
     )
@@ -258,7 +246,7 @@ async def get_topics(
 
 
 # ============================================================
-# 4a. 获取我的话题（✅ v1.6 包含 electrolyte_received 字段）
+# 4a. 获取我的话题
 # ============================================================
 
 @router.get("/my/list")
@@ -574,7 +562,7 @@ async def donate_electrolyte(
 
 
 # ============================================================
-# 14. ✅ v1.6 敏感词预检
+# 14. 敏感词预检
 # ============================================================
 
 @router.post("/check-sensitive")
@@ -583,24 +571,9 @@ async def check_sensitive_words(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """
-    敏感词预检（创建/编辑话题前调用）
-
-    返回:
-        {
-            "has_sensitive": bool,
-            "matches": [
-                {
-                    "word": "敏感词",
-                    "field": "title" | "content" | "prompt",
-                    "positions": [{"start": 0, "end": 3}]
-                }
-            ]
-        }
-    """
+    """敏感词预检（创建/编辑话题前调用）"""
     all_matches = []
 
-    # 分别检查每个字段
     fields = [
         ("title", payload.title),
         ("content", payload.content),
@@ -626,7 +599,7 @@ async def check_sensitive_words(
 
 
 # ============================================================
-# 15. ✅ v1.6 话题状态通知（我的话题中有状态变更）
+# 15. 话题状态通知
 # ============================================================
 
 @router.get("/my/notifications")
@@ -634,22 +607,7 @@ async def get_topic_notifications(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """
-    获取话题状态通知
-
-    检查用户的话题是否有状态变更：
-    - approved: 已通过审核
-    - rejected: 未通过审核
-    - deactivated: 已被下架（is_active=False 且 status=approved）
-
-    返回:
-        {
-            "has_updates": bool,
-            "notifications": [
-                {"topic_id": 1, "title": "...", "status": "approved", "label": "已通过审核"}
-            ]
-        }
-    """
+    """获取话题状态通知"""
     from backend.db.crud import topic as topic_crud
 
     topics, _ = await topic_crud.get_topics_by_user(
@@ -683,7 +641,6 @@ async def get_topic_notifications(
                 "label": "已被下架"
             })
 
-    # 只返回 approved/rejected/deactivated 的（pending 不算通知）
     has_updates = any(
         n["status"] in ("approved", "rejected", "deactivated")
         for n in notifications

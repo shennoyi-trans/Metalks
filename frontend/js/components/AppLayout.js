@@ -1,6 +1,6 @@
 /**
  * AppLayout — 全局布局（含导航栏 + router-view）
- * v1.6: 特质图标更新、话题管理入口、通知红点、导航居中
+ * ✅ v1.7: 修复通知红点方法名
  */
 
 import api from '../api/index.js';
@@ -98,9 +98,11 @@ export const AppLayout = {
 
     function goHome() { router.push('/'); }
     function go(path) { showMenu.value = false; router.push(path); }
+
+    // ✅ v1.7：使用更新后的方法名
     function goMyTopics() {
       showMenu.value = false;
-      user.markNotificationsRead();
+      user.markTopicNotificationsRead();
       router.push('/topic/mine');
     }
 
