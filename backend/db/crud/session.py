@@ -1,4 +1,4 @@
-# backend/db/crud/session.py（新增文件）
+# backend/db/crud/session.py
 """
 会话 CRUD 操作
 - 从 session_api.py 提取的数据库查询逻辑
@@ -14,7 +14,8 @@ async def get_user_sessions(db: AsyncSession, user_id: int) -> List[Dict]:
     """获取用户的所有未删除会话"""
     result = await db.execute(
         select(Session)
-        .where(Session.user_id == user_id, Session.deleted_at == None)
+        # ✅ Bug #6 修复: 使用 .is_(None) 替代 == None
+        .where(Session.user_id == user_id, Session.deleted_at.is_(None))
         .order_by(Session.created_at.desc())
     )
     sessions = result.scalars().all()
@@ -31,6 +32,7 @@ async def get_user_sessions(db: AsyncSession, user_id: int) -> List[Dict]:
             "id": s.id,
             "mode": s.mode,
             "topic_id": s.topic_id,
+            "topic_title": s.topic_title or "",
             "status": "completed" if bool(s.is_completed) else "in_progress",
             "created_at": s.created_at,
             "updated_at": s.updated_at,
@@ -62,6 +64,8 @@ async def get_session_with_messages(
         "id": session.id,
         "mode": session.mode,
         "topic_id": session.topic_id,
+        "topic_title": session.topic_title or "",
+        "is_completed": bool(session.is_completed),
         "status": "completed" if bool(session.is_completed) else "in_progress",
         "report_ready": bool(session.report_ready),
         "messages": [{"role": m.role, "content": m.content} for m in messages],

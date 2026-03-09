@@ -1,4 +1,13 @@
 # backend/services/model2_service.py
+"""
+model2：负责从对话历史中分析用户的"观念"，并在每轮对话前
+为 model1 生成内部建议；在对话结束时生成完整观念报告。
+
+说明：
+- llm 由 ChatService 注入（构造时或 attach_llm）
+- 长期特质信息 trait_summary / trait_profile 由 ChatService 统一维护，
+  调用时以参数形式传入本服务，不在本类中长期存储。
+"""
 
 import json
 from typing import List, Dict, Optional
@@ -8,15 +17,6 @@ from backend.utils.text_tools import strip_control_markers
 
 
 class Model2Service:
-    """
-    model2：负责从对话历史中分析用户的"观念"，并在每轮对话前
-    为 model1 生成内部建议；在对话结束时生成完整观念报告。
-
-    说明：
-    - llm 由 ChatService 注入（构造时或 attach_llm）
-    - 长期特质信息 trait_summary / trait_profile 由 ChatService 统一维护，
-      调用时以参数形式传入本服务，不在本类中长期存储。
-    """
 
     def __init__(self, llm=None):
         self.llm = llm
@@ -44,18 +44,17 @@ class Model2Service:
 
         返回结构：
         {
-            "advice": str,     # 供 model1 使用的内部建议
+            "advice": str,
             "signals": {
-                "report_ready": bool  # 是否可以生成报告
+                "report_ready": bool
             }
         }
         """
         if self.llm is None:
-            # 防御式：尚未注入 llm 时避免崩溃
             return {"advice": "", "signals": {"report_ready": False}}
 
         # ================================
-        # 1. 加载分析提示词（由提示词工程同学维护）
+        # 1. 加载分析提示词
         # ================================
         if mode == 1:
             prompt_path = "model2/opinion_analysis_mode1.txt"
@@ -75,7 +74,7 @@ class Model2Service:
                 system_prompt += f"- 标签：{tags_str}\n"
             system_prompt += "请在分析时特别聚焦于该话题维度。"
 
-        # 注入长期特质信息（由 ChatService 统一提供）
+        # 注入长期特质信息
         if trait_summary:
             system_prompt += (
                 "\n\n# 用户长期特质总结（一句话）：\n"
@@ -89,18 +88,18 @@ class Model2Service:
             )
 
         # ================================
-        # 2. 构造 user_prompt（输入给 LLM）
+        # 2. 构造 user_prompt
         # ================================
         formatted_history = self._format_history(session_history)
 
         user_prompt = (
-            "以下是当前对话的历史，请根据系统提示中的要求进行分析。"
+            "以下是当前对话的历史，请根据系统提示中的要求进行分析。\n\n"
             "【对话历史】\n"
             f"{formatted_history}\n\n"
         )
 
         # ================================
-        # 3. 调用 LLM，得到建议文本
+        # 3. 调用 LLM
         # ================================
         advice_text = ""
         async for chunk in self.llm.chat_stream(
@@ -116,20 +115,17 @@ class Model2Service:
         # 4. 解析 JSON 格式（容错处理）
         # ================================
         try:
-            # 尝试提取 JSON（可能包裹在 markdown 代码块中）
             if "```json" in advice_text:
                 json_match = advice_text.split("```json")[1].split("```")[0]
                 advice_data = json.loads(json_match.strip())
             elif advice_text.startswith("{"):
                 advice_data = json.loads(advice_text)
             else:
-                # 如果不是 JSON，则视为纯文本建议
                 advice_data = {
                     "advice": advice_text,
                     "report_ready": False
                 }
         except (json.JSONDecodeError, IndexError):
-            # JSON 解析失败，降级处理
             advice_data = {
                 "advice": advice_text,
                 "report_ready": False
@@ -153,13 +149,7 @@ class Model2Service:
         trait_profile: str = "",
     ) -> str:
         """
-        对话结束后调用：
-        - 基于本次完整对话历史
-        - 生成一份"观念分析报告"（给用户看的）
-
-        mode:
-        - 1：话题测试模式，有话题与观念标签
-        - 2：随便聊聊模式，无固定话题
+        对话结束后调用：基于完整对话历史，生成观念分析报告（给用户看的）
         """
         if self.llm is None:
             return ""
@@ -174,7 +164,6 @@ class Model2Service:
 
         system_prompt = load_prompt(prompt_path)
 
-        # mode1 时注入话题元数据
         if mode == 1 and topic_title:
             system_prompt += (
                 "\n\n# 本次观念报告对应的话题信息：\n"
@@ -185,7 +174,6 @@ class Model2Service:
                 system_prompt += f"- 标签：{tags_str}\n"
             system_prompt += "请围绕该话题维度，对用户在本次对话中的观点进行系统性分析。"
 
-        # 注入长期特质信息，帮助报告与既有画像保持一致
         if trait_summary:
             system_prompt += (
                 "\n\n# 已有的用户特质总结（一句话）：\n"
@@ -211,7 +199,7 @@ class Model2Service:
         )
 
         # ================================
-        # 3. 调用 LLM 得到完整报告
+        # 3. 调用 LLM
         # ================================
         report_text = ""
         async for chunk in self.llm.chat_stream(
@@ -225,13 +213,10 @@ class Model2Service:
         return report_text
 
     # =====================================
-    # 工具函数：格式化历史，避免 LLM 看到原始 Python dict
+    # 工具函数
     # =====================================
     def _format_history(self, history: List[Dict]) -> str:
-        """
-        将 [{"role": "...", "content": "..."}] 格式的历史，
-        转换为更易读的多轮对话文本。
-        """
+        """将历史转换为易读的多轮对话文本。"""
         lines = []
         for turn in history:
             role = turn.get("role", "")

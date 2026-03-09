@@ -1,4 +1,9 @@
 # backend/api/report_api.py
+"""
+观念报告 API
+- 报告状态查询
+- 报告内容获取
+"""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,10 +27,10 @@ async def get_report_status(
 ):
     """
     查询指定 session 的报告是否已生成
-    
+
     返回：
     {
-        "ready": bool,        # 报告是否已生成
+        "ready": bool,
         "session_id": str
     }
     """
@@ -36,10 +41,10 @@ async def get_report_status(
         )
     )
     session = result.scalar_one_or_none()
-    
+
     if not session:
         raise HTTPException(404, "Session not found")
-    
+
     return {
         "ready": bool(session.report_ready),
         "session_id": session_id
@@ -57,13 +62,17 @@ async def get_report(
 ):
     """
     获取指定 session 的完整观念分析报告
-    
+
     返回：
     {
-        "report": str,        # 报告内容
-        "ready": bool,        # 是否已生成
+        "report": str,
+        "ready": bool,
         "session_id": str
     }
+
+    说明：
+        - 报告未生成时返回 ready=False 和空 report，而非抛异常
+        - 前端可根据 ready 字段决定展示逻辑
     """
     result = await db.execute(
         select(Session).where(
@@ -72,15 +81,12 @@ async def get_report(
         )
     )
     session = result.scalar_one_or_none()
-    
+
     if not session:
         raise HTTPException(404, "Session not found")
-    
-    if not session.report_ready:
-        raise HTTPException(202, "Report is still being generated")
-    
+    # 统一返回结构，让前端通过 ready 字段判断
     return {
         "report": session.opinion_report or "",
-        "ready": True,
+        "ready": bool(session.report_ready),
         "session_id": session_id
     }

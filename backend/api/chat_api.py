@@ -1,4 +1,9 @@
 # backend/api/chat_api.py
+"""
+聊天流式接口
+- SSE 流式输出（Server-Sent Events）
+- 统一错误处理（业务错误 + 服务器错误）
+"""
 
 import json
 import logging
@@ -61,14 +66,8 @@ def create_chat_router(chat_service: ChatService):
             except ValueError as e:
                 # 业务逻辑错误（话题不存在、参数无效等）
                 logger.warning(
-                    "SSE stream ValueError",
-                    extra={
-                        "session_id": session_id,
-                        "user_id": user_id,
-                        "mode": mode,
-                        "topic_id": topic_id,
-                        "error_msg": str(e),
-                    },
+                    "SSE stream ValueError [session=%s, user=%s, mode=%s]: %s",
+                    session_id, user_id, mode, str(e),
                 )
                 error_event = {
                     "type": "error",
@@ -79,26 +78,16 @@ def create_chat_router(chat_service: ChatService):
 
             except Exception as e:
                 # 未预期的服务器错误
-                error_id = str(uuid.uuid4())[:8]   # 短 ID，方便查日志
-                traceback.print_exc()
+                error_id = str(uuid.uuid4())[:8]
                 logger.error(
-                    "SSE stream failed [error_id=%s]",
-                    error_id,
-                    extra={
-                        "session_id": session_id,
-                        "user_id": user_id,
-                        "mode": mode,
-                        "topic_id": topic_id,
-                        "error_id": error_id,
-                        "error_type": type(e).__name__,
-                        "error_msg": str(e),
-                    },
+                    "SSE stream failed [error_id=%s, session=%s, user=%s, mode=%s]: %s",
+                    error_id, session_id, user_id, mode, str(e),
                     exc_info=True,
                 )
                 error_event = {
                     "type": "error",
                     "error_code": "SERVER_ERROR",
-                    "error_id": error_id,          # 新增，前端可打印出来
+                    "error_id": error_id,
                     "content": "服务器内部错误，请稍后重试",
                 }
                 yield "data: " + json.dumps(error_event, ensure_ascii=False) + "\n\n"

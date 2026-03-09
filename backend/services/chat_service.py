@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from typing import AsyncGenerator, Optional, List, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from backend.services.db_history_manager import DatabaseHistoryManager
 from backend.db.models import TraitProfile, Session
 from backend.db.crud import topic as topic_crud
 
+logger = logging.getLogger("chat_service")
 
 class ChatService:
     """
@@ -158,10 +160,6 @@ class ChatService:
         """
         后台任务：生成观念报告并更新数据库。
         使用独立的 db session，生命周期由本任务自己管理。
-
-        ✅ 修复说明：不再接收外部 db，改为在方法内部创建独立 session。
-        原因：asyncio.create_task 中使用请求级 db session 会导致
-        请求结束后 session 被关闭，后台任务静默失败，报告永远无法生成。
         """
         from backend.db.database import get_sessionmaker
         from backend.db.models import Message
@@ -169,19 +167,17 @@ class ChatService:
         SessionLocal = get_sessionmaker()
         async with SessionLocal() as db:
             try:
-                # 获取 session 记录
                 result = await db.execute(
                     select(Session).where(Session.id == session_id)
                 )
                 session = result.scalar_one_or_none()
                 if not session:
+                    logger.warning("后台报告生成：session %s 不存在", session_id)
                     return
 
-                # 如果报告已生成，避免重复
                 if session.report_ready:
                     return
 
-                # 获取对话历史
                 msg_result = await db.execute(
                     select(Message)
                     .where(Message.session_id == session_id)
@@ -192,12 +188,10 @@ class ChatService:
                     {"role": m.role, "content": m.content} for m in messages
                 ]
 
-                # 🆕 v1.4: 获取话题信息（用于报告生成）
                 _, topic_title, _, topic_tags = await self._get_topic_prompt(
                     db, session, topic_id
                 )
 
-                # 调用 model2 生成报告
                 report = await self.model2.final_report(
                     full_history=full_history,
                     mode=mode,
@@ -208,13 +202,12 @@ class ChatService:
                     trait_profile=trait_profile,
                 )
 
-                # 更新数据库
                 session.report_ready = True
                 session.opinion_report = report
                 await db.commit()
 
             except Exception as e:
-                print(f"[ERROR] 后台报告生成失败: {e}")
+                logger.error("后台报告生成失败 [session=%s]: %s", session_id, e, exc_info=True)
                 await db.rollback()
 
     # ------------------------------------------------------
@@ -496,18 +489,29 @@ class ChatService:
 
         await db.commit()
 
-        # 5. 标记 session 完成
-        session = await db.execute(select(Session).where(Session.id == session_id))
-        session = session.scalar_one_or_none()
+        # 5. 标记 session 完成（直接复用已有对象，避免重复查询）
+        result = await db.execute(select(Session).where(Session.id == session_id))
+        session = result.scalar_one_or_none()
         if session:
             session.is_completed = True
-            db.add(session)
             await db.commit()
 
-        # 6. 输出最终事件
+        # ✅ 6. 【Bug #1 修复】触发后台报告生成任务
+        asyncio.create_task(
+            self._generate_report_background(
+                session_id=session_id,
+                mode=mode,
+                topic_id=topic_id,
+                trait_summary=trait_summary,
+                trait_profile=trait_profile,
+            )
+        )
+
+        # 7. 输出最终事件（包含 report_ready 字段）
         yield {
             "type": "end",
             "summary": model1_summary,
             "trait_summary": new_trait_summary,
             "full_dialogue": full_history,
+            "report_ready": False,  # 报告正在后台生成，前端启动轮询
         }
