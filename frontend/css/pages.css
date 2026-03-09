@@ -1,0 +1,112 @@
+/* ============================================================
+   Metalks — Pages
+   Auth, Profile, Traits, Sessions, Responsive
+   ============================================================ */
+
+/* ============================================================
+   Auth Page
+   ============================================================ */
+.auth-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #FAF5FF 0%, #FFF7ED 50%, #F0F9FF 100%);
+}
+.auth-container { width: 100%; max-width: 420px; padding: 24px; }
+.auth-brand { text-align: center; margin-bottom: 28px; }
+.auth-brand h1 {
+  font-family: var(--font-display); font-size: 36px; font-weight: 900;
+  background: linear-gradient(135deg, var(--purple), var(--orange));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.auth-brand p { color: var(--text-secondary); font-size: 15px; margin-top: 8px; }
+.auth-card { background: var(--card); border-radius: var(--radius-xl); padding: 32px; box-shadow: var(--shadow-lg); }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 28px; background: var(--bg-warm); border-radius: var(--radius-pill); padding: 4px; }
+.auth-tab {
+  flex: 1; padding: 8px; text-align: center; border-radius: var(--radius-pill);
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  transition: var(--transition);
+}
+.auth-tab.active { background: var(--card); color: var(--purple); box-shadow: var(--shadow-sm); }
+
+/* ============================================================
+   Traits Page — Standalone (no navbar)
+   ============================================================ */
+.traits-page-standalone { min-height: 100vh; background: var(--bg); }
+.traits-topbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px; height: 48px;
+  background: rgba(250,249,247,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light);
+}
+.traits-back-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--text-secondary);
+  padding: 4px 8px; border-radius: var(--radius-pill);
+  transition: var(--transition);
+}
+.traits-back-btn:hover { color: var(--purple); background: var(--purple-bg); }
+.traits-topbar-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.traits-share-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--purple);
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--purple-light);
+  transition: var(--transition);
+}
+.traits-share-btn:hover { background: var(--purple-bg); }
+.traits-body { max-width: var(--detail-width); margin: 0 auto; padding: 24px; }
+.traits-hero {
+  padding: 36px; border-radius: var(--radius-xl); text-align: center; margin-bottom: 28px;
+  background: linear-gradient(135deg, #EDE9FE, #FEF3C7, #DBEAFE);
+  position: relative; overflow: hidden;
+}
+.traits-hero h2 { font-size: 20px; font-weight: 700; position: relative; z-index: 1; }
+
+/* ============================================================
+   Profile Page
+   ============================================================ */
+.profile-hero {
+  padding: 28px; border-radius: var(--radius-xl); text-align: center;
+  background: linear-gradient(135deg, var(--purple-bg), #FFF7ED);
+  margin-bottom: 24px;
+}
+.profile-hero .avatar-lg {
+  width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 14px;
+  background: linear-gradient(135deg, var(--purple), var(--orange));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 26px; font-weight: 700;
+}
+.profile-hero h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.profile-hero p { font-size: 12px; color: var(--text-secondary); }
+.profile-hero .elec-big { font-size: 28px; font-weight: 900; color: var(--orange); margin-top: 10px; }
+.settings-list { display: flex; flex-direction: column; gap: 2px; }
+.settings-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; background: var(--card); border-radius: var(--radius-md);
+  cursor: pointer; transition: var(--transition); font-size: 13px;
+}
+.settings-item:hover { background: var(--purple-bg); }
+.settings-item .arrow { color: var(--text-muted); }
+
+/* ============================================================
+   Sessions List
+   ============================================================ */
+.session-card { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.session-card .session-info { flex: 1; }
+.session-card .session-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.session-card .session-time { font-size: 11px; color: var(--text-muted); }
+.session-card .session-right { display: flex; align-items: center; gap: 8px; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 900px) {
+  .topics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .topics-grid { grid-template-columns: 1fr; }
+  .navbar { padding: 0 12px; }
+  .rec-card { flex: 0 0 220px; }
+  .fab-create-topic { bottom: 20px; right: 20px; width: 48px; height: 48px; }
+}

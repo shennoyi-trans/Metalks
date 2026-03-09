@@ -165,9 +165,8 @@ export const ProfilePage = {
 
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
-    // 跳转我的话题并标记已读
+    // 跳转我的话题
     function goMyTopics() {
-      user.markTopicNotificationsRead();
       const router = VueRouter.useRouter();
       router.push('/topic/mine');
     }

@@ -10,7 +10,6 @@
 - 话题下架/删除
 """
 
-# ✅ 原来散落在 5 个函数内部的 import，全部移到这里
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -20,9 +19,10 @@ from backend.db.crud import tag as tag_crud
 from backend.db.crud import topic_author as author_crud
 from backend.db.crud import topic_like as like_crud
 from backend.db.crud import electrolyte as electrolyte_crud
-from backend.db.crud import user as user_crud          # ✅ 原来在函数内 import
-from backend.db.models import TopicTag, User, Tag      # ✅ 原来在函数内 import
+from backend.db.crud import user as user_crud
+from backend.db.models import TopicTag, User, Tag
 from backend.utils.sensitive_words import check_sensitive_word
+from backend.services import notification_service
 
 
 # ============================================================
@@ -133,7 +133,6 @@ async def create_topic(
                 electrolyte_share=coauthor_share
             )
 
-    # ✅ 直接使用顶部 import 的 TopicTag
     for tag_id in tag_ids:
         topic_tag = TopicTag(topic_id=topic.id, tag_id=tag_id)
         db.add(topic_tag)
@@ -220,7 +219,6 @@ async def update_topic(
     else:
         topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
 
-    # ✅ 直接使用顶部 import 的 delete 和 TopicTag
     if tag_ids is not None:
         await db.execute(delete(TopicTag).where(TopicTag.topic_id == topic_id))
         for tag_id in tag_ids:
@@ -248,7 +246,7 @@ async def review_topic(
     topic_id: int,
     action: str
 ) -> dict:
-    """审核话题"""
+    """审核话题（通过/拒绝后向所有作者写入通知）"""
     if action == "approve":
         topic = await topic_crud.approve_topic(db, topic_id)
         message = "话题已通过审核"
@@ -268,6 +266,15 @@ async def review_topic(
             "message": "话题不存在",
             "topic": None
         }
+
+    # 向话题所有作者写入通知
+    ntype = "approved" if action == "approve" else "rejected"
+    nlabel = "已通过审核" if action == "approve" else "未通过审核"
+    await notification_service.notify_topic_authors(
+        db, topic_id,
+        notification_type=ntype,
+        message=nlabel,
+    )
 
     return {
         "success": True,
@@ -441,7 +448,7 @@ async def donate_electrolyte(
             db, author.user_id, author_amount, reason="topic_donation"
         )
 
-        # ✅ 使用顶部 import 的 user_crud
+
         user = await user_crud.get_user_by_id(db, author.user_id)
 
         distribution.append({
@@ -466,15 +473,23 @@ async def donate_electrolyte(
 async def deactivate_topic(
     db: AsyncSession,
     user_id: int,
-    topic_id: int
+    topic_id: int,
+    is_admin: bool = False
 ) -> dict:
-    """下架话题（软删除）"""
-    is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
-    if not is_primary:
-        return {
-            "success": False,
-            "message": "只有主要作者可以下架话题"
-        }
+    """
+    下架话题（软删除）
+
+    权限：
+        - 主要作者可直接下架（不产生通知，自己操作不通知自己）
+        - 管理员可下架任意话题（向所有作者写入通知，排除管理员自己）
+    """
+    if not is_admin:
+        is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
+        if not is_primary:
+            return {
+                "success": False,
+                "message": "只有主要作者可以下架话题"
+            }
 
     topic = await topic_crud.deactivate_topic(db, topic_id)
 
@@ -483,6 +498,15 @@ async def deactivate_topic(
             "success": False,
             "message": "话题不存在"
         }
+
+    # 管理员下架 → 通知所有作者（排除管理员自己，若恰好也是作者）
+    if is_admin:
+        await notification_service.notify_topic_authors(
+            db, topic_id,
+            notification_type="deactivated",
+            message="已被管理员下架",
+            exclude_user_id=user_id,
+        )
 
     return {
         "success": True,

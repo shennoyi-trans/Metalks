@@ -131,7 +131,6 @@ export const AppLayout = {
 
     function goMyTopics() {
       showMenu.value = false;
-      user.markTopicNotificationsRead();
       router.push('/topic/mine');
     }
 

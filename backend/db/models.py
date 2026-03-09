@@ -496,7 +496,7 @@ class Message(Base):
 
 
 # ============================================================
-# TraitProfile 表（保持原样）
+# TraitProfile 表
 # ============================================================
 class TraitProfile(Base):
     __tablename__ = "trait_profiles"
@@ -516,9 +516,75 @@ class TraitProfile(Base):
     # 关系
     user: Mapped["User"] = relationship("User")
 
+# ============================================================
+# Notification 表
+# ============================================================
+
+class Notification(Base):
+    """
+    通知表 — 事件写入，读后删除
+
+    写入时机：话题状态变更（审核通过/拒绝/管理员下架）时，向所有作者写入通知
+    消费时机：用户查看/编辑某话题时，删除该话题对应的通知
+    红点判断：表中有该用户的记录就亮红点，没有就灭
+    """
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, comment="通知ID"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="通知接收人"
+    )
+
+    module: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        comment="来源模块（如 topic，便于未来扩展）"
+    )
+
+    ref_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="关联对象 ID（如 topic_id）"
+    )
+
+    type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        comment="通知类型（approved / rejected / deactivated）"
+    )
+
+    message: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="通知文案"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        comment="创建时间"
+    )
+
+    # 关系
+    user: Mapped["User"] = relationship("User")
+
+    # 复合索引
+    __table_args__ = (
+        Index('idx_user_module', 'user_id', 'module'),
+        Index('idx_user_module_ref', 'user_id', 'module', 'ref_id'),
+    )
+
 
 # ============================================================
-# SensitiveWord 表（保持原样）
+# SensitiveWord 表
 # ============================================================
 class SensitiveWord(Base):
     """敏感词表"""

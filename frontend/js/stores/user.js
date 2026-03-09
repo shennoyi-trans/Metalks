@@ -1,11 +1,14 @@
 /**
  * 用户信息 Store
  *
- * 通知红点逻辑：
- *  - 已读通知不会因轮询而重新出现红点
- *  - 头像红点仅在所有菜单红点消失后才消失
- *  - 有新通知时红点重新出现
- *  - 单个话题被查看/编辑后，该话题的红点消失
+ * 通知红点逻辑（纯后端驱动）：
+ *  - 后端 notifications 表有记录就亮红点，没有就灭
+ *  - 用户查看/编辑某个话题 → 调用后端删除该话题的通知 → 红点消失
+ *  - 前端不做任何推导，不依赖 localStorage 或内存 Set
+ *
+ * 每日签到：
+ *  - 由 fetchProfile 触发（后端在 GET /user/profile 时自动签到）
+ *  - 返回的 electrolyte_balance 已包含签到奖励
  */
 
 import api from '../api/index.js';
@@ -22,7 +25,7 @@ const state = reactive({
   isAdmin: false,
   createdAt: null,
 
-  // 话题通知（细化红点控制）
+  // 话题通知（直接映射后端 notifications 表）
   topicNotifications: [],
   hasTopicUpdates: false,
 });
@@ -30,47 +33,14 @@ const state = reactive({
 // 通知轮询定时器
 let _notificationTimer = null;
 
-// 已确认的通知 key 集合（用于判断"新"通知）
-//   key = `${topic_id}:${status}` 唯一标识一条通知
-let _acknowledgedKeys = new Set();
-
-// 已查看的单个话题 ID 集合（用于控制每条话题的红点）
-let _viewedTopicIds = new Set();
-
-// ----------------------------------------------------------
-// 工具函数
-// ----------------------------------------------------------
-
-/**
- * 从通知列表生成唯一 key 集合
- */
-function _buildNotificationKeys(notifications) {
-  return new Set(notifications.map(n => `${n.topic_id}:${n.status}`));
-}
-
-/**
- * 判断是否有未确认的新通知
- */
-function _hasUnacknowledged(notifications) {
-  return notifications.some(n => !_acknowledgedKeys.has(`${n.topic_id}:${n.status}`));
-}
-
-/**
- * 判断某个话题是否有未查看的状态变更
- * 仅当该话题 ID 不在 _viewedTopicIds 中、且存在于通知列表中时返回 true
- */
-function isTopicUnviewed(topicId) {
-  if (_viewedTopicIds.has(topicId)) return false;
-  return state.topicNotifications.some(
-    n => n.topic_id === topicId && !_acknowledgedKeys.has(`${n.topic_id}:${n.status}`)
-  );
-}
-
 // ----------------------------------------------------------
 // Actions
 // ----------------------------------------------------------
 
 const actions = {
+  /**
+   * 获取用户信息（同时触发后端每日签到）
+   */
   async fetchProfile() {
     try {
       const data = await api.user.getProfile();
@@ -97,13 +67,16 @@ const actions = {
     } catch (e) {}
   },
 
-  // 获取话题通知（仅未确认的算新）
+  /**
+   * 从后端拉取通知列表
+   * 有记录 → hasTopicUpdates = true → 亮红点
+   * 无记录 → hasTopicUpdates = false → 灭红点
+   */
   async fetchTopicNotifications() {
     try {
       const res = await api.topics.getNotifications();
       state.topicNotifications = res.notifications || [];
-      // 只有存在未确认的通知才显示红点
-      state.hasTopicUpdates = _hasUnacknowledged(state.topicNotifications);
+      state.hasTopicUpdates = state.topicNotifications.length > 0;
     } catch (e) {
       // 静默失败
     }
@@ -126,30 +99,31 @@ const actions = {
     }
   },
 
-  // 标记所有话题通知已读（进入"我的话题"页面时调用）
-  //   将当前所有通知加入已确认集合，红点消失
-  //   下次轮询若出现新的 key（如新审核通过），红点重新出现
-  markTopicNotificationsRead() {
-    const currentKeys = _buildNotificationKeys(state.topicNotifications);
-    currentKeys.forEach(k => _acknowledgedKeys.add(k));
-    state.hasTopicUpdates = false;
-  },
-
-  // 标记单个话题已查看（点击查看详情/编辑时调用）
-  //   该话题的红点消失，但全局红点是否消失取决于其他话题
+  /**
+   * 逐条消除：标记某个话题的通知已读
+   *
+   * 流程：
+   *  1. 立即从本地列表移除（保证 UI 即时响应）
+   *  2. 重新计算全局红点
+   *  3. 后台调用后端 DELETE 接口删除该话题的通知记录
+   */
   markTopicViewed(topicId) {
-    _viewedTopicIds.add(topicId);
-    // 同时把该话题相关的通知 key 加入已确认集合
-    state.topicNotifications
-      .filter(n => n.topic_id === topicId)
-      .forEach(n => _acknowledgedKeys.add(`${n.topic_id}:${n.status}`));
-    // 重新计算全局红点
-    state.hasTopicUpdates = _hasUnacknowledged(state.topicNotifications);
+    // 立即更新本地状态
+    state.topicNotifications = state.topicNotifications.filter(
+      n => n.topic_id !== topicId
+    );
+    state.hasTopicUpdates = state.topicNotifications.length > 0;
+
+    // 后台通知后端（不阻塞 UI）
+    api.topics.dismissNotification(topicId).catch(() => {});
   },
 
-  // 检查某个话题是否有未查看的状态变更（供 MyTopicsPage 使用）
+  /**
+   * 检查某个话题是否有未读通知（供 MyTopicsPage 使用）
+   * 直接查本地通知列表：有记录就有红点
+   */
   isTopicUnviewed(topicId) {
-    return isTopicUnviewed(topicId);
+    return state.topicNotifications.some(n => n.topic_id === topicId);
   },
 
   clear() {
@@ -163,8 +137,6 @@ const actions = {
     state.createdAt = null;
     state.topicNotifications = [];
     state.hasTopicUpdates = false;
-    _acknowledgedKeys = new Set();
-    _viewedTopicIds = new Set();
     this.stopNotificationPolling();
   },
 };

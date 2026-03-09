@@ -3,23 +3,24 @@
  * 对应后端：backend/api/topic_api.py
  *
  * 完整覆盖接口：
- *  1.  create          - 创建话题
- *  2.  detail          - 获取话题详情
- *  3.  update          - 编辑话题
- *  4.  list            - 获取话题列表（分页/筛选/排序）
- *  5.  myList          - 获取我的话题
- *  6.  search          - 搜索话题
- *  7.  recommended     - 获取推荐话题
- *  8.  allTags         - 获取所有标签
- *  8a. searchTags      - 搜索标签
- *  8b. createTag       - 创建标签
- *  9.  review          - 审核话题（管理员）
- *  10. deactivate      - 下架话题
- *  11. remove          - 删除话题（硬删除）
- *  12. toggleLike      - 点赞/取消点赞
- *  13. donate          - 投喂电解液
- *  14. ✅ checkSensitive - 敏感词预检
- *  15. ✅ getNotifications - 话题状态通知
+ *  1.  create              - 创建话题
+ *  2.  detail              - 获取话题详情
+ *  3.  update              - 编辑话题
+ *  4.  list                - 获取话题列表（分页/筛选/排序）
+ *  5.  myList              - 获取我的话题
+ *  6.  search              - 搜索话题
+ *  7.  recommended         - 获取推荐话题
+ *  8.  allTags             - 获取所有标签
+ *  8a. searchTags          - 搜索标签
+ *  8b. createTag           - 创建标签
+ *  9.  review              - 审核话题（管理员）
+ *  10. deactivate          - 下架话题
+ *  11. remove              - 删除话题（硬删除）
+ *  12. toggleLike          - 点赞/取消点赞
+ *  13. donate              - 投喂电解液
+ *  14. checkSensitive      - 敏感词预检
+ *  15. getNotifications    - 话题状态通知
+ *  16. dismissNotification - 逐条消除某话题的通知
  */
 
 import { request } from './client.js';
@@ -209,7 +210,7 @@ export async function review(topicId, action) {
 // ============================================================
 
 /**
- * 下架话题（软删除，仅主要作者可操作）
+ * 下架话题（主要作者或管理员均可操作）
  * @param {number} topicId
  * @returns {Promise<{success: boolean, message: string}>}
  */
@@ -267,7 +268,7 @@ export async function donate(topicId, amount) {
 }
 
 // ============================================================
-// 14. ✅ v1.6 敏感词预检
+// 14. 敏感词预检
 // ============================================================
 
 /**
@@ -286,15 +287,32 @@ export async function checkSensitive(data) {
 }
 
 // ============================================================
-// 15. ✅ v1.6 话题状态通知
+// 15. 话题状态通知
 // ============================================================
 
 /**
- * 获取当前用户话题的状态通知
+ * 获取当前用户的话题通知（从 notifications 表查询）
+ * 有记录 → has_updates=true → 红点亮
  * @returns {Promise<{has_updates: boolean, notifications: Array}>}
  */
 export async function getNotifications() {
     return request('/topics/my/notifications');
+}
+
+// ============================================================
+// 16. 逐条消除某话题的通知
+// ============================================================
+
+/**
+ * 删除当前用户在指定话题下的所有通知
+ * 用户查看/编辑某话题时调用，该话题红点消失，其余不受影响
+ * @param {number} topicId
+ * @returns {Promise<{success: boolean, deleted: number}>}
+ */
+export async function dismissNotification(topicId) {
+    return request(`/topics/my/notifications/${topicId}`, {
+        method: 'DELETE',
+    });
 }
 
 // ============================================================

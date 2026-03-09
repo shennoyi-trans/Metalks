@@ -1,0 +1,161 @@
+/* ============================================================
+   Metalks — Chat
+   Chat container, messages, input area, end state
+   ============================================================ */
+
+/* ============================================================
+   Chat Container — Immersive
+   ============================================================ */
+.chat-container { display: flex; flex-direction: column; min-height: 100vh; position: relative; }
+.chat-container--immersive { background: var(--bg); }
+
+.chat-blur-top {
+  position: sticky; top: 0; z-index: 10;
+  height: 48px;
+  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+  pointer-events: none;
+}
+
+.chat-messages {
+  flex: 1; max-width: var(--chat-width); width: 100%; margin: 0 auto;
+  padding: 0 24px 20px; overflow-y: auto;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ============================================================
+   Message Rows
+   ============================================================ */
+.msg-row { display: flex; margin-bottom: 14px; }
+.msg-row.user { justify-content: flex-end; }
+.msg-row.assistant { justify-content: flex-start; }
+.msg-row.system { justify-content: center; }
+
+.msg-bubble {
+  max-width: 72%; padding: 10px 14px; border-radius: 18px; line-height: 1.6;
+  font-size: 13.5px; word-break: break-word;
+}
+.msg-row.user .msg-bubble {
+  background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+  color: #fff; border-bottom-right-radius: 6px;
+}
+.msg-row.assistant .msg-bubble {
+  background: var(--card); border: 1px solid var(--border-light);
+  color: var(--text); border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.msg-row.system .msg-bubble {
+  background: transparent; color: var(--text-muted); font-size: 12px;
+  padding: 6px 14px; max-width: 100%;
+}
+
+/* ============================================================
+   Chat Welcome
+   ============================================================ */
+.chat-welcome { text-align: center; padding: 60px 20px; }
+.chat-welcome-icon { font-size: 48px; margin-bottom: 12px; }
+.chat-welcome p { color: var(--text-muted); font-size: 14px; }
+
+/* ============================================================
+   Typing Dots
+   ============================================================ */
+.typing-dots { display: inline-flex; gap: 3px; padding: 3px 0; }
+.typing-dots span {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted);
+  animation: typingBounce 1.4s infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ============================================================
+   Chat Input
+   ============================================================ */
+.chat-input-area {
+  padding: 12px 24px 20px;
+  max-width: var(--chat-width); margin: 0 auto; width: 100%;
+}
+.chat-input-wrap {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 22px; padding: 6px 8px 6px 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: var(--transition);
+}
+.chat-input-wrap:focus-within {
+  border-color: var(--purple-light);
+  box-shadow: 0 2px 16px rgba(124,58,237,0.12);
+}
+.chat-input-wrap textarea {
+  flex: 1; border: none; outline: none; resize: none; font-size: 14px;
+  line-height: 1.5; padding: 6px 0; background: none; color: var(--text);
+  max-height: 100px; min-height: 20px;
+}
+.chat-send-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); flex-shrink: 0;
+}
+.chat-send-btn:hover { transform: scale(1.08); }
+.chat-send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.chat-send-btn.stop-btn { background: var(--error); }
+
+/* ============================================================
+   Quit Confirm Bar
+   ============================================================ */
+.quit-confirm-bar {
+  display: flex; align-items: center; gap: 12px; justify-content: center;
+  padding: 10px 16px; margin: 8px 0; border-radius: var(--radius-lg);
+  background: #FEF3C7; font-size: 13px; color: #92400E;
+}
+.quit-confirm-bar .btn { padding: 5px 12px; font-size: 11px; }
+
+/* ============================================================
+   End State Card
+   ============================================================ */
+.end-state-card {
+  padding: 28px; text-align: center; margin: 20px auto; max-width: 420px;
+  background: linear-gradient(135deg, rgba(237,233,254,0.5), rgba(254,243,199,0.3));
+  border: 1px solid rgba(124,58,237,0.1);
+  border-radius: var(--radius-xl);
+}
+.end-state-icon { font-size: 32px; margin-bottom: 8px; }
+.end-state-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--success); }
+.end-state-summary { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+.end-state-hint { font-size: 12px; color: var(--text-muted); }
+
+/* ============================================================
+   Report Page
+   ============================================================ */
+.report-body { line-height: 1.8; }
+
+/* ============================================================
+   Markdown Styles
+   ============================================================ */
+.markdown-body h1 { font-size: 22px; font-weight: 700; margin: 20px 0 10px; }
+.markdown-body h2 { font-size: 18px; font-weight: 700; margin: 18px 0 8px; }
+.markdown-body h3 { font-size: 16px; font-weight: 600; margin: 14px 0 6px; }
+.markdown-body h4 { font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+.markdown-body p { margin: 6px 0; }
+.markdown-body ul, .markdown-body ol { padding-left: 24px; margin: 6px 0; }
+.markdown-body li { margin: 3px 0; }
+.markdown-body code { background: #F3F4F6; padding: 2px 5px; border-radius: 4px; font-size: 0.88em; }
+.markdown-body pre { background: #1E1E2E; color: #CDD6F4; padding: 14px; border-radius: var(--radius-md); overflow-x: auto; margin: 10px 0; }
+.markdown-body pre code { background: none; padding: 0; color: inherit; }
+.markdown-body blockquote { border-left: 3px solid var(--purple-light); padding: 6px 14px; margin: 10px 0; background: var(--purple-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.markdown-body a { color: var(--purple); }
+.markdown-body a:hover { text-decoration: underline; }
+.markdown-body strong { font-weight: 600; }
+.markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+/* User message markdown overrides */
+.msg-row.user .markdown-body h1,
+.msg-row.user .markdown-body h2,
+.msg-row.user .markdown-body h3,
+.msg-row.user .markdown-body h4,
+.msg-row.user .markdown-body p,
+.msg-row.user .markdown-body li,
+.msg-row.user .markdown-body a { color: #fff; }
+.msg-row.user .markdown-body code { background: rgba(255,255,255,0.2); color: #fff; }
+.msg-row.user .markdown-body blockquote { border-left-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.1); }

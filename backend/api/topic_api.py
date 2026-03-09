@@ -478,11 +478,21 @@ async def deactivate_topic(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """下架话题（软删除）"""
+    """
+    下架话题
+
+    权限：主要作者或管理员均可操作。
+    管理员下架时会自动向所有作者发送通知。
+    """
+    from backend.db.crud import user as user_crud
+    user = await user_crud.get_user_by_id(db, user_id)
+    is_admin = bool(user and user.is_admin)
+
     result = await topic_service.deactivate_topic(
         db=db,
         user_id=user_id,
-        topic_id=topic_id
+        topic_id=topic_id,
+        is_admin=is_admin,
     )
 
     if not result["success"]:
@@ -599,7 +609,7 @@ async def check_sensitive_words(
 
 
 # ============================================================
-# 15. 话题状态通知
+# 15. 话题状态通知（从 notifications 表查询）
 # ============================================================
 
 @router.get("/my/notifications")
@@ -607,46 +617,51 @@ async def get_topic_notifications(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """获取话题状态通知"""
-    from backend.db.crud import topic as topic_crud
+    """
+    获取话题状态通知
 
-    topics, _ = await topic_crud.get_topics_by_user(
-        db=db,
-        user_id=user_id,
-        skip=0,
-        limit=100
-    )
+    红点逻辑：notifications 表中有记录就亮红点，没有就灭。
+    每条记录在用户查看对应话题时被删除（逐条消除）。
+    """
+    from backend.db.crud import notification as notification_crud
 
-    notifications = []
-    for topic in topics:
-        if topic.status == "approved" and topic.is_active:
-            notifications.append({
-                "topic_id": topic.id,
-                "title": topic.title,
-                "status": "approved",
-                "label": "已通过审核"
-            })
-        elif topic.status == "rejected":
-            notifications.append({
-                "topic_id": topic.id,
-                "title": topic.title,
-                "status": "rejected",
-                "label": "未通过审核"
-            })
-        elif topic.status == "approved" and not topic.is_active:
-            notifications.append({
-                "topic_id": topic.id,
-                "title": topic.title,
-                "status": "deactivated",
-                "label": "已被下架"
-            })
-
-    has_updates = any(
-        n["status"] in ("approved", "rejected", "deactivated")
-        for n in notifications
+    notifications = await notification_crud.get_by_user(
+        db, user_id, module="topic"
     )
 
     return {
-        "has_updates": has_updates,
-        "notifications": notifications
+        "has_updates": len(notifications) > 0,
+        "notifications": [
+            {
+                "topic_id": n.ref_id,
+                "type": n.type,
+                "message": n.message,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            }
+            for n in notifications
+        ],
     }
+
+
+# ============================================================
+# 16. 逐条消除：删除某话题的通知
+# ============================================================
+
+@router.delete("/my/notifications/{topic_id}")
+async def dismiss_topic_notification(
+    topic_id: int,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    """
+    删除当前用户在指定话题下的所有通知
+
+    用户查看/编辑某个话题时调用，该话题红点消失，其余话题通知不受影响。
+    """
+    from backend.db.crud import notification as notification_crud
+
+    deleted = await notification_crud.delete_by_ref(
+        db, user_id, module="topic", ref_id=topic_id
+    )
+
+    return {"success": True, "deleted": deleted}

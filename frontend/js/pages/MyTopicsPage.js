@@ -3,8 +3,7 @@
  *
  * 红点逻辑：
  *  - 仅在话题有状态变更（审核通过/拒绝/下架）且用户未查看时显示红点
- *  - 用户点击查看详情或编辑后，该话题红点消失
- *  - 进入页面时标记全局通知已读
+ *  - 用户查看/编辑某个话题时逐条删除该话题的通知
  */
 
 import api from '../api/index.js';
@@ -112,28 +111,11 @@ export const MyTopicsPage = {
     function renderMd(text) { return renderMarkdown(text); }
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
-    // ----------------------------------------------------------
-    // 状态判断函数
-    // ----------------------------------------------------------
-
-    /**
-     * 判断话题是否有状态变更（审核通过/拒绝/下架）
-     */
-    function hasStatusChange(t) {
-      if (t.status === 'rejected') return true;
-      if (t.status === 'approved' && !t.is_active) return true;
-      if (t.status === 'approved' && t.is_active) return true;
-      return false;
-    }
-
     /**
      * 判断话题红点是否应该显示：
      * 有状态变更 + 用户未查看过该话题
      */
     function isTopicUnviewed(t) {
-      if (!hasStatusChange(t)) return false;
-      // 排除仍在审核中的（pending 不算状态变更）
-      if (t.status === 'pending') return false;
       return user.isTopicUnviewed(t.id);
     }
 
@@ -215,9 +197,6 @@ export const MyTopicsPage = {
     }
 
     onMounted(async () => {
-      // 标记全局通知已读
-      user.markTopicNotificationsRead();
-
       try {
         const r = await api.topics.myList();
         topics.value = r.topics || [];

@@ -14,6 +14,7 @@ from backend.db.database import get_sessionmaker
 from backend.db.models import (
     Message,
     NicknameHistory,
+    Notification,
     SensitiveWord,
     Session,
     Tag,
@@ -284,6 +285,20 @@ class TopicLikeAdmin(ModelView, model=TopicLike):
 
     column_labels = _labels(user="用户昵称")
 
+# ============================================================
+# 通知系统
+# ============================================================
+
+
+class NotificationAdmin(ModelView, model=Notification):
+    name = "通知"
+    name_plural = "通知管理"
+    icon = "fa-solid fa-bell"
+    column_default_sort = ("created_at", True)
+    column_list = ["id", "user_id", "module", "ref_id", "type", "message", "created_at"]
+    can_create = False
+    can_edit = False
+
 
 # ============================================================
 # 创建 Admin 实例
@@ -297,6 +312,8 @@ _VIEWS: list[type[ModelView]] = [
     SensitiveWordAdmin, NicknameHistoryAdmin,
     # 话题系统
     TopicAdmin, TagAdmin, TopicAuthorAdmin, TopicTagAdmin, TopicLikeAdmin,
+    # 通知系统
+    NotificationAdmin,
 ]
 
 
