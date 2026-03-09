@@ -61,6 +61,8 @@ config.local.*
 # =========================
 .vscode/
 .idea/
+.github/
+.obsidian/
 *.swp
 *.swo
 *.tmp
