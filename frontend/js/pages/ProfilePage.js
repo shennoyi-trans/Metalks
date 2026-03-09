@@ -1,6 +1,5 @@
 /**
  * ProfilePage — 个人中心
- * ✅ v1.7：显示用户ID、修复通知红点方法名
  */
 
 import api from '../api/index.js';
@@ -166,7 +165,7 @@ export const ProfilePage = {
 
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
-    // ✅ v1.7：跳转我的话题并标记已读
+    // 跳转我的话题并标记已读
     function goMyTopics() {
       user.markTopicNotificationsRead();
       const router = VueRouter.useRouter();

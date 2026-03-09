@@ -1,6 +1,5 @@
 /**
  * Metalks — 应用主入口
- * ✅ v1.6：新增话题管理页面路由
  */
 
 import api from './api/index.js';
@@ -24,7 +23,7 @@ import { SessionsPage }     from './pages/SessionsPage.js';
 import { TopicCreatePage }  from './pages/TopicCreatePage.js';
 import { MyTopicsPage }     from './pages/MyTopicsPage.js';
 import { TopicReviewPage }  from './pages/TopicReviewPage.js';
-import { TopicManagePage }  from './pages/TopicManagePage.js';  // ✅ v1.6
+import { TopicManagePage }  from './pages/TopicManagePage.js';
 
 // ============================================================
 // Vue Router
@@ -38,7 +37,7 @@ const routes = [
   { path: '/topic/create',       component: TopicCreatePage },
   { path: '/topic/mine',         component: MyTopicsPage },
   { path: '/topic/review',       component: TopicReviewPage },
-  { path: '/topic/manage',       component: TopicManagePage },  // ✅ v1.6
+  { path: '/topic/manage',       component: TopicManagePage },
   { path: '/topic/:id',          component: TopicDetailPage },
   { path: '/chat/:sessionId',    component: ChatPage },
   { path: '/session/:id/report', component: ReportPage },

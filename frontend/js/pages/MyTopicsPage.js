@@ -1,9 +1,10 @@
 /**
  * MyTopicsPage — 我的话题管理
- * ✅ v1.7:
- *  - 所有状态下都显示编辑按钮
- *  - 点击话题可查看话题详情（弹窗复用 TopicDetail）
- *  - 修复通知红点方法名
+ *
+ * 红点逻辑：
+ *  - 仅在话题有状态变更（审核通过/拒绝/下架）且用户未查看时显示红点
+ *  - 用户点击查看详情或编辑后，该话题红点消失
+ *  - 进入页面时标记全局通知已读
  */
 
 import api from '../api/index.js';
@@ -31,11 +32,11 @@ export const MyTopicsPage = {
         </div>
         <div v-else style="display:flex;flex-direction:column;gap:8px">
           <div v-for="t in topics" :key="t.id" class="card" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;cursor:pointer"
-            @click="openDetail(t.id)">
+            @click="handleTopicClick(t.id)">
             <div style="flex:1">
               <div style="display:flex;align-items:center;gap:6px;font-weight:600;margin-bottom:4px">
                 {{ t.title }}
-                <span v-if="isStatusChanged(t)" class="notification-dot-inline" :title="getStatusChangeLabel(t)"></span>
+                <span v-if="isTopicUnviewed(t)" class="notification-dot-inline" :title="getStatusChangeLabel(t)"></span>
               </div>
               <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-muted)">
                 <span :class="['status-badge', statusClass(t)]">{{ statusLabel(t) }}</span>
@@ -44,7 +45,7 @@ export const MyTopicsPage = {
               </div>
             </div>
             <div style="display:flex;gap:6px" @click.stop>
-              <button class="btn btn-ghost btn-sm" @click="goEdit(t.id)" style="font-size:12px">✏️ 编辑</button>
+              <button class="btn btn-ghost btn-sm" @click="handleEdit(t.id)" style="font-size:12px">✏️ 编辑</button>
               <button v-if="t.is_active" class="btn btn-ghost btn-sm" @click="deactivate(t)" style="font-size:12px;color:var(--orange)">下架</button>
               <button class="btn btn-ghost btn-sm" @click="showDeleteConfirm(t)" style="font-size:12px;color:var(--error)">删除</button>
             </div>
@@ -64,7 +65,7 @@ export const MyTopicsPage = {
         </div>
       </div>
 
-      <!-- ✅ v1.7：话题详情弹窗 -->
+      <!-- 话题详情弹窗 -->
       <div v-if="detailTopic" class="modal-overlay" @click.self="detailTopic=null">
         <div class="modal-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
           <div class="topic-detail-header">
@@ -88,7 +89,7 @@ export const MyTopicsPage = {
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--border-light);padding-top:16px">
             <button class="btn btn-ghost" @click="detailTopic=null">关闭</button>
-            <button class="btn btn-primary" @click="goEdit(detailTopic.id); detailTopic=null">✏️ 编辑</button>
+            <button class="btn btn-primary" @click="handleEdit(detailTopic.id); detailTopic=null">✏️ 编辑</button>
           </div>
         </div>
       </div>
@@ -111,9 +112,29 @@ export const MyTopicsPage = {
     function renderMd(text) { return renderMarkdown(text); }
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
-    function isStatusChanged(t) {
-      return t.status === 'approved' || t.status === 'rejected' ||
-        (t.status === 'approved' && !t.is_active);
+    // ----------------------------------------------------------
+    // 状态判断函数
+    // ----------------------------------------------------------
+
+    /**
+     * 判断话题是否有状态变更（审核通过/拒绝/下架）
+     */
+    function hasStatusChange(t) {
+      if (t.status === 'rejected') return true;
+      if (t.status === 'approved' && !t.is_active) return true;
+      if (t.status === 'approved' && t.is_active) return true;
+      return false;
+    }
+
+    /**
+     * 判断话题红点是否应该显示：
+     * 有状态变更 + 用户未查看过该话题
+     */
+    function isTopicUnviewed(t) {
+      if (!hasStatusChange(t)) return false;
+      // 排除仍在审核中的（pending 不算状态变更）
+      if (t.status === 'pending') return false;
+      return user.isTopicUnviewed(t.id);
     }
 
     function getStatusChangeLabel(t) {
@@ -137,12 +158,29 @@ export const MyTopicsPage = {
       return 'active';
     }
 
-    // ✅ v1.7：编辑话题（所有状态均可编辑）
-    function goEdit(topicId) {
+    // ----------------------------------------------------------
+    // 交互操作（标记已查看后再执行）
+    // ----------------------------------------------------------
+
+    /**
+     * 点击话题卡片 → 标记已查看 + 打开详情
+     */
+    function handleTopicClick(topicId) {
+      user.markTopicViewed(topicId);
+      openDetail(topicId);
+    }
+
+    /**
+     * 编辑话题 → 标记已查看 + 跳转编辑页
+     */
+    function handleEdit(topicId) {
+      user.markTopicViewed(topicId);
       router.push(`/topic/create?edit=${topicId}`);
     }
 
-    // ✅ v1.7：查看话题详情（弹窗）
+    /**
+     * 查看话题详情（弹窗）
+     */
     async function openDetail(topicId) {
       detailLoading.value = true;
       try {
@@ -154,6 +192,7 @@ export const MyTopicsPage = {
     }
 
     async function deactivate(t) {
+      user.markTopicViewed(t.id);
       try {
         await api.topics.deactivate(t.id);
         t.is_active = false;
@@ -176,7 +215,7 @@ export const MyTopicsPage = {
     }
 
     onMounted(async () => {
-      // ✅ v1.7：标记通知已读
+      // 标记全局通知已读
       user.markTopicNotificationsRead();
 
       try {
@@ -189,8 +228,9 @@ export const MyTopicsPage = {
     return {
       loading, topics, deleteTarget, hasStatusUpdates,
       detailTopic, detailLoading,
-      statusLabel, statusClass, isStatusChanged, getStatusChangeLabel,
-      goEdit, openDetail, deactivate, showDeleteConfirm, removeTopic,
+      statusLabel, statusClass, isTopicUnviewed, getStatusChangeLabel,
+      handleTopicClick, handleEdit, openDetail, deactivate,
+      showDeleteConfirm, removeTopic,
       renderMd, formatTime,
     };
   }

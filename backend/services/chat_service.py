@@ -56,7 +56,7 @@ class ChatService:
         return str(profile.summary or ""), str(profile.full_report or "")
 
     # ------------------------------------------------------
-    # 🆕 v1.4: 获取话题提示词（从Session快照或数据库）
+    # 获取话题提示词（从Session快照或数据库）
     # ------------------------------------------------------
     async def _get_topic_prompt(
         self,
@@ -97,7 +97,7 @@ class ChatService:
         return None, None, None, []
 
     # ----------------------------------------------------------
-    # ✅ 新增：提取公共流式逻辑（消除 mode1/mode2 重复代码）
+    # 提取公共流式逻辑（消除 mode1/mode2 重复代码）
     # ----------------------------------------------------------
     async def _collect_and_stream(
         self,
@@ -145,7 +145,7 @@ class ChatService:
             yield {"type": "user_want_quit"}
 
     # ------------------------------------------------------
-    # ✅ 修复：后台异步生成报告（使用独立 db session）
+    # 后台异步生成报告（使用独立 db session）
     # ------------------------------------------------------
     async def _generate_report_background(
         self,
@@ -309,7 +309,7 @@ class ChatService:
                     + "\n\n请根据话题，生成你的第一句话。"
                 )
 
-                # ✅ 重构：使用 _collect_and_stream 替代重复代码
+                # 使用 _collect_and_stream 替代重复代码
                 async for event in self._collect_and_stream(
                     system_prompt, final_prompt, [], session_id, history_mgr
                 ):
@@ -325,7 +325,7 @@ class ChatService:
                 await history_mgr.add(session_id, "user", user_input)
                 history = await history_mgr.get(session_id)
 
-                # 🆕 v1.4: 调用 model2 分析（传入话题元数据）
+                # 调用 model2 分析（传入话题元数据）
                 analysis = await self.model2.analyze(
                     session_history=history,
                     user_input=user_input,
@@ -360,7 +360,6 @@ class ChatService:
                     + user_input
                 )
 
-                # ✅ 重构：使用 _collect_and_stream 替代重复代码
                 async for event in self._collect_and_stream(
                     system_prompt, final_prompt, history, session_id, history_mgr
                 ):
@@ -417,7 +416,6 @@ class ChatService:
                 + user_input
             )
 
-            # ✅ 重构：使用 _collect_and_stream 替代重复代码
             async for event in self._collect_and_stream(
                 system_prompt, final_prompt, history, session_id, history_mgr
             ):

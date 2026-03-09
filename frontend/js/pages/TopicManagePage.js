@@ -1,9 +1,11 @@
 /**
  * TopicManagePage — 话题管理（管理员）
- * ✅ v1.7:
- *  - 作者搜索改为下拉选择 + 标签 chips（支持多作者）
+ *
+ * 作者搜索逻辑：
+ *  - 下拉选择 + 标签 chips（支持多作者）
+ *  - 回车时自动选择第一个匹配结果（而非直接搜索）
+ *  - 无选中作者时不触发搜索，提示用户先选择
  *  - 使用后端 author_ids 参数高效筛选
- *  - 搜索多作者时不要求顺序与主要/合作作者一致
  */
 
 import api from '../api/index.js';
@@ -54,7 +56,7 @@ export const TopicManagePage = {
                   <input class="author-search-input" v-model="authorQuery"
                     placeholder="输入作者ID或昵称搜索..."
                     @input="onAuthorSearchInput" @focus="showAuthorDropdown=true"
-                    @keydown.enter.prevent="doSearch">
+                    @keydown.enter.prevent="onAuthorSearchEnter">
                 </div>
                 <!-- 搜索下拉 -->
                 <div v-if="showAuthorDropdown && authorSearchResults.length" class="manage-author-dropdown">
@@ -72,7 +74,7 @@ export const TopicManagePage = {
               <option value="approved">已通过</option>
               <option value="rejected">已拒绝</option>
             </select>
-            <button class="btn btn-primary btn-sm" @click="doSearch" :disabled="searching">
+            <button class="btn btn-primary btn-sm" @click="handleSearchClick" :disabled="searching">
               {{ searching ? '搜索中...' : '搜索' }}
             </button>
           </div>
@@ -167,7 +169,7 @@ export const TopicManagePage = {
     const currentSkip = ref(0);
     const PAGE_SIZE = 20;
 
-    // ✅ v1.7：多作者搜索
+    // 多作者搜索
     const authorQuery = ref('');
     const authorSearchResults = ref([]);
     const selectedAuthors = ref([]);
@@ -192,8 +194,9 @@ export const TopicManagePage = {
     }
 
     // ============================
-    // ✅ v1.7：作者搜索（下拉 + 标签）
+    // 作者搜索（下拉 + 标签）
     // ============================
+
     function onAuthorSearchInput() {
       if (authorSearchTimer) clearTimeout(authorSearchTimer);
       const q = authorQuery.value.trim();
@@ -201,12 +204,47 @@ export const TopicManagePage = {
         authorSearchResults.value = [];
         return;
       }
+      showAuthorDropdown.value = true;
       authorSearchTimer = setTimeout(async () => {
         const results = await searchUsers(q, 8);
         // 排除已选中的作者
         const selectedIds = new Set(selectedAuthors.value.map(a => a.id));
         authorSearchResults.value = results.filter(u => !selectedIds.has(u.id));
       }, 300);
+    }
+
+    /**
+     * 回车时的处理逻辑：
+     * 1. 如果下拉列表有结果 → 自动选择第一个
+     * 2. 如果输入框有文字但没有下拉结果 → 等待搜索完成后再选择
+     * 3. 如果没有输入文字且已有选中作者 → 执行搜索
+     */
+    async function onAuthorSearchEnter() {
+      const q = authorQuery.value.trim();
+
+      // 如果下拉列表有结果，自动选择第一个
+      if (authorSearchResults.value.length > 0) {
+        addAuthorTag(authorSearchResults.value[0]);
+        return;
+      }
+
+      // 如果有输入文字但没有下拉结果，立即搜索用户
+      if (q) {
+        const results = await searchUsers(q, 8);
+        const selectedIds = new Set(selectedAuthors.value.map(a => a.id));
+        const filtered = results.filter(u => !selectedIds.has(u.id));
+        if (filtered.length > 0) {
+          addAuthorTag(filtered[0]);
+        } else {
+          toast.info('未找到匹配的用户');
+        }
+        return;
+      }
+
+      // 没有输入文字，如果已有选中的作者则执行搜索
+      if (selectedAuthors.value.length > 0) {
+        doSearch();
+      }
     }
 
     function addAuthorTag(u) {
@@ -223,7 +261,6 @@ export const TopicManagePage = {
       if (selectedAuthors.value.length) {
         doSearch();
       } else {
-        // 清空结果
         topics.value = [];
         totalCount.value = 0;
         searched.value = false;
@@ -231,8 +268,50 @@ export const TopicManagePage = {
     }
 
     // ============================
+    // 搜索按钮点击处理
+    // ============================
+
+    /**
+     * 搜索按钮点击：
+     * 在作者模式下，如果输入框有文字但没有选中作者，先尝试选择用户
+     */
+    async function handleSearchClick() {
+      if (searchMode.value === 'author') {
+        const q = authorQuery.value.trim();
+        // 有输入文字但没选中作者 → 先尝试匹配用户
+        if (q && !selectedAuthors.value.length) {
+          const results = await searchUsers(q, 8);
+          if (results.length > 0) {
+            addAuthorTag(results[0]);
+            return; // addAuthorTag 内部会调用 doSearch
+          } else {
+            toast.info('未找到匹配的用户，请选择一个作者后搜索');
+            return;
+          }
+        }
+        // 有输入文字且已有选中作者 → 追加选择
+        if (q && selectedAuthors.value.length) {
+          const results = await searchUsers(q, 8);
+          const selectedIds = new Set(selectedAuthors.value.map(a => a.id));
+          const filtered = results.filter(u => !selectedIds.has(u.id));
+          if (filtered.length > 0) {
+            addAuthorTag(filtered[0]);
+            return;
+          }
+        }
+        // 没有选中作者 → 提示
+        if (!selectedAuthors.value.length) {
+          toast.info('请先选择至少一个作者');
+          return;
+        }
+      }
+      doSearch();
+    }
+
+    // ============================
     // 搜索逻辑
     // ============================
+
     async function doSearch() {
       authorSearchResults.value = [];
       showAuthorDropdown.value = false;
@@ -254,7 +333,6 @@ export const TopicManagePage = {
             params.search = searchQuery.value.trim();
           }
         } else if (searchMode.value === 'author' && selectedAuthors.value.length) {
-          // ✅ v1.7：使用后端 author_ids 参数（逗号分隔）
           params.author_ids = selectedAuthors.value.map(a => a.id).join(',');
         }
 
@@ -295,6 +373,7 @@ export const TopicManagePage = {
     // ============================
     // 展开/收起详情
     // ============================
+
     async function toggleExpand(id) {
       if (expandedId.value === id) {
         expandedId.value = null;
@@ -318,6 +397,7 @@ export const TopicManagePage = {
     // ============================
     // 下架操作
     // ============================
+
     async function handleDeactivate(t) {
       t._loading = true;
       try {
@@ -366,9 +446,9 @@ export const TopicManagePage = {
       searchMode, searchQuery, statusFilter,
       searching, loading, loadingMore, searched,
       topics, totalCount, expandedId,
-      // ✅ v1.7：多作者搜索
       authorQuery, authorSearchResults, selectedAuthors, showAuthorDropdown,
-      onAuthorSearchInput, addAuthorTag, removeAuthorTag,
+      onAuthorSearchInput, onAuthorSearchEnter, addAuthorTag, removeAuthorTag,
+      handleSearchClick,
       renderMd, formatTime, statusLabel, statusClass,
       doSearch, loadMore, toggleExpand, viewDetail, handleDeactivate,
     };

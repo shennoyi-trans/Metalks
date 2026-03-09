@@ -5,7 +5,7 @@
 - 昵称管理（修改、历史查询）
 - 电解液查询
 - 密码修改
-- ✅ v1.6：用户搜索（按ID或昵称）
+- 用户搜索（按ID或昵称）
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -53,22 +53,9 @@ async def get_user_profile(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """
-    获取当前用户信息
-    
-    返回:
-        {
-            "id": 用户ID,
-            "email": 邮箱,
-            "nickname": 昵称,
-            "phone_number": 手机号,
-            "electrolyte_balance": 电解液余额,
-            "is_plus": 是否Plus会员,
-            "created_at": 注册时间
-        }
-    """
+    """获取当前用户信息"""
     user = await user_crud.get_user_by_id(db, user_id)
-    
+  
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
     
@@ -85,7 +72,7 @@ async def get_user_profile(
 
 
 # ============================================================
-# ✅ v1.6：用户搜索（按 ID 或昵称）
+# 用户搜索（按 ID 或昵称）
 # ============================================================
 
 @router.get("/search")
@@ -95,17 +82,7 @@ async def search_users(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """
-    搜索用户（按ID精确匹配或昵称模糊匹配）
-    
-    用途：创建话题时搜索共同作者
-    
-    返回:
-        {
-            "users": [{"id": 1, "nickname": "xxx"}],
-            "query": "搜索词"
-        }
-    """
+    """搜索用户（按ID精确匹配或昵称模糊匹配）"""
     q = q.strip()
     filters = []
     
@@ -172,7 +149,6 @@ async def change_password(
     user_id: int = Depends(get_current_user)
 ):
     """修改密码"""
-    # 验证新密码强度
     is_valid, error_msg = validate_password_strength(payload.new_password)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)

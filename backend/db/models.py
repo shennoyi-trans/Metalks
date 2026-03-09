@@ -1,4 +1,4 @@
-# backend/db/models.py - v1.4 话题系统重构版
+# backend/db/models.py v1.4
 from __future__ import annotations
 from datetime import datetime, date
 from typing import Optional, List

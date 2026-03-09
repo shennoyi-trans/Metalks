@@ -31,8 +31,8 @@ class Model2Service:
         user_input: str,
         mode: int,
         topic_id: Optional[int],
-        topic_title: Optional[str] = None,      # 🆕 v1.4
-        topic_tags: Optional[List[str]] = None, # 🆕 v1.4
+        topic_title: Optional[str] = None,
+        topic_tags: Optional[List[str]] = None,
         trait_summary: str = "",
         trait_profile: str = "",
     ) -> dict:
@@ -41,11 +41,6 @@ class Model2Service:
         - 结合历史对话 / 模式 /（可选）话题 /（可选）长期特质
         - 生成对 model1 的"内部对话建议"（advice），用户不可见。
         - 判断是否已捕捉到足够观念（report_ready）
-
-        🆕 v1.4 变更：
-        - 添加 topic_title 和 topic_tags 参数
-        - 不再依赖 TOPICS 字典
-        - 由 ChatService 传入话题元数据
 
         返回结构：
         {
@@ -69,7 +64,7 @@ class Model2Service:
 
         system_prompt = load_prompt(prompt_path)
 
-        # 🆕 v1.4：若为 mode1，注入话题元数据（而非从TOPICS字典查询）
+        # 若为 mode1，注入话题元数据
         if mode == 1 and topic_title:
             system_prompt += (
                 "\n\n# 本次对话的目标话题与观念标签：\n"
@@ -152,8 +147,8 @@ class Model2Service:
         full_history: List[Dict],
         mode: int,
         topic_id: Optional[int],
-        topic_title: Optional[str] = None,      # 🆕 v1.4
-        topic_tags: Optional[List[str]] = None, # 🆕 v1.4
+        topic_title: Optional[str] = None,
+        topic_tags: Optional[List[str]] = None,
         trait_summary: str = "",
         trait_profile: str = "",
     ) -> str:
@@ -161,11 +156,6 @@ class Model2Service:
         对话结束后调用：
         - 基于本次完整对话历史
         - 生成一份"观念分析报告"（给用户看的）
-
-        🆕 v1.4 变更：
-        - 添加 topic_title 和 topic_tags 参数
-        - 不再依赖 TOPICS 字典
-        - 由 ChatService 传入话题元数据
 
         mode:
         - 1：话题测试模式，有话题与观念标签
@@ -184,7 +174,7 @@ class Model2Service:
 
         system_prompt = load_prompt(prompt_path)
 
-        # 🆕 v1.4：mode1 时注入话题元数据（而非从TOPICS字典查询）
+        # mode1 时注入话题元数据
         if mode == 1 and topic_title:
             system_prompt += (
                 "\n\n# 本次观念报告对应的话题信息：\n"

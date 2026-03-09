@@ -1,6 +1,5 @@
 /**
- * AppLayout — 全局布局（含导航栏 + router-view）
- * ✅ v1.7: 修复通知红点方法名
+ * AppLayout — 全局布局（含导航栏 + router-view + 更新公告）
  */
 
 import api from '../api/index.js';
@@ -9,6 +8,12 @@ import { uuid } from '../utils/uuid.js';
 
 const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useRouter, useRoute } = VueRouter;
+
+// 当前版本号（仅用于更新公告展示）
+const APP_VERSION = 'v1.4.2';
+
+// localStorage key 用于记录用户已确认的版本
+const ANNOUNCEMENT_KEY = 'metalks_last_seen_version';
 
 export const AppLayout = {
   template: `
@@ -64,7 +69,7 @@ export const AppLayout = {
         </div>
       </nav>
 
-      <!-- 对话页顶部操作栏（浮在聊天上方，透明渐隐背景） -->
+      <!-- 对话页顶部操作栏 -->
       <div v-if="isChatPage" class="chat-topbar" :class="{ 'chat-topbar--visible': navHidden }">
         <button class="chat-topbar-btn" @click="$router.back()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -76,6 +81,27 @@ export const AppLayout = {
 
       <router-view :key="$route.fullPath"></router-view>
       <toast-container></toast-container>
+
+      <!-- 更新公告弹窗 -->
+      <div v-if="showAnnouncement" class="announcement-overlay" @click.self="dismissAnnouncement">
+        <div class="announcement-card">
+          <h2>🎉 更新公告 <span class="announcement-version">{{ appVersion }}</span></h2>
+          <div class="announcement-body">
+            <p>感谢使用 Metalks！本次更新包含以下内容：</p>
+            <ul>
+              <li>📝 话题广场功能全面上线，支持创建、审核、搜索和管理话题</li>
+              <li>👥 支持多作者协作，共同作者可分配电解液比例</li>
+              <li>🔍 管理员话题管理面板：按话题信息或作者快速检索</li>
+              <li>🔔 话题状态通知：审核结果实时推送，红点提醒</li>
+              <li>⚡ 电解液投喂系统：给喜欢的话题投喂电解液</li>
+              <li>🛡️ 敏感词预检：创建/编辑话题前自动检测</li>
+            </ul>
+          </div>
+          <div class="announcement-footer">
+            <button class="btn btn-primary" @click="dismissAnnouncement">我知道了</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
 
@@ -85,6 +111,10 @@ export const AppLayout = {
     const user = useUser();
     const showMenu = ref(false);
     const navHidden = ref(false);
+
+    // 更新公告
+    const showAnnouncement = ref(false);
+    const appVersion = APP_VERSION;
 
     const showNavbar = computed(() => {
       if (route.path === '/auth') return false;
@@ -99,7 +129,6 @@ export const AppLayout = {
     function goHome() { router.push('/'); }
     function go(path) { showMenu.value = false; router.push(path); }
 
-    // ✅ v1.7：使用更新后的方法名
     function goMyTopics() {
       showMenu.value = false;
       user.markTopicNotificationsRead();
@@ -122,11 +151,42 @@ export const AppLayout = {
       window.dispatchEvent(new CustomEvent('force-end-chat'));
     }
 
-    // 监听对话状态
+    // ----------------------------------------------------------
+    // 更新公告逻辑
+    // ----------------------------------------------------------
+
+    /**
+     * 检查是否需要展示更新公告
+     * 用户未见过当前版本 → 展示
+     */
+    function checkAnnouncement() {
+      try {
+        const lastSeen = localStorage.getItem(ANNOUNCEMENT_KEY);
+        if (lastSeen !== APP_VERSION) {
+          showAnnouncement.value = true;
+        }
+      } catch (e) {
+        // localStorage 不可用时静默忽略
+      }
+    }
+
+    /**
+     * 关闭公告并记录已确认版本
+     */
+    function dismissAnnouncement() {
+      showAnnouncement.value = false;
+      try {
+        localStorage.setItem(ANNOUNCEMENT_KEY, APP_VERSION);
+      } catch (e) {}
+    }
+
+    // ----------------------------------------------------------
+    // 对话状态监听
+    // ----------------------------------------------------------
+
     function onChatStarted() { chatCompleted.value = false; }
     function onChatCompleted() { chatCompleted.value = true; }
 
-    // 监听路由变化来更新 chatTitle
     watch(() => route.query, (q) => {
       if (q.topicName) chatTitle.value = decodeURIComponent(q.topicName);
       else if (q.mode === '2') chatTitle.value = '随便聊聊';
@@ -155,6 +215,11 @@ export const AppLayout = {
       window.addEventListener('chat-started', onChatStarted);
       window.addEventListener('chat-completed', onChatCompleted);
       await user.fetchProfile();
+
+      // 登录成功后检查是否需要展示更新公告
+      if (user.isLoggedIn) {
+        checkAnnouncement();
+      }
     });
 
     onUnmounted(() => {
@@ -166,7 +231,8 @@ export const AppLayout = {
 
     return {
       user, showMenu, navHidden, showNavbar, isChatPage,
-      chatTitle, chatCompleted,
+      chatTitle, chatCompleted, appVersion,
+      showAnnouncement, dismissAnnouncement,
       goHome, go, goMyTopics, doLogout, startFreeChat, endChatFromNav,
     };
   }

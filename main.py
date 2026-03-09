@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Metalks API",
     description="对话驱动的个体观念识别与认知模式建模系统",
-    version="1.4.0",
+    version="1.4.2",
     lifespan=lifespan,
 )
 
@@ -110,4 +110,4 @@ admin = create_admin(app, engine)
 # ============================================================
 @app.get("/")
 async def health_check():
-    return {"status": "ok", "version": "1.4.0"}
+    return {"status": "ok"}

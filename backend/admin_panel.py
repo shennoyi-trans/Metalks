@@ -186,7 +186,7 @@ class NicknameHistoryAdmin(ModelView, model=NicknameHistory):
 
 
 # ============================================================
-# 话题系统（v1.4）
+# 话题系统（v1.4)
 # ============================================================
 
 class TopicAdmin(ModelView, model=Topic):
