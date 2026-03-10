@@ -1,8 +1,4 @@
 # backend/db/crud/topic.py
-"""
-话题 CRUD 操作
-✅ v1.7：get_topics 新增 author_ids 参数，支持按作者筛选
-"""
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,17 +84,16 @@ async def get_topics(
     is_official: Optional[bool] = None,
     tag_id: Optional[int] = None,
     search: Optional[str] = None,
-    author_ids: Optional[List[int]] = None,  # ✅ v1.7：按作者 ID 列表筛选
+    author_ids: Optional[List[int]] = None,
     sort_by: str = "created_at",
     order: str = "desc",
 ):
     """
     获取话题列表（支持分页、筛选、排序）
 
-    ✅ v1.7：新增 author_ids 参数
-      - 传入作者 ID 列表时，筛选出这些作者参与的话题
-      - 多作者取交集（话题必须包含所有指定的作者）
-      - 不区分主要作者与合作作者
+    - 传入作者 ID 列表时，筛选出这些作者参与的话题
+    - 多作者取交集（话题必须包含所有指定的作者）
+    - 不区分主要作者与合作作者
     """
     query = select(Topic)
 
@@ -114,9 +109,8 @@ async def get_topics(
     if search:
         query = query.where(Topic.title.contains(search))
 
-    # ✅ v1.7：按作者筛选
-    #   对每个 author_id，要求 Topic.id 存在于该作者的话题中
-    #   多个作者取并集（话题只要包含任意一个指定作者即可）
+    #  对每个 author_id，要求 Topic.id 存在于该作者的话题中
+    #  多个作者取并集（话题只要包含任意一个指定作者即可）
     if author_ids:
         author_subquery = (
             select(TopicAuthor.topic_id)
@@ -251,3 +245,57 @@ async def reject_topic(db: AsyncSession, topic_id: int) -> Optional[Topic]:
         await db.commit()
         await db.refresh(topic)
     return topic
+
+# ============================================================
+# 话题下架（软删除）
+# ============================================================
+
+async def deactivate_topic(
+    db: AsyncSession,
+    topic_id: int,
+) -> Optional[Topic]:
+    """
+    下架话题（将 is_active 设为 False）
+
+    注意:
+        - 不 commit，由调用方（service 层）统一提交
+    """
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+
+    if not topic:
+        return None
+
+    topic.is_active = False
+    return topic
+
+
+# ============================================================
+# 话题硬删除
+# ============================================================
+
+async def delete_topic(
+    db: AsyncSession,
+    topic_id: int,
+) -> bool:
+    """
+    永久删除话题
+
+    注意:
+        - 不 commit，由调用方（service 层）统一提交
+        - Topic 的 authors / tags / likes 关系均设置了 cascade="all, delete-orphan"，
+          db.delete() 会自动级联清理这三张关联表
+        - Notification 表的 ref_id 不是外键，需要调用方在删话题前单独清理
+    """
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+
+    if not topic:
+        return False
+
+    await db.delete(topic)
+    return True

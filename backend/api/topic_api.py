@@ -89,7 +89,7 @@ async def create_topic(
         content=payload.content,
         prompt=payload.prompt,
         tag_ids=payload.tag_ids,
-        coauthors=payload.coauthors,
+        coauthors=payload.coauthors or [],
         is_official=is_official
     )
 
@@ -664,4 +664,6 @@ async def dismiss_topic_notification(
         db, user_id, module="topic", ref_id=topic_id
     )
 
+    await db.commit()  # ← 新增：CRUD 层不再 commit，此处统一提交
+    
     return {"success": True, "deleted": deleted}

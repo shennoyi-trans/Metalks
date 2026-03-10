@@ -30,7 +30,12 @@ export const MyTopicsPage = {
           <button class="btn btn-primary" @click="$router.push('/topic/create')">创建话题</button>
         </div>
         <div v-else style="display:flex;flex-direction:column;gap:8px">
-          <div v-for="t in topics" :key="t.id" class="card" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;cursor:pointer"
+          <div v-for="t in topics" :key="t.id" class="card"
+            :style="{
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'16px 20px', cursor:'pointer',
+              opacity: (!t.is_active || t.status === 'rejected') ? '0.5' : '1'
+            }"
             @click="handleTopicClick(t.id)">
             <div style="flex:1">
               <div style="display:flex;align-items:center;gap:6px;font-weight:600;margin-bottom:4px">

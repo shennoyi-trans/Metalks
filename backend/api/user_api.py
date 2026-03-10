@@ -10,7 +10,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, case
 from pydantic import BaseModel
 from typing import Optional
 
@@ -96,9 +96,14 @@ async def search_users(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    """搜索用户（按ID精确匹配或昵称模糊匹配）"""
+    """
+    搜索用户（按ID精确匹配或昵称模糊匹配）
+
+    排序：ID 精确匹配置顶，其余按 ID 升序
+    """
     q = q.strip()
     filters = []
+    search_id = None
 
     try:
         search_id = int(q)
@@ -108,10 +113,19 @@ async def search_users(
 
     filters.append(User.nickname.ilike(f"%{q}%"))
 
+    # ID 精确匹配置顶排序
+    if search_id is not None:
+        order_clause = case(
+            (User.id == search_id, 0),
+            else_=1,
+        )
+    else:
+        order_clause = User.id
+
     query = (
         select(User)
         .where(or_(*filters))
-        .where(User.id != user_id)
+        .order_by(order_clause, User.id)
         .limit(limit)
     )
 

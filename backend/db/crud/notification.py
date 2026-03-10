@@ -4,6 +4,9 @@
 - 写入通知
 - 按用户查询
 - 按关联对象删除（逐条消除）
+
+事务约定：
+    所有写操作均不单独 commit，由调用方（service / API 层）统一提交。
 """
 
 from typing import List, Optional
@@ -22,7 +25,7 @@ async def create_notification(
     message: str = "",
 ) -> Notification:
     """
-    写入一条通知（不单独 commit，由调用方统一提交）
+    写入一条通知
     """
     n = Notification(
         user_id=user_id,
@@ -72,5 +75,4 @@ async def delete_by_ref(
             Notification.ref_id == ref_id,
         )
     )
-    await db.commit()
     return result.rowcount

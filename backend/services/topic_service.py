@@ -36,7 +36,7 @@ async def create_topic(
     content: str,
     prompt: str,
     tag_ids: List[int],
-    coauthors: List[dict] = None,
+    coauthors: List[dict] = [],
     is_official: bool = False
 ) -> dict:
     """
@@ -480,8 +480,10 @@ async def deactivate_topic(
     下架话题（软删除）
 
     权限：
-        - 主要作者可直接下架（不产生通知，自己操作不通知自己）
+        - 主要作者可直接下架
         - 管理员可下架任意话题（向所有作者写入通知，排除管理员自己）
+
+    事务：统一在本函数末尾 commit
     """
     if not is_admin:
         is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
@@ -499,7 +501,8 @@ async def deactivate_topic(
             "message": "话题不存在"
         }
 
-    # 管理员下架 → 通知所有作者（排除管理员自己，若恰好也是作者）
+    # 管理员下架 → 通知所有作者（排除管理员自己）
+    # notify_topic_authors 末尾 commit 会一并提交下架操作
     if is_admin:
         await notification_service.notify_topic_authors(
             db, topic_id,
@@ -507,6 +510,9 @@ async def deactivate_topic(
             message="已被管理员下架",
             exclude_user_id=user_id,
         )
+    else:
+        # 主要作者自行下架，无需通知，手动 commit
+        await db.commit()
 
     return {
         "success": True,
@@ -519,13 +525,26 @@ async def delete_topic(
     user_id: int,
     topic_id: int
 ) -> dict:
-    """硬删除话题（永久删除）"""
+    """
+    硬删除话题（永久删除）
+
+    流程：
+        1. 权限检查（仅主要作者）
+        2. 清除删除者自己关于该话题的通知
+        3. 删除话题（级联清理 authors / tags / likes）
+        4. 统一 commit
+    """
+    from backend.db.crud import notification as notification_crud
+
     is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
     if not is_primary:
         return {
             "success": False,
             "message": "只有主要作者可以删除话题"
         }
+
+    # 清除删除者自己关于该话题的通知
+    await notification_crud.delete_by_ref(db, user_id, module="topic", ref_id=topic_id)
 
     success = await topic_crud.delete_topic(db, topic_id)
 
@@ -534,6 +553,8 @@ async def delete_topic(
             "success": False,
             "message": "话题不存在"
         }
+
+    await db.commit()
 
     return {
         "success": True,

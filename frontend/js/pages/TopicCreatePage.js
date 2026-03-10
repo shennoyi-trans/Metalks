@@ -207,6 +207,10 @@ export const TopicCreatePage = {
     }
 
     function selectCoauthor(index, userItem) {
+      if (userItem.id === user.userId) {
+        toast.info('不能将自己添加为共同作者');
+        return;
+      }
       const c = form.coauthors[index];
       c.selectedUser = userItem;
       c.searchQuery = `${userItem.nickname} (#${userItem.id})`;

@@ -1,6 +1,5 @@
 /**
  * TopicDetailPage — 话题详情
- * ✅ v1.7：作者可见编辑按钮
  */
 
 import api from '../api/index.js';
@@ -40,7 +39,6 @@ export const TopicDetailPage = {
               <button class="donate-btn" @click="showDonate=true">⚡ 投喂电解液</button>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
-              <button v-if="isAuthor" class="btn btn-ghost" @click="goEdit" style="font-size:13px">✏️ 编辑</button>
               <button class="btn btn-primary btn-lg" @click="startChat">🗣️ 开始对话</button>
             </div>
           </div>
@@ -88,12 +86,6 @@ export const TopicDetailPage = {
     const donating = ref(false);
     const donateResult = ref(null);
 
-    // ✅ v1.7：判断当前用户是否为该话题的作者
-    const isAuthor = computed(() => {
-      if (!topic.value || !topic.value.authors || !user.userId) return false;
-      return topic.value.authors.some(a => a.user_id === user.userId);
-    });
-
     function renderMd(text) { return renderMarkdown(text); }
     function formatTime(t) { if (!t) return ''; return new Date(t).toLocaleString('zh-CN'); }
 
@@ -133,11 +125,6 @@ export const TopicDetailPage = {
       router.push(`/chat/${sessionId}?mode=1&topicId=${topicId}&topicName=${encodeURIComponent(topic.value.title)}&first=true`);
     }
 
-    // ✅ v1.7：跳转编辑
-    function goEdit() {
-      router.push(`/topic/create?edit=${topicId}`);
-    }
-
     onMounted(async () => {
       try {
         topic.value = await api.topics.detail(topicId);
@@ -149,8 +136,7 @@ export const TopicDetailPage = {
 
     return {
       loading, topic, showDonate, donateAmount, donating, donateResult,
-      isAuthor,
-      renderMd, formatTime, toggleLike, handleDonate, closeDonate, startChat, goEdit,
+      renderMd, formatTime, toggleLike, handleDonate, closeDonate, startChat,
     };
   }
 };
