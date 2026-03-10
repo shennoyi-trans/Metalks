@@ -219,6 +219,13 @@ async def update_topic(
     else:
         topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
 
+    if not topic:
+        return {
+            "success": False,
+            "message": "话题不存在",
+            "topic": None
+        }
+
     if tag_ids is not None:
         await db.execute(delete(TopicTag).where(TopicTag.topic_id == topic_id))
         for tag_id in tag_ids:

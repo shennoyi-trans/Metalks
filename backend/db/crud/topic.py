@@ -92,7 +92,7 @@ async def get_topics(
     获取话题列表（支持分页、筛选、排序）
 
     - 传入作者 ID 列表时，筛选出这些作者参与的话题
-    - 多作者取交集（话题必须包含所有指定的作者）
+    - 多作者取并集（话题只要包含任意一个指定作者即可）
     - 不区分主要作者与合作作者
     """
     query = select(Topic)
@@ -109,8 +109,7 @@ async def get_topics(
     if search:
         query = query.where(Topic.title.contains(search))
 
-    #  对每个 author_id，要求 Topic.id 存在于该作者的话题中
-    #  多个作者取并集（话题只要包含任意一个指定作者即可）
+    # 对每个 author_id，要求 Topic.id 存在于该作者的话题中
     if author_ids:
         author_subquery = (
             select(TopicAuthor.topic_id)
@@ -245,6 +244,89 @@ async def reject_topic(db: AsyncSession, topic_id: int) -> Optional[Topic]:
         await db.commit()
         await db.refresh(topic)
     return topic
+
+
+# ============================================================
+# 点赞计数
+# ============================================================
+
+async def increment_likes(db: AsyncSession, topic_id: int) -> Optional[Topic]:
+    """
+    点赞数 +1
+
+    参数:
+        topic_id: 话题ID
+
+    返回:
+        更新后的话题对象；话题不存在时返回 None
+    """
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        return None
+
+    topic.likes_count = (topic.likes_count or 0) + 1
+    await db.commit()
+    await db.refresh(topic)
+    return topic
+
+
+async def decrement_likes(db: AsyncSession, topic_id: int) -> Optional[Topic]:
+    """
+    点赞数 -1（不会低于 0）
+
+    参数:
+        topic_id: 话题ID
+
+    返回:
+        更新后的话题对象；话题不存在时返回 None
+    """
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        return None
+
+    topic.likes_count = max((topic.likes_count or 0) - 1, 0)
+    await db.commit()
+    await db.refresh(topic)
+    return topic
+
+
+# ============================================================
+# 电解液累加
+# ============================================================
+
+async def add_electrolyte(
+    db: AsyncSession,
+    topic_id: int,
+    amount: float
+) -> Optional[Topic]:
+    """
+    累加话题收到的电解液总量
+
+    参数:
+        topic_id: 话题ID
+        amount: 本次投喂数量（> 0）
+
+    返回:
+        更新后的话题对象；话题不存在时返回 None
+    """
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        return None
+
+    topic.electrolyte_received = (topic.electrolyte_received or 0.0) + amount
+    await db.commit()
+    await db.refresh(topic)
+    return topic
+
 
 # ============================================================
 # 话题下架（软删除）
