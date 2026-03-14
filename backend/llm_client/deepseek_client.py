@@ -33,7 +33,7 @@ class DeepSeekClient(LLMClient):
             return self._session
 
     # 应用关闭时释放连接池
-    async def close(self):
+    async def close(self) -> None:
         async with self._lock:
             if self._session and not self._session.closed:
                 await self._session.close()

@@ -6,10 +6,10 @@
 - 点赞统计
 """
 
-from typing import List, Optional
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
-from backend.db.models import TopicLike, Topic
+from backend.db.models import TopicLike
 
 
 # ============================================================
@@ -233,7 +233,7 @@ async def count_likes(
         .select_from(TopicLike)
         .where(TopicLike.topic_id == topic_id)
     )
-    return result.scalar()
+    return int(result.scalar() or 0)
 
 
 async def count_user_likes(
@@ -254,7 +254,7 @@ async def count_user_likes(
         .select_from(TopicLike)
         .where(TopicLike.user_id == user_id)
     )
-    return result.scalar()
+    return int(result.scalar() or 0)
 
 
 # ============================================================

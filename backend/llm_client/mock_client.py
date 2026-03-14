@@ -24,3 +24,6 @@ class MockClient(LLMClient):
         for line in fake_answer.split("\n"):
             await asyncio.sleep(0.3)
             yield line
+
+    async def close(self) -> None:
+        return None

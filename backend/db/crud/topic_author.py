@@ -8,7 +8,7 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from backend.db.models import TopicAuthor, User
+from backend.db.models import TopicAuthor
 
 
 # ============================================================

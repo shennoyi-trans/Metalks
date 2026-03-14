@@ -7,7 +7,6 @@
 
 import json
 import logging
-import traceback
 import uuid
 
 from fastapi import APIRouter, Depends, Body

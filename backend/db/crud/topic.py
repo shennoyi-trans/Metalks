@@ -1,9 +1,9 @@
 # backend/db/crud/topic.py
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, and_, or_
-from backend.db.models import Topic, TopicAuthor, TopicTag, TopicLike, Tag, User
+from sqlalchemy import select, func, desc
+from backend.db.models import Topic, TopicAuthor, TopicTag
 from sqlalchemy.orm import selectinload
 
 

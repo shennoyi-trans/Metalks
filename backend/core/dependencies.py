@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 from backend.core.security import decode_access_token
 
 async def get_current_user(request: Request):

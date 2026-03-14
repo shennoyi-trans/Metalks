@@ -18,7 +18,6 @@ from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
 from backend.db.crud import user as user_crud
 from backend.db.crud import nickname as nickname_crud
-from backend.db.crud import electrolyte as electrolyte_crud
 from backend.services import nickname_service, electrolyte_service
 from backend.utils.validators import validate_password_strength
 from backend.db.models import User

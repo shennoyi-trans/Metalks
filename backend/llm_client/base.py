@@ -17,5 +17,11 @@ class LLMClient(ABC):
         注意：为了让类型检查通过，我们必须包含一个 'yield' 占位。
         """
         if False:
-            # 占位，让这个函数被识别为 async generator
             yield ""   # type: ignore
+
+    async def close(self) -> None:
+        """
+        默认关闭钩子。
+        对于没有连接池/会话需要释放的客户端，可直接继承此空实现。
+        """
+        return None

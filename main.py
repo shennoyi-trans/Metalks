@@ -1,7 +1,6 @@
 # main.py
 import os
 import json
-import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,9 +54,7 @@ chat_service = ChatService(llm_client)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    # shutdown: 释放 LLM 连接池
-    if hasattr(llm_client, "close"):
-        await llm_client.close()
+    await llm_client.close()
 
 
 app = FastAPI(

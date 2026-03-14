@@ -1,8 +1,9 @@
 # backend/llm_client/factory.py
+from .base import LLMClient
 from .deepseek_client import DeepSeekClient
 from .mock_client import MockClient
 
-def load_llm_client(config: dict):
+def load_llm_client(config: dict) -> LLMClient:
     provider = config.get("provider", "mock")
 
     if provider == "deepseek":
