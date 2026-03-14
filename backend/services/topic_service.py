@@ -20,7 +20,7 @@ from backend.db.crud import topic_author as author_crud
 from backend.db.crud import topic_like as like_crud
 from backend.db.crud import electrolyte as electrolyte_crud
 from backend.db.crud import user as user_crud
-from backend.db.models import TopicTag, User, Tag
+from backend.db.models import Topic, TopicTag, User, Tag
 from backend.utils.sensitive_words import check_sensitive_word
 from backend.services import notification_service
 
@@ -36,7 +36,7 @@ async def create_topic(
     content: str,
     prompt: str,
     tag_ids: List[int],
-    coauthors: List[dict] = [],
+    coauthors: Optional[List[dict]] = None,
     is_official: bool = False
 ) -> dict:
     """
@@ -443,7 +443,7 @@ async def donate_electrolyte(
         }
 
     # 增加话题总收入
-   # 检查是否为自我投喂
+    # 检查是否为自我投喂
     authors = await author_crud.get_authors_by_topic(db, topic_id)
     author_ids = [a.user_id for a in authors]
     is_self_donation = (user_id in author_ids)
@@ -454,7 +454,15 @@ async def donate_electrolyte(
     else:
         result = await db.execute(select(Topic).where(Topic.id == topic_id))
         topic = result.scalar_one_or_none()
-
+        
+    if topic is None:
+        return {
+            "success": False,
+            "message": "话题不存在",
+            "electrolyte_received": 0.0,
+            "user_balance": user_balance,
+            "distribution": []
+        }
     # 按权重分配给所有作者
     authors = await author_crud.get_authors_by_topic(db, topic_id)
 
@@ -543,40 +551,15 @@ async def deactivate_topic(
         "message": "话题已下架"
     }
 
+# ============================================================
+# 删除话题（硬删除）
+# ============================================================
 
 async def delete_topic(
     db: AsyncSession,
     user_id: int,
     topic_id: int
 ) -> dict:
-
-async def reactivate_topic(
-    db: AsyncSession,
-    user_id: int,
-    topic_id: int,
-    is_admin: bool = False,
-) -> dict:
-    """重新上架话题"""
-    if not is_admin:
-        is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
-        if not is_primary:
-            return {"success": False, "message": "只有主要作者可以重新上架话题"}
-
-    topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
-    if not topic:
-        return {"success": False, "message": "话题不存在"}
-
-    if topic.is_active:
-        return {"success": False, "message": "话题已处于上架状态"}
-
-    topic.is_active = True
-
-    # 清除关联 session 的不可用标记
-    from backend.db.crud import session as session_crud
-    await session_crud.clear_topic_unavailable(db, topic_id)
-
-    await db.commit()
-    return {"success": True, "message": "话题已重新上架"}
 
     """
     硬删除话题（永久删除）
@@ -618,10 +601,41 @@ async def reactivate_topic(
         "success": True,
         "message": "话题已永久删除"
     }
+    
+# ============================================================
+# 重新上架话题
+# ============================================================
 
+async def reactivate_topic(
+    db: AsyncSession,
+    user_id: int,
+    topic_id: int,
+    is_admin: bool = False,
+) -> dict:
+    """重新上架话题"""
+    if not is_admin:
+        is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
+        if not is_primary:
+            return {"success": False, "message": "只有主要作者可以重新上架话题"}
+
+    topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
+    if not topic:
+        return {"success": False, "message": "话题不存在"}
+
+    if topic.is_active:
+        return {"success": False, "message": "话题已处于上架状态"}
+
+    topic.is_active = True
+
+    # 清除关联 session 的不可用标记
+    from backend.db.crud import session as session_crud
+    await session_crud.clear_topic_unavailable(db, topic_id)
+
+    await db.commit()
+    return {"success": True, "message": "话题已重新上架"}
 
 # ============================================================
-# 推荐话题 — ✅ N+1 修复
+# 推荐话题
 # ============================================================
 
 async def get_recommended_topics(
@@ -632,7 +646,7 @@ async def get_recommended_topics(
     """
     获取推荐话题
 
-    ✅ 修复：批量查询标签关联和标签名，替代原来的逐个循环查询
+    批量查询标签关联和标签名，替代原来的逐个循环查询
     原来 10 个话题 × 平均 3 标签 = ~40 次 SQL → 修复后 3 次 SQL
     """
     topics = await topic_crud.get_recommended_topics(
@@ -642,14 +656,14 @@ async def get_recommended_topics(
     if not topics:
         return []
 
-    # ✅ 批量查询所有话题的标签关联
+    # 批量查询所有话题的标签关联
     topic_ids = [t.id for t in topics]
     tag_result = await db.execute(
         select(TopicTag).where(TopicTag.topic_id.in_(topic_ids))
     )
     all_topic_tags = tag_result.scalars().all()
 
-    # ✅ 批量查询涉及的所有 Tag
+    # 批量查询涉及的所有 Tag
     tag_ids = list({tt.tag_id for tt in all_topic_tags})
     if tag_ids:
         tags_result = await db.execute(
@@ -666,16 +680,16 @@ async def get_recommended_topics(
         if tag_name:
             topic_tag_map.setdefault(tt.topic_id, []).append(tag_name)
 
-    # ✅ 组装结果（0 次循环内查询）
+    # 组装结果（0 次循环内查询）
     result = []
     for topic in topics:
         result.append({
             "id": topic.id,
             "title": topic.title,
-            "content": topic.content,       # 新增
+            "content": topic.content,
             "is_official": topic.is_official,
             "likes_count": topic.likes_count,
-            "usage_count": topic.usage_count or 0,  # 新增
+            "usage_count": topic.usage_count or 0,
             "tags": topic_tag_map.get(topic.id, []),
         })
 
