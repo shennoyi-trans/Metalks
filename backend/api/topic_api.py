@@ -234,7 +234,8 @@ async def get_topics(
             "electrolyte_received": topic.electrolyte_received,
             "status": topic.status,
             "is_active": topic.is_active,
-            "created_at": topic.created_at.isoformat()
+            "created_at": topic.created_at.isoformat(),
+            "usage_count": topic.usage_count or 0,
         })
 
     return {
@@ -254,6 +255,7 @@ async def get_my_topics(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    usage_count": getattr(topic, 'usage_count', 0),
     user_id: int = Depends(get_current_user)
 ):
     """获取我创建/参与的话题"""
@@ -500,6 +502,23 @@ async def deactivate_topic(
 
     return result
 
+@router.post("/{topic_id}/reactivate")
+async def reactivate_topic(
+    topic_id: int,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    """重新上架话题"""
+    from backend.db.crud import user as user_crud
+    user = await user_crud.get_user_by_id(db, user_id)
+    is_admin = bool(user and user.is_admin)
+
+    result = await topic_service.reactivate_topic(
+        db=db, user_id=user_id, topic_id=topic_id, is_admin=is_admin
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=403, detail=result["message"])
+    return result
 
 # ============================================================
 # 11. 删除话题（硬删除）

@@ -365,6 +365,7 @@ async def get_topic_detail(
         "prompt": topic.prompt,
         "likes_count": topic.likes_count,
         "electrolyte_received": topic.electrolyte_received,
+        "usage_count": topic.usage_count or 0,
         "status": topic.status,
         "is_active": topic.is_active,
         "is_official": topic.is_official,
@@ -442,7 +443,17 @@ async def donate_electrolyte(
         }
 
     # 增加话题总收入
-    topic = await topic_crud.add_electrolyte(db, topic_id, amount)
+   # 检查是否为自我投喂
+    authors = await author_crud.get_authors_by_topic(db, topic_id)
+    author_ids = [a.user_id for a in authors]
+    is_self_donation = (user_id in author_ids)
+
+    # 非自我投喂才计入话题收入
+    if not is_self_donation:
+        topic = await topic_crud.add_electrolyte(db, topic_id, amount)
+    else:
+        result = await db.execute(select(Topic).where(Topic.id == topic_id))
+        topic = result.scalar_one_or_none()
 
     # 按权重分配给所有作者
     authors = await author_crud.get_authors_by_topic(db, topic_id)
@@ -469,6 +480,7 @@ async def donate_electrolyte(
         "message": f"成功投喂 {amount} 电解液",
         "electrolyte_received": topic.electrolyte_received,
         "user_balance": user_balance,
+        "self_donation": is_self_donation,
         "distribution": distribution
     }
 
@@ -507,6 +519,11 @@ async def deactivate_topic(
             "success": False,
             "message": "话题不存在"
         }
+    # 标记关联 session 不可用
+    from backend.db.crud import session as session_crud
+    await session_crud.mark_topic_unavailable(
+        db, topic_id, reason="该话题已被下架，无法继续使用"
+    )
 
     # 管理员下架 → 通知所有作者（排除管理员自己）
     # notify_topic_authors 末尾 commit 会一并提交下架操作
@@ -532,6 +549,35 @@ async def delete_topic(
     user_id: int,
     topic_id: int
 ) -> dict:
+
+async def reactivate_topic(
+    db: AsyncSession,
+    user_id: int,
+    topic_id: int,
+    is_admin: bool = False,
+) -> dict:
+    """重新上架话题"""
+    if not is_admin:
+        is_primary = await author_crud.is_primary_author(db, topic_id, user_id)
+        if not is_primary:
+            return {"success": False, "message": "只有主要作者可以重新上架话题"}
+
+    topic = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
+    if not topic:
+        return {"success": False, "message": "话题不存在"}
+
+    if topic.is_active:
+        return {"success": False, "message": "话题已处于上架状态"}
+
+    topic.is_active = True
+
+    # 清除关联 session 的不可用标记
+    from backend.db.crud import session as session_crud
+    await session_crud.clear_topic_unavailable(db, topic_id)
+
+    await db.commit()
+    return {"success": True, "message": "话题已重新上架"}
+
     """
     硬删除话题（永久删除）
 
@@ -553,6 +599,11 @@ async def delete_topic(
     # 清除删除者自己关于该话题的通知
     await notification_crud.delete_by_ref(db, user_id, module="topic", ref_id=topic_id)
 
+    # 标记关联 session 不可用（硬删除不可恢复）
+    from backend.db.crud import session as session_crud
+    await session_crud.mark_topic_unavailable(
+        db, topic_id, reason="该话题已被删除，无法继续使用"
+    )
     success = await topic_crud.delete_topic(db, topic_id)
 
     if not success:
@@ -621,8 +672,10 @@ async def get_recommended_topics(
         result.append({
             "id": topic.id,
             "title": topic.title,
+            "content": topic.content,       # 新增
             "is_official": topic.is_official,
             "likes_count": topic.likes_count,
+            "usage_count": topic.usage_count or 0,  # 新增
             "tags": topic_tag_map.get(topic.id, []),
         })
 

@@ -170,7 +170,7 @@ async def get_recommended_topics(
     query = (
         select(Topic)
         .where(Topic.status == "approved", Topic.is_active == True)
-        .order_by(desc(Topic.likes_count))
+        .order_by(desc(Topic.usage_count), desc(Topic.likes_count))
         .limit(limit)
     )
 
@@ -299,6 +299,22 @@ async def decrement_likes(db: AsyncSession, topic_id: int) -> Optional[Topic]:
 # ============================================================
 # 电解液累加
 # ============================================================
+
+async def increment_usage_count(
+    db: AsyncSession,
+    topic_id: int,
+) -> Optional[Topic]:
+    """话题使用次数 +1"""
+    result = await db.execute(
+        select(Topic).where(Topic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        return None
+    topic.usage_count = (topic.usage_count or 0) + 1
+    await db.commit()
+    await db.refresh(topic)
+    return topic
 
 async def add_electrolyte(
     db: AsyncSession,

@@ -255,6 +255,13 @@ class ChatService:
                 session.topic_version = topic.updated_at
                 await db.commit()
 
+        if session.topic_prompt is not None and topic_id is not None and is_first:
+            from backend.db.crud import topic_author as author_crud_local
+            authors = await author_crud_local.get_authors_by_topic(db, topic_id)
+            author_ids = [a.user_id for a in authors]
+            if user_id not in author_ids:
+                await topic_crud.increment_usage_count(db, topic_id)
+
         # 当前用户长期特质
         trait_summary, trait_profile = await self._load_trait_context(db, user_id)
 

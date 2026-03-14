@@ -12,6 +12,7 @@ from starlette.requests import Request
 from backend.core.security import decode_access_token
 from backend.db.database import get_sessionmaker
 from backend.db.models import (
+    ElectrolyteLog,
     Message,
     NicknameHistory,
     Notification,
@@ -299,6 +300,16 @@ class NotificationAdmin(ModelView, model=Notification):
     can_create = False
     can_edit = False
 
+class ElectrolyteLogAdmin(ModelView, model=ElectrolyteLog):
+    name = "电解液流水"
+    name_plural = "电解液流水"
+    icon = "fa-solid fa-receipt"
+    column_default_sort = ("created_at", True)
+    column_list = ["id", "user_id", "amount", "reason", "ref_name", "balance_after", "created_at"]
+    can_create = False
+    can_edit = False
+    column_labels = _labels(amount="金额", reason="原因", ref_name="关联名称", balance_after="操作后余额")
+
 
 # ============================================================
 # 创建 Admin 实例
@@ -313,7 +324,7 @@ _VIEWS: list[type[ModelView]] = [
     # 话题系统
     TopicAdmin, TagAdmin, TopicAuthorAdmin, TopicTagAdmin, TopicLikeAdmin,
     # 通知系统
-    NotificationAdmin,
+    ElectrolyteLogAdmin,NotificationAdmin,
 ]
 
 

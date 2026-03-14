@@ -153,6 +153,13 @@ class Topic(Base):
         nullable=False, 
         comment="累计收到的电解液"
     )
+
+    usage_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="使用次数（其他用户通过该话题开始对话的次数）"
+    )
     
     # 状态字段
     status: Mapped[str] = mapped_column(
@@ -454,6 +461,16 @@ class Session(Base):
         Text, nullable=True, default=None
     )
 
+    # 话题不可用标记
+    topic_unavailable: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False,
+        comment="话题已下架/删除，对话不可继续"
+    )
+    topic_unavailable_reason: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, default=None,
+        comment="不可用原因"
+    )
+
     # 软删除字段
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True, default=None
@@ -658,6 +675,60 @@ class NicknameHistory(Base):
         default=datetime.utcnow,
         comment="修改时间"
     )
+
+# ============================================================
+# ElectrolyteLog 表（电解液流水记录）
+# ============================================================
+class ElectrolyteLog(Base):
+    """
+    电解液变动流水
+
+    reason 枚举：
+        checkin              每日签到（+）
+        topic_donation_out   投喂话题支出（-）
+        topic_donation_in    收到话题投喂收入（+）
+        self_donation_out    自我投喂支出（-）
+        self_donation_in     自我投喂收入（+）
+        admin_gift           管理员充值（+）
+        change_nickname      修改昵称支出（-）
+    """
+    __tablename__ = "electrolyte_logs"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, comment="流水ID"
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+        comment="用户ID"
+    )
+    amount: Mapped[float] = mapped_column(
+        Float, nullable=False,
+        comment="变动金额（正=收入, 负=支出）"
+    )
+    reason: Mapped[str] = mapped_column(
+        String(30), nullable=False,
+        comment="变动原因"
+    )
+    ref_id: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True,
+        comment="关联对象 ID（如 topic_id）"
+    )
+    ref_name: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True,
+        comment="冗余名称（如话题标题）"
+    )
+    balance_after: Mapped[float] = mapped_column(
+        Float, nullable=False,
+        comment="操作后余额"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow,
+        index=True, comment="创建时间"
+    )
+
+    user: Mapped["User"] = relationship("User")
 
     # 关系
     user: Mapped["User"] = relationship("User", back_populates="nickname_histories")

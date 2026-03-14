@@ -50,6 +50,22 @@ def create_chat_router(chat_service: ChatService):
         force_end = body.get("force_end", False)
 
         async def event_generator():
+             # v1.4.3: 检查 session 话题是否不可用
+            from sqlalchemy import select as sa_select
+            from backend.db.models import Session as SessionModel
+            sess_result = await db.execute(
+                sa_select(SessionModel).where(SessionModel.id == session_id)
+            )
+            existing_session = sess_result.scalar_one_or_none()
+            if existing_session and existing_session.topic_unavailable:
+                error_event = {
+                    "type": "error",
+                    "error_code": "TOPIC_UNAVAILABLE",
+                    "content": existing_session.topic_unavailable_reason or "该话题已不可用",
+                }
+                yield "data: " + json.dumps(error_event, ensure_ascii=False) + "\n\n"
+                return
+                
             try:
                 async for event in chat_service.stream_response(
                     session_id=session_id,

@@ -38,6 +38,8 @@ async def get_user_sessions(db: AsyncSession, user_id: int) -> List[Dict]:
             "updated_at": s.updated_at,
             "last_message": last_msg.content if last_msg else "",
             "report_ready": bool(s.report_ready),
+            "topic_unavailable": bool(s.topic_unavailable) if hasattr(s, 'topic_unavailable') else False,
+            "topic_unavailable_reason": getattr(s, 'topic_unavailable_reason', None) or "",
         })
     return output
 
@@ -69,4 +71,31 @@ async def get_session_with_messages(
         "status": "completed" if bool(session.is_completed) else "in_progress",
         "report_ready": bool(session.report_ready),
         "messages": [{"role": m.role, "content": m.content} for m in messages],
+        "topic_unavailable": bool(s.topic_unavailable) if hasattr(s, 'topic_unavailable') else False,
+        "topic_unavailable_reason": getattr(s, 'topic_unavailable_reason', None) or "",
     }
+from sqlalchemy import update
+
+
+async def mark_topic_unavailable(
+    db: AsyncSession,
+    topic_id: int,
+    reason: str = "该话题已不可用",
+):
+    """批量标记所有使用该话题的 session 为不可用"""
+    await db.execute(
+        update(Session)
+        .where(Session.topic_id == topic_id, Session.topic_unavailable == False)
+        .values(topic_unavailable=True, topic_unavailable_reason=reason)
+    )
+
+
+async def clear_topic_unavailable(
+    db: AsyncSession,
+    topic_id: int,
+):
+    """清除不可用标记（重新上架时调用）"""
+    await db.execute(
+        update(Session)
+        .where(Session.topic_id == topic_id, Session.topic_unavailable == True)
+        .values(topic_unavailab
