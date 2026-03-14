@@ -255,7 +255,6 @@ async def get_my_topics(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    usage_count": getattr(topic, 'usage_count', 0),
     user_id: int = Depends(get_current_user)
 ):
     """获取我创建/参与的话题"""
@@ -275,14 +274,17 @@ async def get_my_topics(
             "title": topic.title,
             "status": topic.status,
             "is_active": topic.is_active,
-            "likes_count": topic.likes_count,
-            "electrolyte_received": getattr(topic, 'electrolyte_received', 0),
-            "created_at": topic.created_at.isoformat()
+            "likes_count": getattr(topic, "likes_count", 0),
+            "electrolyte_received": getattr(topic, "electrolyte_received", 0),
+            "usage_count": getattr(topic, "usage_count", 0),
+            "created_at": topic.created_at.isoformat() if topic.created_at else None,
         })
 
     return {
         "topics": topic_list,
-        "total": total
+        "total": total,
+        "skip": skip,
+        "limit": limit
     }
 
 
@@ -471,7 +473,7 @@ async def review_topic(
 
 
 # ============================================================
-# 10. 下架话题
+# 10a. 下架话题
 # ============================================================
 
 @router.post("/{topic_id}/deactivate")
@@ -501,6 +503,10 @@ async def deactivate_topic(
         raise HTTPException(status_code=403, detail=result["message"])
 
     return result
+
+# ============================================================
+# 10b. 恢复话题
+# ============================================================
 
 @router.post("/{topic_id}/reactivate")
 async def reactivate_topic(

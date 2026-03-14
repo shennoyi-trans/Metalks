@@ -14,7 +14,8 @@
  *  8a. searchTags          - 搜索标签
  *  8b. createTag           - 创建标签
  *  9.  review              - 审核话题（管理员）
- *  10. deactivate          - 下架话题
+ *  10a. deactivate         - 下架话题
+ *  10b. activate           - 恢复话题
  *  11. remove              - 删除话题（硬删除）
  *  12. toggleLike          - 点赞/取消点赞
  *  13. donate              - 投喂电解液
@@ -206,7 +207,7 @@ export async function review(topicId, action) {
 }
 
 // ============================================================
-// 10. 下架话题
+// 10a. 下架话题
 // ============================================================
 
 /**
@@ -216,6 +217,21 @@ export async function review(topicId, action) {
  */
 export async function deactivate(topicId) {
     return request(`/topics/${topicId}/deactivate`, {
+        method: 'POST',
+    });
+}
+
+// ============================================================
+// 10b. 恢复话题
+// ============================================================
+
+/**
+ * 恢复话题（主要作者或管理员均可操作）
+ * @param {number} topicId
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export async function activate(topicId) {
+    return request(`/topics/${topicId}/activate`, {
         method: 'POST',
     });
 }
