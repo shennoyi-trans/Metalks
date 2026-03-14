@@ -43,7 +43,7 @@ import { request } from './client.js';
 export async function create(data) {
     return request('/topics', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     });
 }
 
@@ -77,7 +77,7 @@ export async function detail(topicId) {
 export async function update(topicId, data) {
     return request(`/topics/${topicId}`, {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     });
 }
 
@@ -185,7 +185,7 @@ export async function searchTags(keyword, limit = 20) {
 export async function createTag(data) {
     return request('/topics/tags', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     });
 }
 
@@ -202,7 +202,7 @@ export async function createTag(data) {
 export async function review(topicId, action) {
     return request(`/topics/${topicId}/review`, {
         method: 'POST',
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action })
     });
 }
 
@@ -217,7 +217,7 @@ export async function review(topicId, action) {
  */
 export async function deactivate(topicId) {
     return request(`/topics/${topicId}/deactivate`, {
-        method: 'POST',
+        method: 'POST'
     });
 }
 
@@ -231,8 +231,8 @@ export async function deactivate(topicId) {
  * @returns {Promise<{success: boolean, message: string}>}
  */
 export async function activate(topicId) {
-    return request(`/topics/${topicId}/activate`, {
-        method: 'POST',
+    return request(`/topics/${topicId}/reactivate`, {
+        method: 'POST'
     });
 }
 
@@ -247,7 +247,7 @@ export async function activate(topicId) {
  */
 export async function remove(topicId) {
     return request(`/topics/${topicId}`, {
-        method: 'DELETE',
+        method: 'DELETE'
     });
 }
 
@@ -262,7 +262,7 @@ export async function remove(topicId) {
  */
 export async function toggleLike(topicId) {
     return request(`/topics/${topicId}/like`, {
-        method: 'POST',
+        method: 'POST'
     });
 }
 
@@ -279,7 +279,7 @@ export async function toggleLike(topicId) {
 export async function donate(topicId, amount) {
     return request(`/topics/${topicId}/donate`, {
         method: 'POST',
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount })
     });
 }
 
@@ -298,7 +298,7 @@ export async function donate(topicId, amount) {
 export async function checkSensitive(data) {
     return request('/topics/check-sensitive', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     });
 }
 
@@ -327,7 +327,7 @@ export async function getNotifications() {
  */
 export async function dismissNotification(topicId) {
     return request(`/topics/my/notifications/${topicId}`, {
-        method: 'DELETE',
+        method: 'DELETE'
     });
 }
 
