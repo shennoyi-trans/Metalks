@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Metalks API",
     description="对话驱动的个体观念识别与认知模式建模系统",
-    version="1.4.2",
+    version="1.4.3",
     lifespan=lifespan,
 )
 
