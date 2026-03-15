@@ -110,3 +110,76 @@
   .rec-card { flex: 0 0 220px; }
   .fab-create-topic { bottom: 20px; right: 20px; width: 48px; height: 48px; }
 }
+
+/* ============================================================
+   Electrolyte Detail Page
+   ============================================================ */
+.elec-balance-card {
+  text-align: center; padding: 32px 20px; margin-bottom: 20px;
+  background: linear-gradient(135deg, #FFF7ED, #FEF3C7);
+  border-radius: var(--radius-lg);
+}
+.elec-balance-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.elec-balance-number { font-size: 36px; font-weight: 900; color: var(--orange); }
+.elec-breakdown { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.elec-breakdown-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: var(--card); border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.elec-breakdown-label { color: var(--text-secondary); }
+.elec-breakdown-value.income { color: var(--success); font-weight: 600; }
+.elec-breakdown-value.expense { color: var(--error); font-weight: 600; }
+.elec-topic-row {
+  display: flex; align-items: center; gap: 12px; padding: 8px 0;
+  font-size: 13px; border-bottom: 1px solid var(--border-light);
+}
+.elec-topic-title { flex: 1; }
+.income { color: var(--success); font-weight: 600; font-size: 13px; }
+.expense { color: var(--error); font-weight: 600; font-size: 13px; }
+.elec-timeline { display: flex; flex-direction: column; gap: 2px; }
+.elec-log-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: var(--card); border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.elec-log-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+.elec-log-date { color: var(--text-muted); font-size: 12px; min-width: 80px; }
+.elec-log-reason { color: var(--text-secondary); }
+.elec-log-ref { color: var(--purple); font-size: 12px; }
+.elec-log-amount.income { color: var(--success); font-weight: 600; }
+.elec-log-amount.expense { color: var(--error); font-weight: 600; }
+
+/* 电解液变化动画 */
+@keyframes elec-float-up {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-24px); }
+}
+@keyframes elec-float-down {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(24px); }
+}
+.elec-anim {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  font-size: 13px; font-weight: 700; pointer-events: none; white-space: nowrap;
+  z-index: 100;
+}
+.elec-anim.income { color: var(--success); animation: elec-float-up 1.5s ease-out forwards; }
+.elec-anim.expense { color: var(--error); animation: elec-float-down 1.5s ease-out forwards; }
+@keyframes elec-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+.elec-bounce { animation: elec-bounce 0.4s ease; }
+
+/* 对话继续横幅 */
+.chat-resume-banner {
+  padding: 10px 16px; margin: 0 auto 12px; max-width: var(--chat-width);
+  background: #FEF3C7; border-radius: var(--radius-md);
+  font-size: 13px; color: #92400E; text-align: center;
+}
+.chat-unavailable-banner {
+  padding: 10px 16px; margin: 0 auto 12px; max-width: var(--chat-width);
+  background: #FEE2E2; border-radius: var(--radius-md);
+  font-size: 13px; color: #991B1B; text-align: center;
+}

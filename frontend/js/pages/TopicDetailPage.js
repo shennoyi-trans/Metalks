@@ -104,8 +104,17 @@ export const TopicDetailPage = {
       donating.value = true;
       try {
         const res = await api.topics.donate(topicId, donateAmount.value);
-        toast.success('投喂成功！');
-        topic.value.electrolyte_received = res.electrolyte_received || (topic.value.electrolyte_received + donateAmount.value);
+        if (res.self_donation) {
+          const tips = [
+            '给自己投喂电解液？左手倒右手的艺术家 🎨',
+            '自给自足，可持续发展的典范 🔋',
+            '电解液：我到底去哪儿了？🤔',
+            '这波操作属于是……自己养自己 🌱',
+          ];
+          toast.success(tips[Math.floor(Math.random() * tips.length)]);
+        } else {
+          toast.success('投喂成功！');
+        }
         donateResult.value = res.distribution || null;
         user.refreshElectrolyte();
       } catch (e) {

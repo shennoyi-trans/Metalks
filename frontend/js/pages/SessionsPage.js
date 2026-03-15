@@ -21,11 +21,22 @@ export const SessionsPage = {
           <button class="btn btn-primary" @click="$router.push('/')">去话题广场</button>
         </div>
         <div v-else style="display:flex;flex-direction:column;gap:8px">
-          <div v-for="s in sessions" :key="s.session_id||s.id" class="card card-hover session-card" @click="goSession(s)">
+          <div
+          v-for="s in sessions"
+          :key="s.session_id||s.id"
+          class="card card-hover session-card"
+          :class="{ 'session-card--unavailable': s.topic_unavailable }"
+          :data-reason="s.topic_unavailable_reason || '话题不可用'"
+          @click="goSession(s)"
+          >
             <div class="session-info">
               <div class="session-title">{{ sessionTitle(s) }}</div>
+              <div v-if="s.topic_unavailable" class="session-unavailable-reason">
+                {{ s.topic_unavailable_reason || '话题不可用' }}
+              </div>
               <div class="session-time">{{ formatTime(s.created_at) }}</div>
             </div>
+            
             <div class="session-right">
               <span :class="['status-badge', isSessionCompleted(s)?'completed':'active']">{{ isSessionCompleted(s) ? '✅ 已完成' : '🟢 进行中' }}</span>
               <button v-if="isSessionCompleted(s) && (s.report_ready)" class="btn btn-sm btn-secondary" @click.stop="$router.push('/session/'+(s.session_id||s.id)+'/report')">查看报告</button>
@@ -72,6 +83,7 @@ export const SessionsPage = {
     }
 
     function goSession(s) {
+      if (s.topic_unavailable) return;
       const id = s.session_id || s.id;
       const query = {};
       if (s.mode) query.mode = s.mode;

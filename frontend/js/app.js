@@ -13,15 +13,16 @@ import { AppLayout } from './components/AppLayout.js';
 
 // Pages
 import { AuthPage }        from './pages/AuthPage.js';
-import { HomePage }         from './pages/HomePage.js';
-import { TopicDetailPage }  from './pages/TopicDetailPage.js';
 import { ChatPage }         from './pages/ChatPage.js';
-import { ReportPage }       from './pages/ReportPage.js';
-import { TraitsPage }       from './pages/TraitsPage.js';
-import { ProfilePage }      from './pages/ProfilePage.js';
-import { SessionsPage }     from './pages/SessionsPage.js';
-import { TopicCreatePage }  from './pages/TopicCreatePage.js';
+import { ElectrolyteDetailPage } from './pages/ElectrolyteDetailPage.js';
+import { HomePage }         from './pages/HomePage.js';
 import { MyTopicsPage }     from './pages/MyTopicsPage.js';
+import { ProfilePage }      from './pages/ProfilePage.js';
+import { ReportPage }       from './pages/ReportPage.js';
+import { SessionsPage }     from './pages/SessionsPage.js';
+import { TraitsPage }       from './pages/TraitsPage.js';
+import { TopicCreatePage }  from './pages/TopicCreatePage.js';
+import { TopicDetailPage }  from './pages/TopicDetailPage.js';
 import { TopicReviewPage }  from './pages/TopicReviewPage.js';
 import { TopicManagePage }  from './pages/TopicManagePage.js';
 
@@ -34,16 +35,17 @@ const { createRouter, createWebHistory } = VueRouter;
 const routes = [
   { path: '/auth',                component: AuthPage,        meta: { public: true } },
   { path: '/',                    component: HomePage },
+  { path: '/chat/:sessionId',    component: ChatPage },
+  { path: '/electrolyte',        component: ElectrolyteDetailPage },
+  { path: '/me',                 component: ProfilePage },
+  { path: '/sessions',           component: SessionsPage },
+  { path: '/session/:id/report', component: ReportPage },
+  { path: '/traits',             component: TraitsPage },
   { path: '/topic/create',       component: TopicCreatePage },
   { path: '/topic/mine',         component: MyTopicsPage },
   { path: '/topic/review',       component: TopicReviewPage },
   { path: '/topic/manage',       component: TopicManagePage },
   { path: '/topic/:id',          component: TopicDetailPage },
-  { path: '/chat/:sessionId',    component: ChatPage },
-  { path: '/session/:id/report', component: ReportPage },
-  { path: '/sessions',           component: SessionsPage },
-  { path: '/traits',             component: TraitsPage },
-  { path: '/me',                 component: ProfilePage },
 ];
 
 const router = createRouter({

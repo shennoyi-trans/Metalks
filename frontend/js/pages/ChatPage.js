@@ -16,6 +16,15 @@ export const ChatPage = {
       <!-- 顶部模糊渐变遮罩 -->
       <div class="chat-blur-top"></div>
 
+      <!-- 话题不可用横幅 -->
+      <div v-if="topicUnavailable" class="chat-unavailable-banner">
+        {{ topicUnavailableReason || '该话题已不可用' }}
+      </div>
+      <!-- 已结束可继续横幅 -->
+      <div v-if="wasCompleted && !topicUnavailable" class="chat-resume-banner">
+        本次对话已结束，随时欢迎回来。
+      </div>
+
       <div class="chat-messages" ref="messagesEl" @scroll="handleScroll">
         <!-- Mode2 空状态 -->
         <div v-if="!messages.length && mode==2 && !isStreaming" class="chat-welcome">
@@ -53,7 +62,7 @@ export const ChatPage = {
       </div>
 
       <!-- 输入区 -->
-      <div v-if="!isCompleted" class="chat-input-area">
+      <div v-if="!topicUnavailable" class="chat-input-area">
         <div class="chat-input-wrap">
           <textarea v-model="inputText" rows="1" placeholder="输入你的想法..."
             @keydown="handleKeydown" ref="inputEl" :disabled="isCompleted"></textarea>
@@ -91,11 +100,15 @@ export const ChatPage = {
     const abortController = ref(null);
     const topicName = ref(route.query.topicName || '');
 
+    const topicUnavailable = ref(false);
+    const topicUnavailableReason = ref('');
+    const wasCompleted = ref(false);
+
     let outputQueue = [];
     let typewriterTimer = null;
     let userScrolledUp = false;
 
-    const canSend = computed(() => inputText.value.trim() && !isStreaming.value && !isCompleted.value);
+    const canSend = computed(() => inputText.value.trim() && !isStreaming.value && !topicUnavailable.value);
 
     function renderMd(text) { return renderMarkdown(text); }
 
@@ -139,11 +152,12 @@ export const ChatPage = {
     // ---------- 发送消息 ----------
     function sendMessage() {
       const text = inputText.value.trim();
-      if (!text || isStreaming.value || isCompleted.value) return;
+      if (!text || isStreaming.value || topicUnavailable.value) return;
       inputText.value = '';
       messages.value.push({ role: 'user', content: text });
       scrollToBottom();
       doStream(text, false);
+      wasCompleted.value = false;
     }
 
     // ---------- 流式请求 ----------
@@ -179,7 +193,12 @@ export const ChatPage = {
             flushTypewriter(aiMsg);
             isStreaming.value = false;
             currentAiMsg.value = null;
-            toast.error(msg);
+            if (code === 'TOPIC_UNAVAILABLE') {
+              topicUnavailable.value = true;
+              topicUnavailableReason.value = msg;
+            } else {
+              toast.error(msg);
+            }
           },
           onQuit() { aiMsg.showQuitConfirm = true; },
           onReportGenerating() {
@@ -284,10 +303,15 @@ export const ChatPage = {
         try { const t = await api.topics.detail(topicId.value); topicName.value = t.title; } catch (e) {}
       }
 
-      // 从历史进入（非首次）— 这里是关键修复
+      // 从历史进入（非首次对话）时，尝试恢复会话状态
       if (!isFirst.value && !route.query.first) {
         try {
           const detail = await api.sessions.detail(sessionId);
+          // 检查话题不可用
+          if (detail.topic_unavailable) {
+            topicUnavailable.value = true;
+            topicUnavailableReason.value = detail.topic_unavailable_reason || '';
+          }
           if (detail.messages) {
             messages.value = detail.messages.map(m => ({ role: m.role, content: m.content }));
           }
@@ -295,7 +319,7 @@ export const ChatPage = {
           // 检查是否已完成 — 关键：使用 detail 中的状态
           const completed = detail.is_completed || detail.status === 'completed';
           if (completed) {
-            isCompleted.value = true;
+            wasCompleted.value = true;  // 标记曾经完成，但不禁用输入
             summary.value = detail.summary || '';
             window.dispatchEvent(new CustomEvent('chat-completed'));
             // 检查报告状态

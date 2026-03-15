@@ -42,7 +42,7 @@ export const HomePage = {
             <select class="sort-select" v-model="sortBy" @change="loadTopics">
               <option value="created_at">最新</option>
               <option value="likes_count">最热</option>
-              <option value="electrolyte_received">电解液最多</option>
+              <option value="electrolyte_received">使用最多</option>
             </select>
           </div>
         </div>
@@ -61,7 +61,7 @@ export const HomePage = {
               </div>
               <div class="topic-meta">
                 <span>❤️ {{ t.likes_count || 0 }}</span>
-                <span>⚡ {{ t.electrolyte_received || 0 }}</span>
+                <span>⚡ {{ t.usage_count || 0 }}</span>
                 <span>{{ t.author_nickname || (t.authors && t.authors[0] && t.authors[0].nickname) || '' }}</span>
               </div>
             </div>

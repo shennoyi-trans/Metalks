@@ -10,7 +10,7 @@ const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 const { useRouter, useRoute } = VueRouter;
 
 // 当前版本号（仅用于更新公告展示）
-const APP_VERSION = 'v1.4.2';
+const APP_VERSION = 'v1.4.3';
 
 // localStorage key 用于记录用户已确认的版本
 const ANNOUNCEMENT_KEY = 'metalks_last_seen_version';
@@ -35,7 +35,9 @@ export const AppLayout = {
           <a class="nav-link nav-link--disabled" style="cursor:default;opacity:0.4">实验功能</a>
         </div>
         <div class="nav-right">
-          <span class="electrolyte-badge">⚡ {{ user.electrolyteBalance }}</span>
+          <span class="electrolyte-badge" style="position:relative;cursor:pointer" @click="go('/electrolyte')" ref="elecBadgeEl">
+            ⚡ <span :class="{'elec-bounce': elecBounce}">{{ user.electrolyteBalance }}</span>
+          </span>
           <button class="traits-shortcut" @click="go('/traits')" title="特质画像">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.2 4.3-2.5 5.5-.8.8-1.5 1.8-1.5 3v.5h-6V17.5c0-1.2-.7-2.2-1.5-3C6.2 13.3 5 11.5 5 9a7 7 0 0 1 7-7z"/>
@@ -208,6 +210,27 @@ export const AppLayout = {
       }
     }
 
+    // 电解液变动动画
+    const elecBadgeEl = ref(null);
+    const elecBounce = ref(false);
+
+    watch(() => user.electrolyteBalance, (newVal, oldVal) => {
+      if (oldVal === undefined || oldVal === null || oldVal === 0) return;
+      const diff = newVal - oldVal;
+      if (diff === 0) return;
+
+      elecBounce.value = true;
+      setTimeout(() => { elecBounce.value = false; }, 400);
+
+      if (elecBadgeEl.value) {
+        const el = document.createElement('span');
+        el.className = 'elec-anim ' + (diff > 0 ? 'income' : 'expense');
+        el.textContent = (diff > 0 ? '+' : '') + diff.toFixed(1);
+        elecBadgeEl.value.appendChild(el);
+        setTimeout(() => el.remove(), 1500);
+      }
+    });
+
     onMounted(async () => {
       window.addEventListener('scroll', onScroll, { passive: true });
       document.addEventListener('click', onClickOutside);
@@ -233,6 +256,7 @@ export const AppLayout = {
       chatTitle, chatCompleted, appVersion,
       showAnnouncement, dismissAnnouncement,
       goHome, go, goMyTopics, doLogout, startFreeChat, endChatFromNav,
+      elecBadgeEl, elecBounce
     };
   }
 };

@@ -89,3 +89,17 @@ export async function getElectrolyte() {
 export async function searchUser(query, limit = 5) {
     return request(`/user/search?q=${encodeURIComponent(query)}&limit=${limit}`);
 }
+
+/**
+ * 查询电解液明细
+ */
+export async function electrolyteDetail(skip = 0, limit = 20) {
+    return request(`/user/electrolyte/detail?skip=${skip}&limit=${limit}`);
+}
+
+/**
+ * 查询电解液统计
+ */
+export async function electrolyteSummary() {
+    return request('/user/electrolyte/summary');
+}
