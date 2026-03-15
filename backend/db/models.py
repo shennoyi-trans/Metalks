@@ -107,6 +107,10 @@ class User(Base):
         "NicknameHistory", back_populates="user", cascade="all, delete-orphan"
     )
 
+    electrolyte_logs: Mapped[List["ElectrolyteLog"]] = relationship(
+        "ElectrolyteLog", back_populates="user", cascade="all, delete-orphan"
+    )
+
 
 # ============================================================
 # 🆕 Topic 表（话题主表）
@@ -676,6 +680,8 @@ class NicknameHistory(Base):
         comment="修改时间"
     )
 
+    user: Mapped["User"] = relationship("User", back_populates="nickname_histories")
+
 # ============================================================
 # ElectrolyteLog 表（电解液流水记录）
 # ============================================================
@@ -728,7 +734,4 @@ class ElectrolyteLog(Base):
         index=True, comment="创建时间"
     )
 
-    user: Mapped["User"] = relationship("User")
-
-    # 关系
-    user: Mapped["User"] = relationship("User", back_populates="nickname_histories")
+    user: Mapped["User"] = relationship("User", back_populates="electrolyte_logs")

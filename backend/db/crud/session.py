@@ -6,7 +6,7 @@
 
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from backend.db.models import Session, Message
 
 
@@ -14,7 +14,6 @@ async def get_user_sessions(db: AsyncSession, user_id: int) -> List[Dict]:
     """获取用户的所有未删除会话"""
     result = await db.execute(
         select(Session)
-        # ✅ Bug #6 修复: 使用 .is_(None) 替代 == None
         .where(Session.user_id == user_id, Session.deleted_at.is_(None))
         .order_by(Session.created_at.desc())
     )
@@ -71,11 +70,9 @@ async def get_session_with_messages(
         "status": "completed" if bool(session.is_completed) else "in_progress",
         "report_ready": bool(session.report_ready),
         "messages": [{"role": m.role, "content": m.content} for m in messages],
-        "topic_unavailable": bool(s.topic_unavailable) if hasattr(s, 'topic_unavailable') else False,
-        "topic_unavailable_reason": getattr(s, 'topic_unavailable_reason', None) or "",
+        "topic_unavailable": bool(session.topic_unavailable) if hasattr(session, 'topic_unavailable') else False,
+        "topic_unavailable_reason": getattr(session, 'topic_unavailable_reason', None) or "",
     }
-from sqlalchemy import update
-
 
 async def mark_topic_unavailable(
     db: AsyncSession,
@@ -98,4 +95,5 @@ async def clear_topic_unavailable(
     await db.execute(
         update(Session)
         .where(Session.topic_id == topic_id, Session.topic_unavailable == True)
-        .values(topic_unavailab
+        .values(topic_unavailable=False, topic_unavailable_reason=None)
+    )
