@@ -6,6 +6,12 @@
 /* ============================================================
    Navigation — Compressed (48px)
    ============================================================ */
+.app-root { min-height: 100vh; }
+.app-root.in-chat {
+  height: 100vh;
+  overflow: hidden;
+}
+
 .navbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
   background: rgba(252,251,249,0.92); backdrop-filter: blur(16px) saturate(160%);

@@ -15,6 +15,12 @@ export const TopicDetailPage = {
   template: `
     <div class="page-content">
       <div class="page-narrow">
+        <button class="btn btn-ghost" style="padding-left:0;margin-bottom:16px" @click="goBack">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+          </svg>
+          返回上一页
+        </button>
         <div v-if="loading" class="page-loading"><div class="page-spinner"></div></div>
         <template v-else-if="topic">
           <div class="topic-detail-header">
@@ -129,6 +135,14 @@ export const TopicDetailPage = {
       donateResult.value = null;
     }
 
+    function goBack() {
+      if (window.history.length > 1) {
+        router.back();
+      } else {
+        router.push('/');
+      }
+    }
+
     function startChat() {
       const sessionId = uuid();
       router.push(`/chat/${sessionId}?mode=1&topicId=${topicId}&topicName=${encodeURIComponent(topic.value.title)}&first=true`);
@@ -145,7 +159,7 @@ export const TopicDetailPage = {
 
     return {
       loading, topic, showDonate, donateAmount, donating, donateResult,
-      renderMd, formatTime, toggleLike, handleDonate, closeDonate, startChat,
+      renderMd, formatTime, toggleLike, handleDonate, closeDonate, startChat, goBack,
     };
   }
 };

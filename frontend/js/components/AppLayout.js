@@ -72,7 +72,7 @@ export const AppLayout = {
       </nav>
 
       <!-- 对话页顶部操作栏 -->
-      <div v-if="isChatPage" class="chat-topbar" :class="{ 'chat-topbar--visible': navHidden }">
+      <div v-if="isChatPage && showChatTopbar" class="chat-topbar" :class="{ 'chat-topbar--visible': navHidden }">
         <button class="chat-topbar-btn" @click="$router.back()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         </button>
@@ -121,9 +121,11 @@ export const AppLayout = {
     const showNavbar = computed(() => {
       if (route.path === '/auth') return false;
       if (route.path === '/traits') return false;
+      if (route.path.startsWith('/chat/')) return false;
       return true;
     });
     const isChatPage = computed(() => route.path.startsWith('/chat/'));
+    const showChatTopbar = computed(() => false);
 
     const chatTitle = ref('');
     const chatCompleted = ref(false);
@@ -253,6 +255,7 @@ export const AppLayout = {
 
     return {
       user, showMenu, navHidden, showNavbar, isChatPage,
+      showChatTopbar,
       chatTitle, chatCompleted, appVersion,
       showAnnouncement, dismissAnnouncement,
       goHome, go, goMyTopics, doLogout, startFreeChat, endChatFromNav,
