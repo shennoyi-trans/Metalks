@@ -22,6 +22,8 @@ import { request, API_BASE } from './client.js';
  * @property {(event: object) => void} onEnd          - 收到 end 事件（含 trait_summary 等）
  * @property {(code: string, msg: string) => void} onError - 收到 error 事件
  * @property {() => void} onQuit                      - 收到 user_want_quit 事件
+ * @property {(event: object) => void} [onSystemCard] - 收到系统卡片类事件（占位，供未来扩展）
+ * @property {(event: object) => void} [onReportMeta] - 收到报告元信息更新（完整性/置信度等）
  * @property {() => void} [onEmptyStream]              - 流结束但未收到任何内容（兜底）
  */
 
@@ -39,6 +41,8 @@ export async function stream(payload, callbacks, signal) {
         onEnd = () => {},
         onError = () => {},
         onQuit = () => {},
+        onSystemCard = () => {},
+        onReportMeta = () => {},
         onEmptyStream = () => {},
         onReportGenerating = () => {}, 
     } = callbacks;
@@ -100,6 +104,16 @@ export async function stream(payload, callbacks, signal) {
 
                 if (event.type === 'report_generating') {
                     onReportGenerating();
+                    continue;
+                }
+
+                if (['system_card', 'stage_summary', 'insight_card', 'insight_update'].includes(event.type)) {
+                    onSystemCard(event);
+                    continue;
+                }
+
+                if (event.type === 'report_meta') {
+                    onReportMeta(event);
                     continue;
                 }
 
