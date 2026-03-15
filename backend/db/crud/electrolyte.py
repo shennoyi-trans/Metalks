@@ -9,7 +9,7 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.db.models import User
+from backend.db.models import User, ElectrolyteLog
 
 
 # ============================================================
@@ -48,7 +48,8 @@ async def add_electrolyte(
     db: AsyncSession,
     user_id: int,
     amount: float,
-    reason: str = ""
+    reason: str = "",
+    **kwargs
 ) -> tuple[bool, str, float]:
     """
     增加用户电解液
@@ -57,6 +58,7 @@ async def add_electrolyte(
         user_id: 用户ID
         amount: 增加数量（必须为正数）
         reason: 原因说明（如 "daily_checkin", "admin_gift"）
+        **kwargs: 其他可选参数，如 ref_id, ref_name 用于记录来源
     
     返回:
         (是否成功, 消息, 操作后余额)
@@ -75,6 +77,17 @@ async def add_electrolyte(
     # 增加电解液
     user.electrolyte_number += amount
     
+    # 写流水记录
+    log = ElectrolyteLog(
+        user_id=user_id,
+        amount=amount,
+        reason=reason,
+        ref_id=kwargs.get("ref_id"),
+        ref_name=kwargs.get("ref_name"),
+        balance_after=user.electrolyte_number,
+    )
+    db.add(log)
+    
     await db.commit()
     await db.refresh(user)
     
@@ -90,7 +103,8 @@ async def deduct_electrolyte(
     user_id: int,
     amount: float,
     reason: str = "",
-    allow_negative: bool = False
+    allow_negative: bool = False,
+    **kwargs
 ) -> tuple[bool, str, float]:
     """
     扣除用户电解液
@@ -100,6 +114,7 @@ async def deduct_electrolyte(
         amount: 扣除数量（必须为正数）
         reason: 原因说明（如 "change_nickname"）
         allow_negative: 是否允许余额为负数（默认不允许）
+        **kwargs: 其他可选参数，如 ref_id, ref_name 用于记录来源
     
     返回:
         (是否成功, 消息, 操作后余额)
@@ -121,6 +136,17 @@ async def deduct_electrolyte(
     
     # 扣除电解液
     user.electrolyte_number -= amount
+    
+    # 写流水记录（支出取负数）
+    log = ElectrolyteLog(
+        user_id=user_id,
+        amount=-amount,
+        reason=reason,
+        ref_id=kwargs.get("ref_id"),
+        ref_name=kwargs.get("ref_name"),
+        balance_after=user.electrolyte_number,
+    )
+    db.add(log)
     
     await db.commit()
     await db.refresh(user)

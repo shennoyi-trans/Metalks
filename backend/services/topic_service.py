@@ -428,9 +428,33 @@ async def donate_electrolyte(
             "distribution": []
         }
 
-    # 检查并扣除用户电解液
+    # 先获取话题信息，供流水记录使用
+    topic_obj = await topic_crud.get_topic_by_id(db, topic_id, include_inactive=True)
+    if topic_obj is None:
+        return {
+            "success": False,
+            "message": "话题不存在",
+            "electrolyte_received": 0.0,
+            "user_balance": 0.0,
+            "distribution": []
+        }
+
+    topic_title = topic_obj.title or ""
+
+    # 检查是否为自我投喂
+    authors = await author_crud.get_authors_by_topic(db, topic_id)
+    author_ids = [a.user_id for a in authors]
+    is_self_donation = (user_id in author_ids)
+
+    # 检查并扣除用户电解液（带 ref_id/ref_name）
+    donation_reason_out = "self_donation_out" if is_self_donation else "topic_donation_out"
     success, msg, user_balance = await electrolyte_crud.deduct_electrolyte(
-        db, user_id, amount, reason="donate_to_topic"
+        db,
+        user_id,
+        amount,
+        reason=donation_reason_out,
+        ref_id=topic_id,
+        ref_name=topic_title,
     )
 
     if not success:
@@ -442,19 +466,13 @@ async def donate_electrolyte(
             "distribution": []
         }
 
-    # 增加话题总收入
-    # 检查是否为自我投喂
-    authors = await author_crud.get_authors_by_topic(db, topic_id)
-    author_ids = [a.user_id for a in authors]
-    is_self_donation = (user_id in author_ids)
-
     # 非自我投喂才计入话题收入
     if not is_self_donation:
         topic = await topic_crud.add_electrolyte(db, topic_id, amount)
     else:
         result = await db.execute(select(Topic).where(Topic.id == topic_id))
         topic = result.scalar_one_or_none()
-        
+
     if topic is None:
         return {
             "success": False,
@@ -463,17 +481,22 @@ async def donate_electrolyte(
             "user_balance": user_balance,
             "distribution": []
         }
-    # 按权重分配给所有作者
-    authors = await author_crud.get_authors_by_topic(db, topic_id)
 
+    # 按权重分配给所有作者
     distribution = []
+    donation_reason_in = "self_donation_in" if is_self_donation else "topic_donation_in"
+
     for author in authors:
         author_amount = amount * (author.electrolyte_share / 100.0)
 
         await electrolyte_crud.add_electrolyte(
-            db, author.user_id, author_amount, reason="topic_donation"
+            db,
+            author.user_id,
+            author_amount,
+            reason=donation_reason_in,
+            ref_id=topic_id,
+            ref_name=topic_title,
         )
-
 
         user = await user_crud.get_user_by_id(db, author.user_id)
 

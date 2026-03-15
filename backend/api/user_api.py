@@ -16,6 +16,8 @@ from typing import Optional
 
 from backend.db.database import get_db
 from backend.core.dependencies import get_current_user
+from backend.db.crud import electrolyte as electrolyte_crud
+from backend.db.crud import electrolyte_log as electrolyte_log_crud
 from backend.db.crud import user as user_crud
 from backend.db.crud import nickname as nickname_crud
 from backend.services import nickname_service, electrolyte_service
@@ -253,3 +255,40 @@ async def get_electrolyte(
     """查询电解液余额"""
     result = await electrolyte_service.get_electrolyte_info(db, user_id)
     return result
+
+@router.get("/electrolyte/detail")
+async def get_electrolyte_detail(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user),
+):
+    """查询电解液变动明细"""
+    logs = await electrolyte_log_crud.get_logs_by_user(db, user_id, skip, limit)
+    return {
+        "logs": [
+            {
+                "id": log.id,
+                "amount": log.amount,
+                "reason": log.reason,
+                "ref_id": log.ref_id,
+                "ref_name": log.ref_name,
+                "balance_after": log.balance_after,
+                "created_at": log.created_at.isoformat(),
+            }
+            for log in logs
+        ]
+    }
+
+@router.get("/electrolyte/summary")
+async def get_electrolyte_summary(
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user),
+):
+    """查询电解液分组统计"""
+    balance = await electrolyte_crud.get_electrolyte_balance(db, user_id)
+    summary = await electrolyte_log_crud.get_summary_by_user(db, user_id)
+    return {
+        "balance": balance or 0.0,
+        **summary,
+    }

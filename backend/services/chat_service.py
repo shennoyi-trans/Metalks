@@ -503,7 +503,7 @@ class ChatService:
             session.is_completed = True
             await db.commit()
 
-        # ✅ 6. 【Bug #1 修复】触发后台报告生成任务
+        # 6. 触发后台报告生成任务
         asyncio.create_task(
             self._generate_report_background(
                 session_id=session_id,

@@ -15,9 +15,12 @@ CRUD 层统一导入文件 - v1.4 话题系统
 
 from . import user
 from . import nickname
-from . import electrolyte
 
-# 🆕 v1.4 话题系统
+# v1.3 电解质系统
+from . import electrolyte
+from . import electrolyte_log
+
+# v1.4 话题系统
 from . import topic
 from . import tag
 from . import topic_author
@@ -27,6 +30,7 @@ __all__ = [
     "user", 
     "nickname", 
     "electrolyte",
+    "electrolyte_log",
     "topic",
     "tag",
     "topic_author",
