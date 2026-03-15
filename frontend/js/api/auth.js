@@ -5,6 +5,33 @@
 
 import { request } from './client.js';
 
+async function parseAuthResponse(response) {
+    const contentType = response.headers.get('Content-Type') || '';
+
+    if (contentType.includes('application/json')) {
+        try {
+            return await response.json();
+        } catch (_) {
+            return null;
+        }
+    }
+
+    try {
+        const text = await response.text();
+        return text ? { message: text } : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function getAuthErrorMessage(response, data, fallback) {
+    if (response.status >= 500) {
+        return `服务器暂时不可用（HTTP ${response.status}）`;
+    }
+
+    return data?.detail || data?.message || fallback;
+}
+
 /**
  * 登录（token 通过 HttpOnly Cookie 返回，无需前端处理）
  * @param {string} email
@@ -23,14 +50,14 @@ export async function login(email, password) {
             body: JSON.stringify({ email, password }),
         });
 
-        const data = await response.json();
+        const data = await parseAuthResponse(response);
 
         if (response.ok) {
             return { success: true, data };
         } else {
             return {
                 success: false,
-                error: data.detail || data.message || '登录失败',
+                error: getAuthErrorMessage(response, data, '登录失败'),
             };
         }
     } catch (error) {
@@ -63,14 +90,14 @@ export async function register(email, password, nickname) {
             body: JSON.stringify(body),
         });
 
-        const data = await response.json();
+        const data = await parseAuthResponse(response);
 
         if (response.ok) {
             return { success: true, data };
         } else {
             return {
                 success: false,
-                error: data.detail || data.message || '注册失败',
+                error: getAuthErrorMessage(response, data, '注册失败'),
             };
         }
     } catch (error) {
