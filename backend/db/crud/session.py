@@ -72,7 +72,7 @@ async def get_session_with_messages(
         "report_ready": bool(session.report_ready),
         "created_at": session.created_at,
         "updated_at": session.updated_at,
-        "summary": session.summary or "",
+        "summary": getattr(session, "summary", "") or "",
         "messages": [{"role": m.role, "content": m.content} for m in messages],
         "topic_unavailable": bool(session.topic_unavailable) if hasattr(session, 'topic_unavailable') else False,
         "topic_unavailable_reason": getattr(session, 'topic_unavailable_reason', None) or "",
