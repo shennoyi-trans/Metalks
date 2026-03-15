@@ -136,14 +136,15 @@
 .chat-thread {
   position: relative;
   z-index: 10;
-  width: min(760px, calc(100vw - 184px));
+  width: 100%;
   height: 100%;
   margin: 0 auto;
   padding-top: 74px;
 }
 
 .chat-thread-status {
-  margin-bottom: 12px;
+  width: min(760px, calc(100vw - 184px));
+  margin: 0 auto 12px;
   padding: 10px 14px;
   border-radius: 18px;
   background: rgba(255,247,237,0.92);
@@ -161,9 +162,15 @@
 
 .chat-messages {
   height: calc(100vh - 210px);
-  padding: 0 4px 16px;
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+.chat-messages-inner {
+  width: min(760px, calc(100vw - 184px));
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 0 4px 16px;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -646,8 +653,12 @@
 
 @media (max-width: 960px) {
   .chat-thread {
-    width: calc(100vw - 40px);
     padding-top: 70px;
+  }
+
+  .chat-thread-status,
+  .chat-messages-inner {
+    width: calc(100vw - 40px);
   }
 
   .chat-input-area {

@@ -169,43 +169,45 @@ export const ChatPage = {
         </div>
 
         <div class="chat-messages" ref="messagesEl" @scroll="handleScroll">
-          <div v-if="!messages.length && mode === 2 && !isStreaming" class="chat-welcome">
-            <div class="chat-welcome-icon">💬</div>
-            <p>随便聊点什么吧…</p>
+          <div class="chat-messages-inner">
+            <div v-if="!messages.length && mode === 2 && !isStreaming" class="chat-welcome">
+              <div class="chat-welcome-icon">💬</div>
+              <p>随便聊点什么吧…</p>
+            </div>
+
+            <template v-for="(m, i) in messages" :key="m.id || i">
+              <div v-if="m.role === 'system_card'" class="chat-system-card">
+                <div class="chat-system-card-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3l1.9 3.85L18 8.27l-3 2.93.71 4.13L12 13.8l-3.71 1.95.71-4.13-3-2.93 4.1-1.42z"/>
+                  </svg>
+                </div>
+                <div class="chat-system-card-body">
+                  <div class="chat-system-card-title">{{ m.title }}</div>
+                  <div v-if="m.content" class="chat-system-card-content markdown-body" v-html="renderMd(m.content)"></div>
+                  <div v-if="m.items && m.items.length" class="chat-system-card-list">
+                    <span v-for="(item, idx) in m.items" :key="idx" class="chat-system-pill">{{ item }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else :class="['msg-row', m.role]">
+                <div class="msg-bubble">
+                  <div v-if="m.role === 'assistant' && m === currentAiMsg && isStreaming" style="white-space:pre-wrap">
+                    {{ m.content }}<span v-if="!m.content" class="typing-dots"><span></span><span></span><span></span></span>
+                  </div>
+                  <div v-else-if="m.role !== 'system'" class="markdown-body" v-html="renderMd(m.content)"></div>
+                  <div v-else>{{ m.content }}</div>
+                </div>
+              </div>
+
+              <div v-if="m.showQuitConfirm" class="quit-confirm-bar">
+                <span>看起来你想结束对话了，确认结束吗？</span>
+                <button class="btn btn-primary btn-sm" @click="forceEnd">结束对话</button>
+                <button class="btn btn-ghost btn-sm" @click="m.showQuitConfirm=false">继续聊</button>
+              </div>
+            </template>
           </div>
-
-          <template v-for="(m, i) in messages" :key="m.id || i">
-            <div v-if="m.role === 'system_card'" class="chat-system-card">
-              <div class="chat-system-card-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3l1.9 3.85L18 8.27l-3 2.93.71 4.13L12 13.8l-3.71 1.95.71-4.13-3-2.93 4.1-1.42z"/>
-                </svg>
-              </div>
-              <div class="chat-system-card-body">
-                <div class="chat-system-card-title">{{ m.title }}</div>
-                <div v-if="m.content" class="chat-system-card-content markdown-body" v-html="renderMd(m.content)"></div>
-                <div v-if="m.items && m.items.length" class="chat-system-card-list">
-                  <span v-for="(item, idx) in m.items" :key="idx" class="chat-system-pill">{{ item }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div v-else :class="['msg-row', m.role]">
-              <div class="msg-bubble">
-                <div v-if="m.role === 'assistant' && m === currentAiMsg && isStreaming" style="white-space:pre-wrap">
-                  {{ m.content }}<span v-if="!m.content" class="typing-dots"><span></span><span></span><span></span></span>
-                </div>
-                <div v-else-if="m.role !== 'system'" class="markdown-body" v-html="renderMd(m.content)"></div>
-                <div v-else>{{ m.content }}</div>
-              </div>
-            </div>
-
-            <div v-if="m.showQuitConfirm" class="quit-confirm-bar">
-              <span>看起来你想结束对话了，确认结束吗？</span>
-              <button class="btn btn-primary btn-sm" @click="forceEnd">结束对话</button>
-              <button class="btn btn-ghost btn-sm" @click="m.showQuitConfirm=false">继续聊</button>
-            </div>
-          </template>
         </div>
 
         <div v-if="!topicUnavailable" class="chat-input-area">
