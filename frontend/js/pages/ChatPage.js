@@ -10,68 +10,120 @@ import { renderMarkdown } from '../utils/markdown.js';
 const { ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue;
 const { useRoute, useRouter } = VueRouter;
 
+function decodeTopicName(value) {
+  if (!value) return '';
+  try {
+    return decodeURIComponent(value);
+  } catch (e) {
+    return value;
+  }
+}
+
 export const ChatPage = {
   template: `
-    <div class="chat-container chat-container--immersive">
-      <!-- 顶部模糊渐变遮罩 -->
-      <div class="chat-blur-top"></div>
-
-      <!-- 话题不可用横幅 -->
-      <div v-if="topicUnavailable" class="chat-unavailable-banner">
-        {{ topicUnavailableReason || '该话题已不可用' }}
-      </div>
-      <!-- 已结束可继续横幅 -->
-      <div v-if="wasCompleted && !topicUnavailable" class="chat-resume-banner">
-        本次对话已结束，随时欢迎回来。
-      </div>
-
-      <div class="chat-messages" ref="messagesEl" @scroll="handleScroll">
-        <!-- Mode2 空状态 -->
-        <div v-if="!messages.length && mode==2 && !isStreaming" class="chat-welcome">
-          <div class="chat-welcome-icon">💬</div>
-          <p>随便聊点什么吧…</p>
-        </div>
-
-        <template v-for="(m,i) in messages" :key="i">
-          <div :class="['msg-row', m.role]">
-            <div class="msg-bubble">
-              <!-- 流式输出中：纯文本 -->
-              <div v-if="m.role==='assistant' && m===currentAiMsg && isStreaming" style="white-space:pre-wrap">{{ m.content }}<span v-if="!m.content" class="typing-dots"><span></span><span></span><span></span></span></div>
-              <!-- 已完成：Markdown渲染 -->
-              <div v-else-if="m.role!=='system'" class="markdown-body" v-html="renderMd(m.content)"></div>
-              <!-- 系统消息 -->
-              <div v-else>{{ m.content }}</div>
+    <div :class="['chat-page-layout', { 'chat-page-layout--with-topic': showTopicSidebar }]">
+      <aside v-if="showTopicSidebar" class="chat-topic-sidebar">
+        <div class="chat-topic-card">
+          <div class="chat-topic-eyebrow">当前话题</div>
+          <div class="chat-topic-header">
+            <div>
+              <h3>{{ topicCardTitle }}</h3>
+              <p class="chat-topic-subtitle">
+                {{ topicUnavailable ? '历史消息可查看，不能继续对话' : '你正在围绕这个话题展开对话' }}
+              </p>
             </div>
+            <span v-if="topicUnavailable" class="status-badge inactive">⚫ 已下架</span>
+            <span v-else-if="topicIsOfficial" class="official-badge">⭐ 官方</span>
           </div>
-          <!-- 退出确认条 -->
-          <div v-if="m.showQuitConfirm" class="quit-confirm-bar">
-            <span>看起来你想结束对话了，确认结束吗？</span>
-            <button class="btn btn-primary btn-sm" @click="forceEnd">结束对话</button>
-            <button class="btn btn-ghost btn-sm" @click="m.showQuitConfirm=false">继续聊</button>
-          </div>
-        </template>
 
-        <!-- 结束状态卡片 -->
-        <div v-if="isCompleted" class="end-state-card">
-          <div class="end-state-icon">✅</div>
-          <h3>对话已结束</h3>
-          <p v-if="summary" class="end-state-summary">{{ summary }}</p>
-          <button v-if="reportReady" class="btn btn-primary" @click="$router.push('/session/'+sessionId+'/report')">📊 查看观念报告</button>
-          <p v-else-if="reportPolling" class="end-state-hint">报告生成中，稍后可在对话历史中查看</p>
+          <p v-if="topicExcerpt" class="chat-topic-excerpt">{{ topicExcerpt }}</p>
+          <p v-else class="chat-topic-excerpt chat-topic-excerpt--muted">
+            {{ topicDetailLoading ? '正在加载话题详情...' : (topicDetailError || '这里会展示当前对话关联的话题信息。') }}
+          </p>
+
+          <div v-if="topicTags.length" class="topic-tags chat-topic-tags">
+            <span v-for="(tag, i) in topicTags" :key="tag + '-' + i" :class="['tag-pill', 'tag-pill-sm', 'tag-colors-' + i % 7]">
+              {{ tag }}
+            </span>
+          </div>
+
+          <div v-if="topicAuthors.length" class="chat-topic-authors">
+            <span v-for="(author, i) in topicAuthors" :key="author.user_id || i">
+              {{ author.nickname }}<span v-if="author.is_primary"> (主创)</span><span v-if="i < topicAuthors.length - 1">、</span>
+            </span>
+          </div>
+
+          <button class="btn btn-secondary btn-sm chat-topic-link" @click="openTopicDetail" :disabled="!canOpenTopicDetail">
+            查看话题详情
+          </button>
+          <p v-if="!canOpenTopicDetail && topicUnavailable" class="chat-topic-note">
+            话题已下架，当前只能查看对话历史。
+          </p>
         </div>
-      </div>
+      </aside>
 
-      <!-- 输入区 -->
-      <div v-if="!topicUnavailable" class="chat-input-area">
-        <div class="chat-input-wrap">
-          <textarea v-model="inputText" rows="1" placeholder="输入你的想法..."
-            @keydown="handleKeydown" ref="inputEl" :disabled="isCompleted"></textarea>
-          <button v-if="isStreaming" class="chat-send-btn stop-btn" @click="stopGeneration" title="停止生成">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-          </button>
-          <button v-else class="chat-send-btn" @click="sendMessage" :disabled="!canSend">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          </button>
+      <div class="chat-container chat-container--immersive">
+        <!-- 顶部模糊渐变遮罩 -->
+        <div class="chat-blur-top"></div>
+
+        <!-- 话题不可用横幅 -->
+        <div v-if="topicUnavailable" class="chat-unavailable-banner">
+          <strong>当前话题已下架</strong>
+          <span>{{ topicUnavailableReason || '你仍然可以查看历史消息，但不能继续对话。' }}</span>
+        </div>
+        <!-- 已结束可继续横幅 -->
+        <div v-if="wasCompleted && !topicUnavailable" class="chat-resume-banner">
+          本次对话已结束，随时欢迎回来。
+        </div>
+
+        <div class="chat-messages" ref="messagesEl" @scroll="handleScroll">
+          <!-- Mode2 空状态 -->
+          <div v-if="!messages.length && mode==2 && !isStreaming" class="chat-welcome">
+            <div class="chat-welcome-icon">💬</div>
+            <p>随便聊点什么吧…</p>
+          </div>
+
+          <template v-for="(m,i) in messages" :key="i">
+            <div :class="['msg-row', m.role]">
+              <div class="msg-bubble">
+                <!-- 流式输出中：纯文本 -->
+                <div v-if="m.role==='assistant' && m===currentAiMsg && isStreaming" style="white-space:pre-wrap">{{ m.content }}<span v-if="!m.content" class="typing-dots"><span></span><span></span><span></span></span></div>
+                <!-- 已完成：Markdown渲染 -->
+                <div v-else-if="m.role!=='system'" class="markdown-body" v-html="renderMd(m.content)"></div>
+                <!-- 系统消息 -->
+                <div v-else>{{ m.content }}</div>
+              </div>
+            </div>
+            <!-- 退出确认条 -->
+            <div v-if="m.showQuitConfirm" class="quit-confirm-bar">
+              <span>看起来你想结束对话了，确认结束吗？</span>
+              <button class="btn btn-primary btn-sm" @click="forceEnd">结束对话</button>
+              <button class="btn btn-ghost btn-sm" @click="m.showQuitConfirm=false">继续聊</button>
+            </div>
+          </template>
+
+          <!-- 结束状态卡片 -->
+          <div v-if="isCompleted" class="end-state-card">
+            <div class="end-state-icon">✅</div>
+            <h3>对话已结束</h3>
+            <p v-if="summary" class="end-state-summary">{{ summary }}</p>
+            <button v-if="reportReady" class="btn btn-primary" @click="$router.push('/session/'+sessionId+'/report')">📊 查看观念报告</button>
+            <p v-else-if="reportPolling" class="end-state-hint">报告生成中，稍后可在对话历史中查看</p>
+          </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div v-if="!topicUnavailable" class="chat-input-area">
+          <div class="chat-input-wrap">
+            <textarea v-model="inputText" rows="1" placeholder="输入你的想法..."
+              @keydown="handleKeydown" ref="inputEl" :disabled="isCompleted"></textarea>
+            <button v-if="isStreaming" class="chat-send-btn stop-btn" @click="stopGeneration" title="停止生成">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            </button>
+            <button v-else class="chat-send-btn" @click="sendMessage" :disabled="!canSend">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -98,19 +150,66 @@ export const ChatPage = {
     const messagesEl = ref(null);
     const inputEl = ref(null);
     const abortController = ref(null);
-    const topicName = ref(route.query.topicName || '');
+    const topicName = ref(decodeTopicName(route.query.topicName));
 
     const topicUnavailable = ref(false);
     const topicUnavailableReason = ref('');
     const wasCompleted = ref(false);
+    const topicDetail = ref(null);
+    const topicDetailLoading = ref(false);
+    const topicDetailError = ref('');
 
     let outputQueue = [];
     let typewriterTimer = null;
     let userScrolledUp = false;
 
     const canSend = computed(() => inputText.value.trim() && !isStreaming.value && !topicUnavailable.value);
+    const showTopicSidebar = computed(() => mode.value === 1 && !!(topicId.value || topicName.value));
+    const topicTags = computed(() => (
+      (topicDetail.value?.tags || [])
+        .map(tag => typeof tag === 'string' ? tag : tag?.name)
+        .filter(Boolean)
+    ));
+    const topicAuthors = computed(() => topicDetail.value?.authors || []);
+    const topicCardTitle = computed(() => topicName.value || topicDetail.value?.title || '话题对话');
+    const topicIsOfficial = computed(() => Boolean(topicDetail.value?.is_official));
+    const topicExcerpt = computed(() => {
+      const text = (topicDetail.value?.content || '').replace(/\s+/g, ' ').trim();
+      if (!text) return '';
+      if (text.length <= 96) return text;
+      return `${text.slice(0, 96).trim()}...`;
+    });
+    const canOpenTopicDetail = computed(() => Boolean(topicId.value && topicDetail.value));
 
     function renderMd(text) { return renderMarkdown(text); }
+
+    async function loadTopicDetail() {
+      if (mode.value !== 1 || !topicId.value) {
+        topicDetail.value = null;
+        topicDetailError.value = '';
+        return;
+      }
+
+      topicDetailLoading.value = true;
+      topicDetailError.value = '';
+      try {
+        const detail = await api.topics.detail(topicId.value);
+        topicDetail.value = detail;
+        if (!topicName.value && detail?.title) {
+          topicName.value = detail.title;
+        }
+      } catch (e) {
+        topicDetail.value = null;
+        topicDetailError.value = e?.message || '话题详情暂不可查看';
+      } finally {
+        topicDetailLoading.value = false;
+      }
+    }
+
+    function openTopicDetail() {
+      if (!canOpenTopicDetail.value) return;
+      router.push(`/topic/${topicId.value}`);
+    }
 
     // ---------- 滚动控制 ----------
     function scrollToBottom() {
@@ -196,6 +295,7 @@ export const ChatPage = {
             if (code === 'TOPIC_UNAVAILABLE') {
               topicUnavailable.value = true;
               topicUnavailableReason.value = msg;
+              window.dispatchEvent(new CustomEvent('chat-completed'));
             } else {
               toast.error(msg);
             }
@@ -251,6 +351,7 @@ export const ChatPage = {
 
     // ---------- 强制结束 ----------
     async function forceEnd() {
+      if (topicUnavailable.value) return;
       isStreaming.value = true;
       const aiMsg = reactive({ role: 'assistant', content: '' });
       messages.value.push(aiMsg);
@@ -298,9 +399,8 @@ export const ChatPage = {
       window.addEventListener('force-end-chat', onForceEndEvent);
       window.dispatchEvent(new CustomEvent('chat-started'));
 
-      // 加载话题名
-      if (topicId.value && !route.query.topicName) {
-        try { const t = await api.topics.detail(topicId.value); topicName.value = t.title; } catch (e) {}
+      if (mode.value === 1 && topicId.value) {
+        await loadTopicDetail();
       }
 
       // 从历史进入（非首次对话）时，尝试恢复会话状态
@@ -311,6 +411,7 @@ export const ChatPage = {
           if (detail.topic_unavailable) {
             topicUnavailable.value = true;
             topicUnavailableReason.value = detail.topic_unavailable_reason || '';
+            window.dispatchEvent(new CustomEvent('chat-completed'));
           }
           if (detail.messages) {
             messages.value = detail.messages.map(m => ({ role: m.role, content: m.content }));
@@ -336,6 +437,10 @@ export const ChatPage = {
 
           if (detail.topic_title) topicName.value = detail.topic_title;
           if (detail.mode) mode.value = detail.mode;
+          if (detail.summary) summary.value = detail.summary;
+          if (mode.value === 1 && topicId.value) {
+            await loadTopicDetail();
+          }
           scrollToBottom();
           return;
         } catch (e) { /* 新 session */ }
@@ -357,9 +462,13 @@ export const ChatPage = {
     return {
       sessionId, mode, messages, inputText, isStreaming, isCompleted,
       summary, reportReady, reportPolling, currentAiMsg, canSend,
-      messagesEl, inputEl, topicName,
+      messagesEl, inputEl, topicName, topicUnavailable,
+      topicUnavailableReason, wasCompleted, topicDetail, topicDetailLoading,
+      topicDetailError, showTopicSidebar, topicTags, topicAuthors,
+      topicCardTitle, topicIsOfficial,
+      topicExcerpt, canOpenTopicDetail,
       renderMd, sendMessage, handleKeydown, forceEnd, scrollToBottom,
-      stopGeneration, handleScroll,
+      stopGeneration, handleScroll, openTopicDetail,
     };
   }
 };

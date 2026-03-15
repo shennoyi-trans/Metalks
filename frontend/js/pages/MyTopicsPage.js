@@ -51,7 +51,6 @@ export const MyTopicsPage = {
             <div style="display:flex;gap:6px" @click.stop>
               <button class="btn btn-ghost btn-sm" @click="handleEdit(t.id)" style="font-size:12px">✏️ 编辑</button>
               <button v-if="t.is_active" class="btn btn-ghost btn-sm" @click="deactivate(t)" style="font-size:12px;color:var(--orange)">下架</button>
-              <button v-if="!t.is_active && t.status==='approved'" class="btn btn-ghost btn-sm" @click="reactivate(t)" style="font-size:12px;color:var(--success)">重新上架</button>
               <button class="btn btn-ghost btn-sm" @click="showDeleteConfirm(t)" style="font-size:12px;color:var(--error)">删除</button>
             </div>
           </div>
@@ -187,16 +186,6 @@ export const MyTopicsPage = {
         toast.success('已下架');
       } catch (e) {
         toast.error(e.message);
-      }
-    }
-
-    async function reactivate(t) {
-      try {
-        await api.topics.reactivate(t.id);
-        t.is_active = true;
-        toast.success('已重新上架');
-      } catch (e) {
-        toast.error(e.message || '操作失败');
       }
     }
 

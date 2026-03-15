@@ -26,18 +26,19 @@ export const SessionsPage = {
           :key="s.session_id||s.id"
           class="card card-hover session-card"
           :class="{ 'session-card--unavailable': s.topic_unavailable }"
-          :data-reason="s.topic_unavailable_reason || '话题不可用'"
           @click="goSession(s)"
           >
             <div class="session-info">
               <div class="session-title">{{ sessionTitle(s) }}</div>
               <div v-if="s.topic_unavailable" class="session-unavailable-reason">
-                {{ s.topic_unavailable_reason || '话题不可用' }}
+                <span class="session-unavailable-flag">不可继续</span>
+                <span>{{ sessionUnavailableReason(s) }}</span>
               </div>
               <div class="session-time">{{ formatTime(s.created_at) }}</div>
             </div>
             
             <div class="session-right">
+              <span v-if="s.topic_unavailable" class="status-badge inactive">⚫ 已下架</span>
               <span :class="['status-badge', isSessionCompleted(s)?'completed':'active']">{{ isSessionCompleted(s) ? '✅ 已完成' : '🟢 进行中' }}</span>
               <button v-if="isSessionCompleted(s) && (s.report_ready)" class="btn btn-sm btn-secondary" @click.stop="$router.push('/session/'+(s.session_id||s.id)+'/report')">查看报告</button>
               <button class="btn btn-sm btn-ghost" @click.stop="confirmDelete(s)" style="color:var(--error)">删除</button>
@@ -75,6 +76,10 @@ export const SessionsPage = {
       return s.topic_title || (s.mode === 2 ? '随便聊聊' : '话题对话');
     }
 
+    function sessionUnavailableReason(s) {
+      return s.topic_unavailable_reason || '该话题当前不可继续使用';
+    }
+
     // 正确检测会话完成状态
     function isSessionCompleted(s) {
       if (s.is_completed === true) return true;
@@ -83,7 +88,6 @@ export const SessionsPage = {
     }
 
     function goSession(s) {
-      if (s.topic_unavailable) return;
       const id = s.session_id || s.id;
       const query = {};
       if (s.mode) query.mode = s.mode;
@@ -115,7 +119,8 @@ export const SessionsPage = {
 
     return {
       loading, sessions, showDeleteConfirm, formatTime,
-      sessionTitle, isSessionCompleted, goSession, confirmDelete, doDelete,
+      sessionTitle, sessionUnavailableReason, isSessionCompleted,
+      goSession, confirmDelete, doDelete,
     };
   }
 };

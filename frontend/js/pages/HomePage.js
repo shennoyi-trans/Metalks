@@ -61,7 +61,7 @@ export const HomePage = {
               </div>
               <div class="topic-meta">
                 <span>❤️ {{ t.likes_count || 0 }}</span>
-                <span>⚡ {{ t.usage_count || 0 }}</span>
+                <span>🗣️ {{ t.usage_count || 0 }}</span>
                 <span>{{ t.author_nickname || (t.authors && t.authors[0] && t.authors[0].nickname) || '' }}</span>
               </div>
             </div>
