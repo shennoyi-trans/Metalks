@@ -40,7 +40,7 @@ export async function complete(sessionId) {
  */
 export async function remove(sessionId) {
     return request(`/sessions/${sessionId}`, {
-        method: 'DELETE',
+        method: 'DELETE'
     });
 }
 

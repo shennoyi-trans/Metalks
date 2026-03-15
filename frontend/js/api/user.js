@@ -36,7 +36,7 @@ export async function changePassword(oldPassword, newPassword) {
         method: 'PUT',
         body: JSON.stringify({
             old_password: oldPassword,
-            new_password: newPassword,
+            new_password: newPassword
         }),
     });
 }

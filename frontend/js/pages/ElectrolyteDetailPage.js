@@ -17,7 +17,7 @@ const REASON_LABELS = {
   self_donation_out: '自我投喂（支出）',
   self_donation_in: '自我投喂（收入）',
   admin_gift: '管理员充值',
-  change_nickname: '修改昵称',
+  change_nickname: '修改昵称'
 };
 
 function reasonLabel(reason) {

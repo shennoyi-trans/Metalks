@@ -50,7 +50,7 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes
 });
 
 // 路由守卫：未登录重定向到 /auth
